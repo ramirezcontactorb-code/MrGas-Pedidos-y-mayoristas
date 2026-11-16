@@ -190,9 +190,12 @@ tr:last-child td{border-bottom:0}
 .acc{display:flex;gap:8px;flex-wrap:wrap}
 @media (max-width:760px){.panel{grid-template-columns:1fr}.lateral{flex-direction:row;flex-wrap:wrap;padding:12px max(16px,env(safe-area-inset-left,0px))}.lateral .logo{margin:0 0 8px;width:100%}.lateral .yo{margin:0;width:100%}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}button.local{transition:none}}
+body.arrancando>*:not(script){visibility:hidden}
+body.arrancando::after{content:"Cargando MR Gas…";position:fixed;inset:0;display:grid;place-items:center;background:#f4f6f9;color:#0d3a85;font:600 16px "Plus Jakarta Sans",system-ui,sans-serif;letter-spacing:.02em}
 </style>
 </head>
 <body>
+<script>document.body.classList.add("arrancando");setTimeout(function(){document.body.classList.remove("arrancando")},6000)</script>
 
 <!-- ===================== SITIO PÚBLICO ===================== -->
 <div id="vista-publica">
@@ -572,6 +575,13 @@ a.modulo{text-decoration:none;color:inherit}
 .apoyo-sel summary{cursor:pointer;color:#0A3F94;font-size:.88rem;list-style:none}.apoyo-sel summary::after{content:" ▾"}.apoyo-sel>div{display:grid;gap:4px;padding:6px 0}
 .carga{display:inline-block;min-width:44px;text-align:center;border-radius:999px;padding:1px 8px;font-weight:600;background:#DDF2E5;color:#17613A}.carga.casi{background:#FDF1DC;color:#7A4F00}.carga.llena{background:#FBE4E2;color:#962820}
 .chip.apoyo{background:#fff;border:1px dashed #A9C3EC;color:#4B5D73}
+.cfg-ch{display:grid;grid-template-columns:360px minmax(0,1fr);gap:20px;align-items:start}.cfg-ch>form{display:grid;gap:12px}
+@media (max-width:900px){.cfg-ch{grid-template-columns:1fr}}
+tr.inactivo td{color:#98a2b3}
+.nav-volver{display:flex;align-items:center;gap:14px;margin:0 0 12px}
+.btn-atras{display:inline-flex;align-items:center;gap:6px;border:1px solid #d0d7e2;background:#fff;color:#0d3a85;border-radius:8px;padding:6px 12px;font:600 13px "Plus Jakarta Sans",system-ui,sans-serif;cursor:pointer}
+.btn-atras:hover{background:#ecf3fd;border-color:#a9c3ec}.btn-atras:focus-visible{outline:2px solid #1a66d6;outline-offset:2px}
+.sis .cab-mod .nav-volver .volver{margin:0}
 .sz2{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
 @media (max-width:1080px){.sz2{grid-template-columns:1fr}}
 .sz-mapa2{padding:14px;min-width:0}.sz-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.sz-bar input{flex:1 1 200px;min-width:0}.sz-bar select{flex:0 1 190px}
@@ -812,12 +822,7 @@ const BASE={
   empresa:{razon:"MR Gas SpA",rut:"",giro:"Distribución de gas licuado",dir:"",fono:"600 600 7799",correo:""},
   precios:{...PR,fecha:"2026-11-06",minimo:15},
   locales:[
-    {id:1,nombre:"Casa Matriz",dir:"Av. Libertador B. O'Higgins 1234",comuna:"Santiago",fono:"+56 2 2000 0001",encargado:"Por asignar",horario:"Lun a Dom 8:00 a 22:00",abierto:true,stock:st(40,120,180,30),vacios:st(80,200,150,30),prestados:st(10,25,20,4)},
-    {id:2,nombre:"Local Maipú",dir:"Av. Pajaritos 2450",comuna:"Maipú",fono:"+56 2 2000 0002",encargado:"Por asignar",horario:"Lun a Sáb 8:30 a 21:00",abierto:true,stock:st(18,64,9,12)},
-    {id:3,nombre:"Local Puente Alto",dir:"Av. Concha y Toro 890",comuna:"Puente Alto",fono:"+56 2 2000 0003",encargado:"Por asignar",horario:"Lun a Sáb 9:00 a 20:00",abierto:true,stock:st(22,80,95,6)},
-    {id:4,nombre:"Local La Florida",dir:"Av. Vicuña Mackenna 7100",comuna:"La Florida",fono:"+56 2 2000 0004",encargado:"Por asignar",horario:"Lun a Sáb 9:00 a 20:00",abierto:true,stock:st(15,70,88,10)},
-    {id:5,nombre:"Local Ñuñoa",dir:"Av. Irarrázaval 3300",comuna:"Ñuñoa",fono:"+56 2 2000 0005",encargado:"Por asignar",horario:"Lun a Sáb 9:00 a 20:00",abierto:true,stock:st(25,90,60,14)},
-    {id:6,nombre:"Local Quilicura",dir:"Av. Matta 520",comuna:"Quilicura",fono:"+56 2 2000 0006",encargado:"Por asignar",horario:"Lun a Vie 9:00 a 19:00",abierto:false,stock:st(10,35,50,8)}
+    {id:1,nombre:"Casa Matriz",dir:"Av. Libertador B. O'Higgins 1234",comuna:"Santiago",fono:"+56 2 2000 0001",encargado:"Por asignar",horario:"Lun a Dom 8:00 a 22:00",abierto:true,stock:st(40,120,180,30),vacios:st(80,200,150,30),prestados:st(10,25,20,4)}
   ],
   choferes:["Cristian","Erick","Francisco","Jesús","Jorge","Kevin","Koki","Miguel","Morales","Patrik","Richard","Rodríguez","Zapata"].map((n,i)=>{
     const CG={Cristian:[6,12,12,2],Erick:[6,16,16,2],Francisco:[6,10,10,2],Kevin:[6,14,14,3],Morales:[6,18,22,4],Richard:[4,10,10,2],"Rodríguez":[6,16,16,2]};
@@ -850,6 +855,13 @@ let D;
 function cargar(){try{D=JSON.parse(localStorage.getItem(KEY))}catch(e){D=null} if(!D) D=structuredClone(BASE);normalizar()}
 // Completa con ceros los cilindros nuevos en datos guardados antes (así nada queda vacío).
 function normalizar(){
+  if(!(D.migraciones&&D.migraciones.soloMatriz)){
+    const base=D.locales.find(l=>l.id===1)||D.locales[0];
+    if(base){D.locales=[base];const id=base.id;
+      ["pedidos","ventas","gastos","rendiciones","cargas","cargasDist","anticipos","petroleo","movimientos","recuentos","peonetas","mayoristas","choferes"].forEach(c=>(D[c]||[]).forEach(o=>{if(o&&o.local!=null&&o.local!==id)o.local=id}));
+      (D.usuarios||[]).forEach(u=>{if(u.local!=null)u.local=id;if(Array.isArray(u.sucursales)&&u.sucursales.length)u.sucursales=[id]});
+      if(D.ultimaSuc&&D.ultimaSuc!==id)D.ultimaSuc=id}
+    D.migraciones={...(D.migraciones||{}),soloMatriz:true}}
   const ok=new Set(FORMATOS.map(f=>f.id)),limpia=o=>{if(o&&typeof o==="object")Object.keys(o).forEach(k=>{if(/^c\d+c$/.test(k)&&!ok.has(k))delete o[k]})};
   [D.precios,D.preciosMayor,D.preciosEnvase,D.preciosConvenio,...(D.comisiones?[D.comisiones.chofer,D.comisiones.peoneta]:[])].forEach(limpia);
   D.locales.forEach(l=>[l.stock,l.vacios,l.prestados,l.comodato].forEach(limpia));D.choferes.forEach(c=>[c.carga,c.vacios].forEach(limpia));
@@ -979,7 +991,7 @@ const SYNC=[
   {col:"ventasAnuladas",key:v=>limpiaId(`va${v.local}-${v.grupo||v.id}-${v.formato}-${v.anulada}`),noBorrar:true},
   {col:"programados",key:x=>limpiaId(`pg${x.id}`)},
   {col:"choferes",key:c=>String(c.id),dato:c=>{const {carga,vacios,sector,apoyo,...b}=c;return b}}];
-const ESTADO_GLOBAL=["precios","preciosMayor","preciosEnvase","preciosConvenio","listas","empresa","comisiones","historico","mayoristas","presetHoy","autoDesp"];
+const ESTADO_GLOBAL=["migraciones","precios","preciosMayor","preciosEnvase","preciosConvenio","listas","empresa","comisiones","historico","mayoristas","presetHoy","autoDesp"];
 const ESTADO_SOLO_ADMIN=["precios","preciosMayor","preciosEnvase","preciosConvenio","listas","empresa","comisiones","historico"];
 const estable=v=>v&&typeof v==="object"?(Array.isArray(v)?"["+v.map(estable).join(",")+"]":"{"+Object.keys(v).sort().map(k=>JSON.stringify(k)+":"+estable(v[k])).join(",")+"}"):JSON.stringify(v??null);
 function itemsEstado(){const out=[];
@@ -1002,6 +1014,7 @@ function revertirEstado(){if(!yo||esAdmin())return;const srv=NUBE.estadoSrv||{};
 function detectar(){revertirEstado();const cambios=[],vistos=new Set();
   for(const x of piezas()){const k=x.col+"|"+x.id;vistos.add(k);const f=firma(x.col,x.data);if(NUBE.cache.get(k)!==f)cambios.push({...x,f})}
   for(const k of NUBE.cache.keys()){if(vistos.has(k))continue;const i=k.indexOf("|"),col=k.slice(0,i),id=k.slice(i+1),def=SYNC.find(d=>d.col===col);
+    if(col==="estado"){if(id.startsWith("loc-")&&esAdmin())cambios.push({col,id,data:null,f:null});continue}
     if(!def||def.noBorrar||!puedeSubir(col,id))continue;cambios.push({col,id,data:null,f:null})}
   return cambios}
 
@@ -1032,7 +1045,7 @@ function aplicarEstado(id,v){
   D[id]=v}
 function aplicarDoc(col,id,data,borrado){
   const k=col+"|"+id,def=SYNC.find(d=>d.col===col);
-  if(borrado){NUBE.cache.delete(k);if(def){const a=D[col]||[],i=a.findIndex(o=>def.key(o)===id);if(i>=0){a.splice(i,1);return true}}return false}
+  if(borrado){NUBE.cache.delete(k);if(col==="estado"&&id.startsWith("loc-")&&D.locales.length>1){D.locales=D.locales.filter(l=>l.id!==+id.slice(4));return true}if(def){const a=D[col]||[],i=a.findIndex(o=>def.key(o)===id);if(i>=0){a.splice(i,1);return true}}return false}
   const f=firma(col,col==="estado"?data:data);if(NUBE.cache.get(k)===f)return false;NUBE.cache.set(k,f);
   if(col==="estado"){(NUBE.estadoSrv=NUBE.estadoSrv||{})[id]=JSON.stringify(data.v);aplicarEstado(id,data.v);return true}
   if(!def)return false;const a=D[col]=D[col]||[],i=a.findIndex(o=>def.key(o)===id);
@@ -1072,6 +1085,7 @@ async function iniciarEscuchas(){
   const locAntes=D.locales.slice(),chAntes=D.choferes.slice();
   TRANSAC.forEach(c=>D[c]=[]);NUBE.cache.clear();
   if(!r.vacio){D.locales=[];D.choferes=[];aplicarLote(r.docs);if(!D.locales.length)D.locales=locAntes;if(!D.choferes.length)D.choferes=chAntes}
+  if(!r.docs.some(d=>d.col==="estado"&&d.id==="migraciones"))D.migraciones={}; // el servidor aún no tiene la migración: se aplica y se comparte
   // cambios hechos sin conexión que no alcanzaron a llegar al servidor
   cola.forEach(x=>{if(x.data===null)return;const k=x.col+"|"+x.id;aplicarDoc(x.col,x.id,x.data,false);NUBE.cache.delete(k)});
   NUBE.ver=r.ver;NUBE.desdeCargado=fechaISO(new Date(Date.now()-7*864e5));NUBE.desdeBit=fechaISO(new Date(Date.now()-2*864e5));NUBE.listo=true;
@@ -1221,21 +1235,18 @@ const MODULOS=[
   {id:"pedidos",t:"Pedidos de Gas",s:"Ingreso y estado",r:[A,E]},
   {id:"ruta",t:"Asigna Ruta",s:"Pedidos a choferes",r:[A,E]},
   {id:"sectorizar",t:"Sectorizar",s:"Mapa y despacho automático",r:[A,E]},
-  {id:"precios",t:"Precios del Gas",s:"Cambiar precios de cilindros",r:[A]},
   {id:"informes",t:"Informes",s:"Pedidos y rendiciones",r:[A,E]},
   {id:"petroleo",t:"Petróleo",s:"Combustible de móviles",r:[A,E]},
   {id:"cuadratura",t:"Cuadratura Móvil",s:"Móviles y mayoristas",r:[A,E]},
   {id:"compras",t:"Compras y Devoluciones",s:"Entradas y salidas",r:[A,E]},
   {id:"chofer",t:"Pedidos Chofer",s:"Entregas en ruta",r:[A,E,C]},
   {id:"bodega",t:"Control de Bodega",s:"Stock, móviles y recuento",r:[A,E]},
-  {id:"config",t:"Configuraciones",s:"Stock mínimo y envases",r:[A]},
-  {id:"admin",t:"Administración",s:"Sucursales y choferes",r:[A]},
-  {id:"respaldos",t:"Respaldos y Reset",s:"Copia de seguridad",r:[A]}
+  {id:"config",t:"Configuraciones",s:"Choferes, precios, usuarios y más",r:[A]},
+
 ];
 const ACCIONES=[
   {id:"manual",t:"Manual<br>Usuario",r:[A,E,C]},
   {id:"empresa",t:"Datos<br>Empresa",r:[A]},
-  {id:"usuarios",t:"Permisos<br>Usuarios",r:[A]},
   {id:"clave",t:"Cambiar<br>Contraseña",r:[A,E,C]},
   {id:"sucursal",t:"Cambio de<br>Sucursal",r:[A]},
   {id:"salir",t:"Salir del<br>Sistema",r:[A,E,C]}
@@ -1243,8 +1254,10 @@ const ACCIONES=[
 const MOD_PERM=["pedidos","ruta","cuadratura","bodega","compras","informes"];
 const misSucs=()=>!yo?[]:esAdmin()?D.locales.map(l=>l.id):((yo.sucursales&&yo.sucursales.length)?yo.sucursales:[yo.local]).filter(x=>x!=null);
 const puede=id=>{
-  if(id==="sucursal")return esAdmin()||misSucs().length>1;
+  if(id==="sucursal")return D.locales.length>1&&(esAdmin()||misSucs().length>1);
   if(id==="sectorizar")return puede("ruta");
+  if(id==="precios"||id==="usuarios"||id==="admin")return esAdmin();
+  if(id==="respaldos")return esAdmin()&&(yo.permisos==null||(Array.isArray(yo.permisos)&&yo.permisos.includes("respaldos")));
   if(id==="caja"||id==="petroleo")return false; // desactivados (los datos antiguos se conservan)
   if(id==="chofer")return !!yo&&yo.rol==="chofer"; // solo la pantalla del repartidor
   const m=[...MODULOS,...ACCIONES].find(x=>x.id===id);if(!m)return true;if(!m.r.includes(yo.rol))return false;
@@ -1267,20 +1280,22 @@ function pintarSistema(){
   if(yo&&!esAdmin()&&misSucs().length&&!misSucs().includes(suc))suc=misSucs()[0];
   if(!puede(mod))mod=yo.rol==="chofer"?"chofer":"menu";
   if(!suc&&mod!=="sucursal")mod="sucursal";
+  registrarNav();
   $("#sis-acciones").innerHTML=ACCIONES.filter(a=>puede(a.id)).map(a=>`<button class="accion ${a.id==="salir"?"salir":""}" data-accion="${a.id}" type="button">${svg(a.id)}<span>${a.t.replace("<br>"," ")}</span></button>`).join("");
   const l=loc(suc);
   $("#sis-sucursal").innerHTML=l?`<small>Sucursal:</small>${esc(l.nombre)}`:`<small>Sucursal:</small>sin elegir`;
   $("#sis-yo").textContent=yo.nombre+" · "+({admin:"Administrador",encargado:"Encargado",chofer:"Chofer"})[yo.rol];
   const banner=yo.cambiar?`<div class="banner">Está usando la clave inicial. Cámbiela en "Cambiar Contraseña".</div>`:"";
-  $("#sis-main").innerHTML=banner+(V[mod]||V.menu)()+`<div class="foot-mr"><span>MR Gas · Sistema de distribución</span><span>${D.locales.length} sucursales</span></div>`;
+  $("#sis-main").innerHTML=banner+(V[mod]||V.menu)()+`<div class="foot-mr"><span>MR Gas · Sistema de distribución</span><span>${D.locales.length===1?esc(D.locales[0].nombre):D.locales.length+" sucursales"}</span></div>`;
   $$("[data-accion]").forEach(b=>b.onclick=()=>{if(b.dataset.accion==="salir")return salir();ir(b.dataset.accion)});
   $$("[data-modulo]").forEach(b=>b.onclick=()=>ir(b.dataset.modulo));
   const v=$("#volver");if(v)v.onclick=()=>ir(yo.rol==="chofer"?"chofer":"menu");
+  const at=$("#atras");if(at)at.onclick=volverAtras;
   (L[mod]||(()=>{}))();
 }
 function ir(m){if(m!==mod){cuadSel=null;infDia=null;infRep=null;cuadTab="menu"}mod=m;guardarSesion();pintarSistema();window.scrollTo(0,0)}
 $("#ir-menu").onclick=()=>{if(suc)ir(yo.rol==="chofer"?"chofer":"menu")};
-const cabeza=(t,extra="")=>`<div class="cab-mod"><div>${yo.rol==="chofer"&&mod==="chofer"?"":'<button class="volver" id="volver" type="button">← Menú principal</button>'}<div class="eyebrow-mr">Sucursal ${esc(nomLocal(suc))}</div><h2>${t}</h2><p class="sub">${fechaLarga(hoyStr())}</p></div>${extra}</div>`;
+const cabeza=(t,extra="")=>`<div class="cab-mod"><div>${yo.rol==="chofer"&&mod==="chofer"?"":`<div class="nav-volver"><button class="btn-atras" id="atras" type="button" aria-label="Volver a la pantalla anterior">← Volver</button><button class="volver" id="volver" type="button">Menú principal</button></div>`}<div class="eyebrow-mr">Sucursal ${esc(nomLocal(suc))}</div><h2>${t}</h2><p class="sub">${fechaLarga(hoyStr())}</p></div>${extra}</div>`;
 const confirmar=(b,accion)=>{if(b.dataset.ok){accion()}else{b.dataset.ok=1;b.textContent="¿Seguro? Clic otra vez"}};
 const pedidosSuc=()=>D.pedidos.filter(p=>p.local===suc);
 const chOrden=()=>[...D.choferes.filter(c=>!yo||esAdmin()||misSucs().includes(c.local))].sort((a,b)=>((b.local===suc)-(a.local===suc))||a.nombre.localeCompare(b.nombre));
@@ -1813,7 +1828,7 @@ const V={
     const entHoy=ps.filter(p=>p.estado==="entregado"&&(p.entregado||"").startsWith(hoy)).length,nom=String(yo.nombre||"").split(" ")[0];
     const card=(attr,ico,t,d,go="Abrir")=>`<${attr.startsWith("href")?"a":"button"} class="modulo" ${attr}><span class="ico">${svg(ico)}</span><b>${t}</b><span class="sub">${d}</span><span class="mgo">${go}<span aria-hidden="true">→</span></span></${attr.startsWith("href")?"a":"button"}>`;
     return `<div class="phead-mr"><div class="eyebrow-mr">Sucursal ${esc(nomLocal(suc))}</div><h1>${saludo}, ${esc(nom)}</h1><p class="sub">${fechaLarga(hoy)}</p></div>
-      <div class="modulos">${MODULOS.filter(m=>puede(m.id)).map(m=>card(`data-modulo="${m.id}" type="button"`,m.id,m.t,m.s)).join("")}${yo.rol!=="chofer"?card('href="https://erplocalgas.vercel.app/" target="_blank" rel="noopener"',"externo","ERP Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):""}</div>
+      <div class="modulos">${MODULOS.filter(m=>puede(m.id)).map(m=>card(`data-modulo="${m.id}" type="button"`,m.id,m.t,m.s)).join("")}${yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","ERP Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):""}</div>
       <p class="stitle-mr">Resumen de hoy</p>
       <div class="stats-mr"><div><div class="k">Pedidos nuevos</div><div class="v">${nuevos}</div></div><div><div class="k">En ruta</div><div class="v">${enRuta}</div></div><div><div class="k">Entregados hoy</div><div class="v">${entHoy}</div></div><div><div class="k">Vendido hoy</div><div class="v">${clp(vendido)}</div></div></div>`;
   },
@@ -1895,10 +1910,7 @@ const V={
           <td><select data-chsec="${c.id}" aria-label="Sector de ${esc(c.nombre)}" class="sel-mini">${opcSec(c.sector??null).replace("Sector…","—")}</select></td>
           <td class="der"><input type="checkbox" data-activo="${c.id}" ${c.activo!==false?"checked":""} aria-label="Móvil ${esc(c.nombre)} activo" style="width:auto"></td></tr>`}).join("")||'<tr><td colspan="4">Sin móviles. Agregue uno abajo.</td></tr>'}
         </tbody></table><p class="nota">Suma de pedidos despachados el ${new Date().toLocaleDateString("es-CL")}. El sector del móvil sirve para sugerirlo al despachar.</p>
-        <form id="f-nuevo-ch" class="grid nuevo-ch"><h3 style="font-size:1rem">Agregar chofer</h3>
-          <label>Nombre<input id="nc-nombre" required></label>
-          <div class="fila"><label>Patente<input id="nc-pat" placeholder="AB-CD-12"></label><label>Teléfono<input id="nc-fono" type="tel"></label></div>
-          <button class="btn chico" type="submit">Agregar chofer</button></form></aside>
+        ${esAdmin()?'<button type="button" class="btn chico linea" id="rt-ir-choferes">Agregar o editar choferes</button>':'<p class="nota" style="margin:0">Los choferes los agrega el administrador en Configuraciones.</p>'}</aside>
       <div style="min-width:0">
         <h3 style="margin-bottom:12px">Por despachar <span class="num" style="color:var(--muted)">(${pend.length})</span></h3>
         <div class="tabla-wrap"><table>${cab("<th>Sector y móvil</th>")}<tbody>
@@ -2137,7 +2149,7 @@ const V={
   precios(){
     const p=D.precios,hist=D.historialPrecios||[],prog=(D.programados||[]).slice().sort((a,b)=>a.desde.localeCompare(b.desde));
     return cabeza("Precios del Gas")+`<div class="grid kpis">${FORMATOS.map(f=>`<div class="kpi"><span>Cilindro ${f.et}</span><b class="num">${clp(p[f.id])}</b><span class="num">${clp(p[f.id]/f.kg)} por kg</span></div>`).join("")}</div>
-      <p class="nota" style="margin:-8px 0 26px">Precios vigentes desde el ${fechaLarga(p.fecha)}. Se muestran en el sitio web y se usan en todos los pedidos y ventas nuevos de las ${D.locales.length} sucursales.</p>
+      <p class="nota" style="margin:-8px 0 26px">Precios vigentes desde el ${fechaLarga(p.fecha)}. Se muestran en el sitio web y se usan en todos los pedidos y ventas nuevos${D.locales.length>1?` de las ${D.locales.length} sucursales`:""}.</p>
       <div class="precios-col">
       <form class="caja" id="f-pr">
         <h3>Cambiar precios</h3>
@@ -2222,11 +2234,33 @@ const V={
       <p class="nota">Emergencias de gas: 600 600 7799.</p>`;
   },
   config(){
-    return cabeza("Configuraciones")+`<form class="caja" id="f-config" style="max-width:520px"><h3>Alertas de stock</h3>
+    const TABS=[["choferes","Choferes"],["precios","Precios del Gas"],["usuarios","Usuarios y permisos"],["sucursal","Sucursal"],["general","Stock y envases"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
+    if(!TABS.some(t=>t[0]===cfgTab))cfgTab="choferes";
+    const tabs=`<div class="tabs" role="tablist">${TABS.map(([k,t])=>`<button type="button" role="tab" data-cfgtab="${k}" aria-selected="${cfgTab===k}">${t}</button>`).join("")}</div>`;
+    if(cfgTab==="precios")return cabeza("Configuraciones")+tabs+V.precios().replace(cabeza("Precios del Gas"),"");
+    if(cfgTab==="usuarios")return cabeza("Configuraciones")+tabs+V.usuarios().replace(cabeza("Permisos Usuarios"),"");
+    if(cfgTab==="respaldos")return cabeza("Configuraciones")+tabs+V.respaldos().replace(cabeza("Respaldos"),"");
+    if(cfgTab==="sucursal"){if(D.locales.length===1&&editSuc==null)editSuc=D.locales[0].id;
+      return cabeza("Configuraciones")+tabs+V.admin().replace(cabeza("Administración",'<button class="btn chico" id="nueva-suc" type="button">Agregar sucursal</button>'),`<p class="nota" style="margin:0 0 16px">Datos de la sucursal que aparecen en el sitio para clientes. <button type="button" class="enlace" id="nueva-suc">Agregar otra sucursal</button></p>`)}
+    if(cfgTab==="choferes"){const ed=D.choferes.find(c=>c.id===cfgCh),multi=D.locales.length>1;
+      const fila=c=>`<tr class="${c.activo===false?"inactivo":""}"><td><b>${esc(c.nombre)}</b></td><td class="num">${esc(c.patente||"—")}</td><td class="num">${esc(c.fono||"—")}</td>${multi?`<td>${esc(nomLocal(c.local))}</td>`:""}
+        <td>${c.activo===false?'<span class="pill anulado">Inactivo</span>':'<span class="pill entregado">Activo</span>'}</td>
+        <td class="der"><div class="acc" style="justify-content:flex-end"><button class="btn chico linea" type="button" data-cfedit="${c.id}">Editar</button><button class="btn chico linea" type="button" data-cfact="${c.id}">${c.activo===false?"Activar":"Desactivar"}</button><button class="btn chico rojo" type="button" data-delchofer="${c.id}">Eliminar</button></div></td></tr>`;
+      return cabeza("Configuraciones")+tabs+`<div class="cfg-ch">
+        <form class="caja" id="f-chofer"><h3>${ed?"Editar a "+esc(ed.nombre):"Agregar chofer"}</h3>
+          <label>Nombre<input id="cf-nombre" required value="${ed?esc(ed.nombre):""}" placeholder="Ej: Juan Pérez"></label>
+          <div class="fila"><label>Patente del camión<input id="cf-pat" value="${ed?esc(ed.patente||""):""}" placeholder="AB-CD-12"></label><label>Teléfono<input id="cf-fono" type="tel" value="${ed?esc(ed.fono||""):""}" placeholder="+56 9 …"></label></div>
+          ${multi?`<label>Sucursal<select id="cf-local">${D.locales.map(x=>`<option value="${x.id}" ${x.id===(ed?ed.local:suc)?"selected":""}>${esc(x.nombre)}</option>`).join("")}</select></label>`:""}
+          <div class="acc"><button class="btn" type="submit">${ed?"Guardar cambios":"Agregar chofer"}</button>${ed?'<button class="btn linea" type="button" id="cf-cancelar">Cancelar</button>':""}</div>
+          <p class="nota" style="margin:0">El sector de cada chofer se elige en Sectorizar. Para que entre a la app, créele un usuario «Repartidor» en Permisos Usuarios.</p></form>
+        <div style="min-width:0"><div class="tabla-wrap"><table><thead><tr><th>Chofer</th><th>Patente</th><th>Teléfono</th>${multi?"<th>Sucursal</th>":""}<th>Estado</th><th></th></tr></thead><tbody>
+          ${D.choferes.slice().sort((a,b)=>(a.activo===false)-(b.activo===false)||a.nombre.localeCompare(b.nombre)).map(fila).join("")||'<tr><td colspan="6">Todavía no hay choferes. Agregue el primero.</td></tr>'}</tbody></table></div>
+          <p class="nota">${D.choferes.filter(c=>c.activo!==false).length} activos de ${D.choferes.length}. Un chofer desactivado no recibe pedidos, pero se mantiene su historial.</p></div></div>`}
+    return cabeza("Configuraciones")+tabs+`<form class="caja" id="f-config" style="max-width:520px"><h3>Alertas de stock</h3>
       <label>Stock mínimo por formato<input class="num" type="number" min="0" id="pr-minimo" value="${D.precios.minimo}"></label>
       <h3 style="margin-top:8px">Precio de venta de envases</h3>
       <div class="fila">${FORMATOS.map(f=>`<label>Envase ${f.et} (CLP)<input class="num" type="number" min="0" id="pe-${f.id}" value="${(D.preciosEnvase||{})[f.id]||0}"></label>`).join("")}</div>
-      <p class="nota" style="margin:0">Cuando una sucursal tenga menos cilindros que este número, se marca en rojo en Control de Bodega. Los precios se cambian en el cuadro "Precios del Gas".</p>
+      <p class="nota" style="margin:0">Cuando una sucursal tenga menos cilindros que este número, se marca en rojo en Control de Bodega. Los precios se cambian en la pestaña «Precios del Gas».</p>
       <button class="btn" type="submit">Guardar</button><p class="aviso ok" id="pr-ok" hidden>Configuración guardada.</p></form>
       <form class="caja" id="f-sectores" style="max-width:900px;margin-top:20px"><h3>Sectores de reparto</h3>
         <p class="nota" style="margin:0">Cada sector agrupa comunas. En Asigna Ruta, "Sectorizar pedidos" usa esta lista para poner el sector y sugerir el móvil.</p>
@@ -2246,13 +2280,7 @@ const V={
     `<h3 style="margin-bottom:12px">Sucursales</h3><div class="tabla-wrap"><table><thead><tr><th>Sucursal</th><th>Dirección</th><th>Encargado</th><th>Estado</th><th></th></tr></thead><tbody>
       ${D.locales.map(x=>`<tr><td><b>${esc(x.nombre)}</b></td><td>${esc(x.dir)}, ${esc(x.comuna)}</td><td>${esc(x.encargado)}</td><td><span class="estado ${x.abierto?"abierto":"cerrado"}">${x.abierto?"Abierto":"Cerrado"}</span></td><td><button class="btn chico linea" data-editsuc="${x.id}" type="button">Editar</button></td></tr>`).join("")}
       </tbody></table></div>
-    <div class="bloque"><h3>Choferes</h3>
-      <form class="caja" id="f-chofer" style="margin-bottom:16px"><div class="fila3"><label>Nombre<input id="cf-nombre" required></label><label>Patente<input id="cf-pat" placeholder="AB-CD-12"></label>
-      <label>Sucursal<select id="cf-local">${D.locales.map(x=>`<option value="${x.id}" ${x.id===suc?"selected":""}>${esc(x.nombre)}</option>`).join("")}</select></label></div>
-      <div><button class="btn" type="submit">Agregar chofer</button></div></form>
-      <div class="tabla-wrap"><table><thead><tr><th>Chofer</th><th>Patente</th><th>Sucursal</th><th></th></tr></thead><tbody>
-      ${D.choferes.map(c=>`<tr><td>${esc(c.nombre)}</td><td class="num">${esc(c.patente||"—")}</td><td><select data-chlocal="${c.id}" aria-label="Sucursal de ${esc(c.nombre)}">${D.locales.map(x=>`<option value="${x.id}" ${x.id===c.local?"selected":""}>${esc(x.nombre)}</option>`).join("")}</select></td><td><button class="btn chico rojo" data-delchofer="${c.id}" type="button">Eliminar</button></td></tr>`).join("")||'<tr><td colspan="4">Sin choferes.</td></tr>'}
-      </tbody></table></div></div>`;
+    <p class="nota" style="margin-top:16px">Los choferes se agregan en <b>Configuraciones → Choferes</b>.</p>`;
   },
   respaldos(){
     return cabeza("Respaldos")+`<div class="grid dos" style="gap:24px">
@@ -2277,21 +2305,21 @@ const V={
     const nube=NUBE.activo,lista=(nube?NUBE.usuarios:D.usuarios).slice().sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
     const keyOf=u=>nube?u.uid:u.user,ed=editUser!=null?lista.find(u=>keyOf(u)===editUser):null,yoKey=nube?yo.uid:yo.user;
     const ROL={admin:"Administrador",encargado:"Encargado",chofer:"Repartidor"},rolSel=ed?ed.rol:"encargado";
-    const acceso=u=>u.rol==="admin"?"Todas las sucursales · todo":u.rol==="chofer"?"Móvil "+esc(nomChofer(u.chofer))
+    const acceso=u=>u.rol==="admin"?"Todo"+(Array.isArray(u.permisos)&&!u.permisos.includes("respaldos")?' <span class="nota" style="margin:0">· sin respaldos</span>':" · con respaldos"):u.rol==="chofer"?"Móvil "+esc(nomChofer(u.chofer))
       :`${((u.sucursales&&u.sucursales.length?u.sucursales:(u.local?[u.local]:[])).map(nomLocal).map(esc).join(", "))||"—"}<br><span class="nota" style="margin:0">${Array.isArray(u.permisos)?u.permisos.map(id=>(MODULOS.find(m=>m.id===id)||{}).t).filter(Boolean).join(" · "):"Todos los cuadros"}</span>`;
     return cabeza("Permisos Usuarios")+`<p class="nota" style="margin:-8px 0 18px">${nube?"Los usuarios se guardan en el servidor. ":""}Elija a qué sucursales entra cada persona y qué cuadros puede usar. Cada sucursal ve solo sus propios pedidos, ventas, cuadraturas y bodega.</p>
     <form class="caja" id="f-usr" style="max-width:900px;margin-bottom:22px"><h3>${ed?"Editar a "+esc(ed.nombre):"Agregar usuario"}</h3>
       <div class="fila"><label>Nombre<input id="us-nombre" required value="${ed?esc(ed.nombre):""}"></label><label>Usuario<input id="us-user" required autocomplete="off" value="${ed?esc(ed.user):""}" ${ed?"readonly":""} placeholder="Ej: maria.maipu"></label></div>
-      <div class="fila">${ed&&nube?"":`<label>${ed?"Clave nueva (deje vacío para no cambiarla)":"Clave (mínimo 8 caracteres)"}<input id="us-pass" type="password" minlength="8" ${ed?"":"required"} autocomplete="new-password"></label>`}
+      <div class="fila">${`<label>${ed?"Clave nueva (deje vacío para no cambiarla)":"Clave (mínimo 4 caracteres)"}<input id="us-pass" type="password" minlength="4" ${ed?"":"required"} autocomplete="new-password"></label>`}
         <label>Tipo de usuario<select id="us-rol"><option value="encargado" ${rolSel==="encargado"?"selected":""}>Encargado o cajero de sucursal</option><option value="chofer" ${rolSel==="chofer"?"selected":""}>Repartidor</option><option value="admin" ${rolSel==="admin"?"selected":""}>Administrador (todo)</option></select></label></div>
       ${camposAcceso(ed)}
+      <label class="radio" id="us-resp-l" ${puede("respaldos")?"":'style="display:none"'}><input type="checkbox" id="us-resp" ${ed?(ed.permisos==null?"checked":Array.isArray(ed.permisos)&&ed.permisos.includes("respaldos")?"checked":""):""}> Puede usar <b>Respaldos y reset</b> (copia de seguridad y borrar datos)</label>
       <label id="us-chofer-l">Móvil del repartidor<select id="us-chofer">${[...D.choferes].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(c=>`<option value="${c.id}" ${ed&&ed.chofer===c.id?"selected":""}>${esc(c.nombre)} · ${esc(nomLocal(c.local))}</option>`).join("")}</select></label>
       <div class="acc"><button class="btn" type="submit">${ed?"Guardar cambios":"Crear usuario"}</button>${ed?'<button class="btn linea" type="button" id="us-cancelar">Cancelar</button>':""}<p class="error" id="us-error" hidden></p></div></form>
-    <div class="tabla-wrap"><table><thead><tr><th>Nombre</th><th>Usuario</th><th>Tipo</th><th>Acceso</th>${nube?"<th>Avisos</th>":""}<th>Estado</th><th></th></tr></thead><tbody>
+    <div class="tabla-wrap"><table><thead><tr><th>Nombre</th><th>Usuario</th><th>Tipo</th><th>Acceso</th><th>Estado</th><th></th></tr></thead><tbody>
     ${lista.map(u=>{const k=keyOf(u);return `<tr><td>${esc(u.nombre)}</td><td class="num">${esc(u.user)}</td><td>${ROL[u.rol]||esc(u.rol)}</td><td>${acceso(u)}</td>
-      ${nube?`<td>${u.rol==="chofer"?((u.tokens||[]).length?'<span class="pill entregado">Activados</span>':'<span class="pill pendiente">Sin activar</span>'):"—"}</td>`:""}
       <td>${u.activo===false?'<span class="pill anulado">Desactivado</span>':'<span class="pill entregado">Activo</span>'}</td>
-      <td><div class="acc">${k!==yoKey?`<button class="btn chico linea" data-edituser="${esc(k)}" type="button">Editar</button><button class="btn chico linea" data-toggleuser="${esc(k)}" type="button">${u.activo===false?"Activar":"Desactivar"}</button>`:'<span class="nota" style="margin:0">Usted</span>'}</div></td></tr>`}).join("")||`<tr><td colspan="7">${nube?"Cargando usuarios…":"Sin usuarios."}</td></tr>`}
+      <td><div class="acc">${k!==yoKey&&!(u.rol==="admin"&&(u.permisos==null||(u.permisos||[]).includes("respaldos"))&&!puede("respaldos"))?`<button class="btn chico linea" data-edituser="${esc(k)}" type="button">Editar</button><button class="btn chico linea" data-toggleuser="${esc(k)}" type="button">${u.activo===false?"Activar":"Desactivar"}</button>`:'<span class="nota" style="margin:0">Usted</span>'}</div></td></tr>`}).join("")||`<tr><td colspan="7">${nube?"Cargando usuarios…":"Sin usuarios."}</td></tr>`}
     </tbody></table></div>`;
   },
   clave(){
@@ -2306,7 +2334,7 @@ let bvIni=null,bvFin=null;
 let chTab="ruta",chFecha=null,chFiltro="todos",bTab="stock",bIni=null,bFin=null,bChofer=null;
 let cjTab="venta";
 let cargaCh=null,distSel=null,liqDesde=null,liqHasta=null,compTipo="factura",compDesde=null,compHasta=null,compFiltro="";
-let cuadTab="menu",cuadSel=null,pagoTipo="efectivo",infTab="catalogo",infMes=null,infDia=null;
+let cfgTab="choferes",cfgCh=null,cuadTab="menu",cuadSel=null,pagoTipo="efectivo",infTab="catalogo",infMes=null,infDia=null;
 let editUser=null,infRep=null,repDesde=null,repHasta=null,petMes=null,ocultarMovil=false,autoRefresco=true;
 let pTab="nuevo",choferSel=null,fechaCuad=null,periodoInf="0",alcanceInf="suc",editSuc=null;
 
@@ -2410,7 +2438,7 @@ const L={
     if(!CALLES)cargarCalles().then(()=>{if(mod==="ruta")pintarSistema()}).catch(()=>{});
     $("#rt-sectorizar").onclick=()=>{let n=0;pedidosSuc().filter(p=>p.estado==="pendiente"&&p.sector==null).forEach(p=>{const s=sectorDe(p);if(s){p.sector=s;nubePedido(p);n++}});
       guardar();pintarSistema();aviso("Pedidos sectorizados",n?`${n} pedido(s) quedaron con sector y móvil sugerido.`:"No había pedidos nuevos sin sector, o su comuna no está en ningún sector (vea Configuraciones).")};
-    $("#f-nuevo-ch").onsubmit=e=>{e.preventDefault();D.choferes.push({id:nuevoId(D.choferes),nombre:$("#nc-nombre").value.trim(),patente:$("#nc-pat").value.trim().toUpperCase(),fono:$("#nc-fono").value.trim(),local:suc,activo:true});nubeChofer(D.choferes[D.choferes.length-1]);guardar();pintarSistema()};
+    {const bc=$("#rt-ir-choferes");if(bc)bc.onclick=()=>{cfgTab="choferes";cfgCh=null;ir("config")}}
   },
   chofer(){
     $$("[data-chtab]").forEach(b=>b.onclick=()=>{chTab=b.dataset.chtab;pintarSistema()});
@@ -2586,6 +2614,24 @@ const L={
   },
   manual(){},
   config(){
+    $$("[data-cfgtab]").forEach(b=>b.onclick=()=>{cfgTab=b.dataset.cfgtab;cfgCh=null;pintarSistema()});
+    if(cfgTab==="precios"){L.precios();return}
+    if(cfgTab==="usuarios"){L.usuarios();return}
+    if(cfgTab==="respaldos"){L.respaldos();return}
+    if(cfgTab==="sucursal"){L.admin();const f=$("#f-suc");if(f){const g=f.onsubmit;f.onsubmit=e=>{g(e);aviso("Sucursal","Datos guardados.")}}return}
+    if(cfgTab==="choferes"){
+      $("#f-chofer").onsubmit=e=>{e.preventDefault();const datos={nombre:$("#cf-nombre").value.trim(),patente:$("#cf-pat").value.trim().toUpperCase(),fono:$("#cf-fono").value.trim(),local:$("#cf-local")?+$("#cf-local").value:(D.locales[0]||{}).id};
+        if(!datos.nombre)return;
+        if(cfgCh!=null){const c=D.choferes.find(x=>x.id===cfgCh);Object.assign(c,datos);log("sistema","Chofer modificado",`${c.nombre} · ${c.patente||"sin patente"}`);nubeChofer(c)}
+        else{const c=ensureCh({id:nuevoId(D.choferes),...datos,activo:true});D.choferes.push(c);log("sistema","Chofer agregado",`${c.nombre} · ${c.patente||"sin patente"}`);nubeChofer(c)}
+        cfgCh=null;guardar();pintarSistema();aviso("Choferes","Cambios guardados.")};
+      const cc=$("#cf-cancelar");if(cc)cc.onclick=()=>{cfgCh=null;pintarSistema()};
+      $$("[data-cfedit]").forEach(b=>b.onclick=()=>{cfgCh=+b.dataset.cfedit;pintarSistema();window.scrollTo(0,0)});
+      $$("[data-cfact]").forEach(b=>b.onclick=()=>{const c=D.choferes.find(x=>x.id===+b.dataset.cfact);c.activo=c.activo===false;log("sistema",c.activo?"Chofer activado":"Chofer desactivado",c.nombre);nubeChofer(c);guardar();pintarSistema()});
+      $$("[data-delchofer]").forEach(b=>b.onclick=()=>confirmar(b,()=>{const id=+b.dataset.delchofer,c=D.choferes.find(x=>x.id===id);
+        if(D.pedidos.some(p=>p.chofer===id&&p.estado==="ruta"))return aviso("No se puede eliminar",`${c.nombre} tiene pedidos en ruta. Reasígnelos o desactívelo.`);
+        nubeBorrarChofer(id);D.choferes=D.choferes.filter(x=>x.id!==id);log("sistema","Chofer eliminado",c.nombre);guardar();pintarSistema()}));
+      return}
     $("#f-sectores").onsubmit=e=>{e.preventDefault();D.sectores.forEach(x=>{x.nombre=$(`[data-sn="${x.id}"]`).value.trim()||x.nombre;x.comunas=$(`[data-sc="${x.id}"]`).value.split(",").map(c=>c.trim()).filter(Boolean)});guardar();$("#sec-ok").hidden=false};
     $("#sec-nuevo").onclick=()=>{D.sectores.push({id:nuevoId(D.sectores),nombre:"Nuevo sector",comunas:[]});guardar();pintarSistema()};
     $$("[data-delsec]").forEach(b=>b.onclick=()=>confirmar(b,()=>{D.sectores=D.sectores.filter(x=>x.id!==+b.dataset.delsec);guardar();pintarSistema()}));
@@ -2600,9 +2646,6 @@ const L={
       $("#sc-cancelar").onclick=()=>{editSuc=null;pintarSistema()};
       const bb=$("#sc-borrar");if(bb)bb.onclick=()=>confirmar(bb,()=>{D.locales=D.locales.filter(x=>x.id!==l.id);if(suc===l.id)suc=D.locales[0].id;editSuc=null;guardar();guardarSesion();pintarPublico();pintarSistema()});
     }
-    $("#f-chofer").onsubmit=e=>{e.preventDefault();D.choferes.push({id:nuevoId(D.choferes),nombre:$("#cf-nombre").value.trim(),patente:$("#cf-pat").value.trim().toUpperCase(),local:+$("#cf-local").value});nubeChofer(D.choferes[D.choferes.length-1]);guardar();pintarSistema()};
-    $$("[data-chlocal]").forEach(s=>s.onchange=()=>{{const c=D.choferes.find(c=>c.id===+s.dataset.chlocal);c.local=+s.value;nubeChofer(c)}guardar()});
-    $$("[data-delchofer]").forEach(b=>b.onclick=()=>confirmar(b,()=>{nubeBorrarChofer(+b.dataset.delchofer);D.choferes=D.choferes.filter(c=>c.id!==+b.dataset.delchofer);guardar();pintarSistema()}));
   },
   respaldos(){
     $("#rs-copiar").onclick=async()=>{const t=$("#rs-out");try{await navigator.clipboard.writeText(t.value);$("#rs-copiado").hidden=false}catch(e){t.focus();t.select()}};
@@ -2612,7 +2655,7 @@ const L={
   empresa(){$("#f-emp").onsubmit=e=>{e.preventDefault();D.empresa={razon:$("#em-razon").value.trim(),rut:$("#em-rut").value.trim(),giro:$("#em-giro").value.trim(),dir:$("#em-dir").value.trim(),fono:$("#em-fono").value.trim(),correo:$("#em-correo").value.trim()};guardar();$("#em-ok").hidden=false}},
   usuarios(){
     const nube=NUBE.activo,rol=$("#us-rol");
-    const upd=()=>{const enc=rol.value==="encargado";$("#us-acceso").hidden=!enc;$("#us-permisos").hidden=!enc;$("#us-chofer-l").hidden=rol.value!=="chofer"};rol.onchange=upd;upd();
+    const upd=()=>{const enc=rol.value==="encargado";$("#us-acceso").hidden=!enc;$("#us-permisos").hidden=!enc;$("#us-chofer-l").hidden=rol.value!=="chofer";$("#us-resp-l").hidden=rol.value!=="admin"};rol.onchange=upd;upd();
     const c=$("#us-cancelar");if(c)c.onclick=()=>{editUser=null;pintarSistema()};
     $$("[data-edituser]").forEach(b=>b.onclick=()=>{editUser=b.dataset.edituser;pintarSistema();window.scrollTo(0,0)});
     $$("[data-toggleuser]").forEach(b=>b.onclick=async()=>{const k=b.dataset.toggleuser;
@@ -2627,11 +2670,11 @@ const L={
       if(r==="chofer"&&!ch)return falla("Primero agregue el móvil en Asigna Ruta.");
       if(r==="encargado"&&!acc.sucursales.length)return falla("Marque al menos una sucursal.");
       if(r==="encargado"&&!acc.permisos.length)return falla("Marque al menos un cuadro que pueda usar.");
-      const datos={nombre:$("#us-nombre").value.trim(),rol:r,sucursales:r==="admin"?[]:r==="chofer"?[ch.local]:acc.sucursales,permisos:r==="encargado"?acc.permisos:null,chofer:ch?ch.id:null};
+      const datos={nombre:$("#us-nombre").value.trim(),rol:r,sucursales:r==="admin"?[]:r==="chofer"?[ch.local]:acc.sucursales,permisos:r==="encargado"?acc.permisos:r==="admin"?(puede("respaldos")?($("#us-resp").checked?null:[]):[]):null,chofer:ch?ch.id:null};
       datos.local=r==="admin"?null:datos.sucursales[0];
       if(editUser!=null){
         if(nube){try{await api("usuario",{uid:+editUser,...datos,pass});await cargarUsuarios()}catch(x){return falla(x.message)}}
-        else{if(pass&&pass.length<8)return falla("La clave debe tener al menos 8 caracteres.");
+        else{if(pass&&pass.length<4)return falla("La clave debe tener al menos 4 caracteres.");
           const u=D.usuarios.find(x=>x.user===editUser);Object.assign(u,datos);if(pass){u.hash=await hash(pass);u.cambiar=false}}
         log("sistema","Permisos cambiados",`${user} · ${r}${datos.permisos?" · "+datos.permisos.join(", "):""}`);editUser=null;guardar();pintarSistema();
         aviso("Cambios guardados",`Los permisos de ${user} quedaron actualizados.`);return}
@@ -2655,6 +2698,7 @@ const L={
 /* ===================== NAVEGACIÓN ===================== */
 const PUBLICO=["sitio","inicio","precios","pedido","seguridad","locales"];
 function ruta(){
+  document.body.classList.remove("arrancando");
   aplicarProgramados();
   const h=location.hash.slice(1);
   if(!PUBLICO.includes(h)&&yo&&h!=="panel"){location.hash="panel";return}
@@ -3153,6 +3197,18 @@ function elegirCamion(sec,p){
     if(cand.length&&(!prin.length&&!apoyo.length||cand[0].d<=12))return {c:cand[0].c,motivo:"cercano"}}
   const todos=prin.length||apoyo.length?[...prin,...apoyo]:act.filter(c=>c.sector!=null).length?act.filter(c=>c.sector!=null):act;
   return {c:menos(todos),motivo:prin.length||apoyo.length?"sobretope":"cercano"}}
+
+/* ===================== VOLVER A LA PANTALLA ANTERIOR ===================== */
+let pilaNav=[],ultNav=null,volviendo=false;
+const navEstado=()=>({mod,cfgTab,cuadTab,infTab,infRep,szTab,cuadSel});
+function registrarNav(){const e=navEstado(),k=JSON.stringify(e);
+  if(ultNav&&ultNav.k!==k&&!volviendo){pilaNav.push(ultNav.e);if(pilaNav.length>40)pilaNav.shift()}
+  ultNav={k,e};volviendo=false}
+function volverAtras(){
+  const e=pilaNav.pop();if(!e){ir(yo&&yo.rol==="chofer"?"chofer":"menu");return}
+  volviendo=true;mod=e.mod;cfgTab=e.cfgTab;cuadTab=e.cuadTab;infTab=e.infTab;infRep=e.infRep;szTab=e.szTab;cuadSel=e.cuadSel;
+  guardarSesion();pintarSistema();window.scrollTo(0,0)}
+document.addEventListener("keydown",e=>{if(e.altKey&&e.key==="ArrowLeft"&&yo&&location.hash==="#panel"){e.preventDefault();volverAtras()}});
 </script>
 <style id="tema-erp">
 .sis .moviles th,.sis .moviles td{padding:6px 4px;font-size:13px}.sis .moviles td:first-child{white-space:nowrap}.sis .moviles th{font-size:10px;letter-spacing:.04em}
@@ -3239,6 +3295,7 @@ body:has(.sis:not([hidden]))::before{content:"";position:fixed;inset:0 0 auto;he
 /* botones y campos */
 .sis .btn{border-radius:8px;font:600 13.5px var(--f-ui);background:var(--b8);border:1px solid var(--b8);color:#fff;box-shadow:0 1px 2px rgba(16,24,40,.12),inset 0 1px 0 rgba(255,255,255,.12);background-image:none}
 .sis .btn:hover{background:var(--b9);border-color:var(--b9)}
+.sis .btn.rojo{background:#fff;color:#b42318;border-color:#f3c9c4;box-shadow:none}.sis .btn.rojo:hover{background:#fef3f2;color:#b42318}
 .sis .btn.linea{background:#fff;color:var(--tx2);border-color:var(--line2);box-shadow:none}
 .sis .btn.linea:hover{background:var(--page);color:var(--b8)}
 .sis input,.sis select,.sis textarea{border-radius:8px;border-color:var(--line2);font-family:var(--f-ui)}

@@ -136,6 +136,17 @@ try {
     }
     case 'usuario': {
         $adm = requiereAdmin(); $b = cuerpo();
+        // Un administrador sin «Respaldos y reset» no puede dar ese permiso ni cambiar a quien lo tiene
+        $total = fn(?array $per) => $per === null || in_array('respaldos', $per, true);
+        $soyTotal = $total($adm['permisos']);
+        if (!$soyTotal) {
+            if (($b['rol'] ?? '') === 'admin') $b['permisos'] = [];
+            if (!empty($b['uid'])) {
+                $s0 = db()->prepare('SELECT * FROM usuarios WHERE uid = ?'); $s0->execute([(int) $b['uid']]); $obj = $s0->fetch();
+                if ($obj && $obj['rol'] === 'admin' && $total($obj['permisos'] !== null ? json_decode($obj['permisos'], true) : null))
+                    salida(['error' => 'Solo un administrador con permiso de respaldos puede cambiar a este usuario.'], 403);
+            }
+        }
         $rol = in_array($b['rol'] ?? '', ['admin', 'encargado', 'chofer'], true) ? $b['rol'] : 'encargado';
         $suc = array_values(array_map('intval', (array) ($b['sucursales'] ?? [])));
         $per = isset($b['permisos']) && is_array($b['permisos']) ? json_encode(array_values($b['permisos'])) : null;

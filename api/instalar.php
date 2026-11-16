@@ -38,7 +38,7 @@ input{padding:10px 12px;border:1px solid #d0d7e2;border-radius:8px;font:inherit}
 <?php if ($ok): ?>
   <h1>Listo</h1><div class="k">MR Gas quedó instalado. Ya puede entrar con el usuario que creó.</div><p style="margin-top:14px"><a href="../#acceso">Ir al sistema →</a></p>
 <?php elseif ($yaEsta): ?>
-  <h1>MR Gas ya está instalado</h1><p>Por seguridad esta página ya no hace nada. Los usuarios se crean dentro del sistema, en «Permisos Usuarios».</p><p><a href="../#acceso">Ir al sistema →</a></p>
+  <h1>MR Gas ya está instalado</h1><p>Por seguridad esta página ya no hace nada. Los usuarios se crean dentro del sistema, en «Configuraciones → Usuarios y permisos».</p><p><a href="../#acceso">Ir al sistema →</a></p>
 <?php else: ?>
   <h1>Instalar MR Gas</h1><p>Se crearán las tablas en su base de datos de Hostinger y el primer administrador.</p>
   <?php if ($msg): ?><div class="e"><?= $msg ?></div><?php endif; ?>
