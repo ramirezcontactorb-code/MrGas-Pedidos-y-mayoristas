@@ -1,0 +1,22 @@
+{
+  "name": "MR Gas · Sistema de distribución",
+  "short_name": "MR Gas",
+  "description": "Pedidos, rutas, repartidores, bodega y cuadratura de MR Gas.",
+  "lang": "es-CL",
+  "id": "./",
+  "start_url": "./#acceso",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F2F6FC",
+  "theme_color": "#06275E",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Mis entregas", "short_name": "Entregas", "url": "./#panel", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
