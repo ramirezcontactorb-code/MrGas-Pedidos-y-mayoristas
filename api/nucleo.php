@@ -5,7 +5,7 @@ declare(strict_types=1);
 const COLS_PERMITIDAS = ['pedidos','bitacora','ventas','gastos','rendiciones','cargas','cargasDist','anticipos','petroleo',
     'peonetas','clientes','choferes','movimientos','recuentos','historialPrecios','ventasAnuladas','programados','estado'];
 // Documentos de "estado" que solo cambia el administrador
-const ESTADO_SOLO_ADMIN = ['precios','preciosMayor','preciosEnvase','preciosConvenio','listas','empresa','comisiones','historico'];
+const ESTADO_SOLO_ADMIN = ['precios','preciosMayor','preciosEnvase','preciosConvenio','listas','empresa','comisiones','historico','listasMay','comisionVale'];
 // Cuadro (permiso) que necesita un encargado para escribir en cada colección
 const PERMISO_COL = [
     'rendiciones' => ['cuadratura'], 'cargas' => ['cuadratura'], 'cargasDist' => ['cuadratura'], 'anticipos' => ['cuadratura'], 'peonetas' => ['cuadratura'],
