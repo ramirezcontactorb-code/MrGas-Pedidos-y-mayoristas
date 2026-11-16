@@ -5,8 +5,8 @@ require __DIR__ . '/nucleo.php';
 date_default_timezone_set('America/Santiago');
 header('Content-Type: text/html; charset=utf-8');
 $msg = ''; $ok = false;
-if (!is_file(__DIR__ . '/config.php')) {
-    echo '<!doctype html><meta charset="utf-8"><body style="font:16px system-ui;padding:32px;max-width:560px;margin:auto"><h1>Falta un paso</h1><p>En el Administrador de archivos de Hostinger, dentro de <b>public_html/api</b>, copie <b>config.ejemplo.php</b> con el nombre <b>config.php</b> y escriba ahí los datos de su base de datos MySQL. Luego vuelva a abrir esta página.</p></body>';
+if (!rutaConfig()) {
+    echo '<!doctype html><meta charset="utf-8"><body style="font:16px system-ui;padding:32px;max-width:560px;margin:auto"><h1>Falta un paso</h1><p>En el Administrador de archivos de Hostinger, suba <b>un nivel arriba</b> de <b>public_html</b> (a la carpeta del dominio). Ahí cree el archivo <b>mrgas-config.php</b> copiando el contenido de <b>public_html/api/config.ejemplo.php</b> y escriba los datos de su base MySQL. Así GitHub nunca lo borra. Luego vuelva a abrir esta página.</p></body>';
     exit;
 }
 try {
@@ -25,7 +25,7 @@ try {
         }
     }
 } catch (Throwable $e) {
-    $msg = 'No se pudo conectar a la base de datos. Revise los datos en api/config.php. (' . htmlspecialchars($e->getMessage()) . ')';
+    $msg = 'No se pudo conectar a la base de datos. Revise los datos en mrgas-config.php. (' . htmlspecialchars($e->getMessage()) . ')';
     $yaEsta = false;
 }
 ?><!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

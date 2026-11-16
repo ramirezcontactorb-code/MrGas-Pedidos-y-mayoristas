@@ -14,12 +14,23 @@ const PERMISO_COL = [
     'pedidos' => ['pedidos','ruta','chofer'], 'clientes' => ['pedidos','ruta'], 'petroleo' => ['petroleo','cuadratura'],
 ];
 
+// Dónde buscar la configuración. Lo recomendado es FUERA de public_html (un nivel arriba),
+// porque cada implementación desde GitHub reemplaza public_html y borraría api/config.php.
+function rutaConfig(): ?string {
+    $publico = dirname(__DIR__);                       // .../public_html
+    foreach ([dirname($publico) . '/mrgas-config.php',  // .../dominio/mrgas-config.php  (fuera de public_html)
+              __DIR__ . '/config.php'] as $r) {         // api/config.php (antiguo)
+        if (is_file($r)) return $r;
+    }
+    return null;
+}
+
 function cfg(): array {
     static $c = null;
     if ($c === null) {
-        // config.php NO va en GitHub (tiene la clave de la base): se crea una vez en Hostinger copiando config.ejemplo.php
-        if (!is_file(__DIR__ . '/config.php')) salida(['error' => 'Falta el archivo api/config.php. Cópielo desde api/config.ejemplo.php y ponga los datos de la base.'], 503);
-        $c = require __DIR__ . '/config.php';
+        $r = rutaConfig();
+        if (!$r) salida(['error' => 'Falta el archivo mrgas-config.php (fuera de public_html). Cópielo desde api/config.ejemplo.php y ponga los datos de la base.'], 503);
+        $c = require $r;
     }
     return $c;
 }
@@ -31,7 +42,7 @@ function db(): PDO {
     if (!empty($c['dsn'])) {
         $pdo = new PDO($c['dsn'], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
     } else {
-        if (str_contains($c['db_name'], 'PEGA_AQUI')) salida(['error' => 'Falta configurar la base de datos en api/config.php'], 503);
+        if (str_contains($c['db_name'], 'PEGA_AQUI')) salida(['error' => 'Falta configurar la base de datos en mrgas-config.php'], 503);
         $pdo = new PDO("mysql:host={$c['db_host']};dbname={$c['db_name']};charset=utf8mb4", $c['db_user'], $c['db_pass'],
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false]);
     }
