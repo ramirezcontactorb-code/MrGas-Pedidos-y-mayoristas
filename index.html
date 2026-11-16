@@ -1241,7 +1241,7 @@ const MODULOS=[
   {id:"compras",t:"Compras y Devoluciones",s:"Entradas y salidas",r:[A,E]},
   {id:"chofer",t:"Pedidos Chofer",s:"Entregas en ruta",r:[A,E,C]},
   {id:"bodega",t:"Control de Bodega",s:"Stock, móviles y recuento",r:[A,E]},
-  {id:"config",t:"Configuraciones",s:"Choferes, precios, usuarios y más",r:[A]},
+  {id:"config",t:"Configuraciones",s:"Choferes, sectores, precios y usuarios",r:[A]},
 
 ];
 const ACCIONES=[
@@ -1255,7 +1255,7 @@ const MOD_PERM=["pedidos","ruta","cuadratura","bodega","compras","informes"];
 const misSucs=()=>!yo?[]:esAdmin()?D.locales.map(l=>l.id):((yo.sucursales&&yo.sucursales.length)?yo.sucursales:[yo.local]).filter(x=>x!=null);
 const puede=id=>{
   if(id==="sucursal")return D.locales.length>1&&(esAdmin()||misSucs().length>1);
-  if(id==="sectorizar")return puede("ruta");
+  if(id==="sectorizar")return esAdmin();
   if(id==="precios"||id==="usuarios"||id==="admin")return esAdmin();
   if(id==="respaldos")return esAdmin()&&(yo.permisos==null||(Array.isArray(yo.permisos)&&yo.permisos.includes("respaldos")));
   if(id==="caja"||id==="petroleo")return false; // desactivados (los datos antiguos se conservan)
@@ -1828,7 +1828,10 @@ const V={
     const entHoy=ps.filter(p=>p.estado==="entregado"&&(p.entregado||"").startsWith(hoy)).length,nom=String(yo.nombre||"").split(" ")[0];
     const card=(attr,ico,t,d,go="Abrir")=>`<${attr.startsWith("href")?"a":"button"} class="modulo" ${attr}><span class="ico">${svg(ico)}</span><b>${t}</b><span class="sub">${d}</span><span class="mgo">${go}<span aria-hidden="true">→</span></span></${attr.startsWith("href")?"a":"button"}>`;
     return `<div class="phead-mr"><div class="eyebrow-mr">Sucursal ${esc(nomLocal(suc))}</div><h1>${saludo}, ${esc(nom)}</h1><p class="sub">${fechaLarga(hoy)}</p></div>
-      <div class="modulos">${MODULOS.filter(m=>puede(m.id)).map(m=>card(`data-modulo="${m.id}" type="button"`,m.id,m.t,m.s)).join("")}${yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","ERP Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):""}</div>
+      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","cuadratura","bodega","compras","erp","informes","config"],FUERA=["sectorizar"];
+        const ids=[...ORDEN,...MODULOS.map(m=>m.id).filter(id=>!ORDEN.includes(id)&&!FUERA.includes(id))];
+        return ids.map(id=>{if(id==="erp")return yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","ERP Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):"";
+          const m=MODULOS.find(x=>x.id===id);return m&&puede(m.id)?card(`data-modulo="${m.id}" type="button"`,m.id,m.t,m.s):""}).join("")})()}</div>
       <p class="stitle-mr">Resumen de hoy</p>
       <div class="stats-mr"><div><div class="k">Pedidos nuevos</div><div class="v">${nuevos}</div></div><div><div class="k">En ruta</div><div class="v">${enRuta}</div></div><div><div class="k">Entregados hoy</div><div class="v">${entHoy}</div></div><div><div class="k">Vendido hoy</div><div class="v">${clp(vendido)}</div></div></div>`;
   },
@@ -2234,9 +2237,8 @@ const V={
       <p class="nota">Emergencias de gas: 600 600 7799.</p>`;
   },
   config(){
-    const TABS=[["choferes","Choferes"],["precios","Precios del Gas"],["usuarios","Usuarios y permisos"],["sucursal","Sucursal"],["general","Stock y envases"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
-    if(!TABS.some(t=>t[0]===cfgTab))cfgTab="choferes";
-    const tabs=`<div class="tabs" role="tablist">${TABS.map(([k,t])=>`<button type="button" role="tab" data-cfgtab="${k}" aria-selected="${cfgTab===k}">${t}</button>`).join("")}</div>`;
+    if(!cfgTabsLista().some(t=>t[0]===cfgTab)||cfgTab==="sectorizar")cfgTab="choferes";
+    const tabs=cfgTabsHtml(cfgTab);
     if(cfgTab==="precios")return cabeza("Configuraciones")+tabs+V.precios().replace(cabeza("Precios del Gas"),"");
     if(cfgTab==="usuarios")return cabeza("Configuraciones")+tabs+V.usuarios().replace(cabeza("Permisos Usuarios"),"");
     if(cfgTab==="respaldos")return cabeza("Configuraciones")+tabs+V.respaldos().replace(cabeza("Respaldos"),"");
@@ -2614,7 +2616,7 @@ const L={
   },
   manual(){},
   config(){
-    $$("[data-cfgtab]").forEach(b=>b.onclick=()=>{cfgTab=b.dataset.cfgtab;cfgCh=null;pintarSistema()});
+    enlazarCfgTabs();
     if(cfgTab==="precios"){L.precios();return}
     if(cfgTab==="usuarios"){L.usuarios();return}
     if(cfgTab==="respaldos"){L.respaldos();return}
@@ -3209,6 +3211,16 @@ function volverAtras(){
   volviendo=true;mod=e.mod;cfgTab=e.cfgTab;cuadTab=e.cuadTab;infTab=e.infTab;infRep=e.infRep;szTab=e.szTab;cuadSel=e.cuadSel;
   guardarSesion();pintarSistema();window.scrollTo(0,0)}
 document.addEventListener("keydown",e=>{if(e.altKey&&e.key==="ArrowLeft"&&yo&&location.hash==="#panel"){e.preventDefault();volverAtras()}});
+
+/* ===================== PESTAÑAS DE CONFIGURACIONES (Sectorizar vive aquí) ===================== */
+const cfgTabsLista=()=>[["choferes","Choferes"],["sectorizar","Sectorizar"],["precios","Precios del Gas"],["usuarios","Usuarios y permisos"],["sucursal","Sucursal"],["general","Stock y envases"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
+const cfgTabsHtml=sel=>`<div class="tabs" role="tablist">${cfgTabsLista().map(([k,t])=>`<button type="button" role="tab" data-cfgtab="${k}" aria-selected="${sel===k}">${t}</button>`).join("")}</div>`;
+function enlazarCfgTabs(){$$("[data-cfgtab]").forEach(b=>b.onclick=()=>{const k=b.dataset.cfgtab;cfgCh=null;
+  if(k==="sectorizar"){if(mod!=="sectorizar")ir("sectorizar");return}
+  cfgTab=k;if(mod!=="config")ir("config");else pintarSistema()})}
+{const vs=V.sectorizar,ls=L.sectorizar;
+  V.sectorizar=()=>vs().replace(cabeza("Sectorizar pedidos"),cabeza("Configuraciones")+cfgTabsHtml("sectorizar"));
+  L.sectorizar=()=>{enlazarCfgTabs();ls()}}
 </script>
 <style id="tema-erp">
 .sis .moviles th,.sis .moviles td{padding:6px 4px;font-size:13px}.sis .moviles td:first-child{white-space:nowrap}.sis .moviles th{font-size:10px;letter-spacing:.04em}
