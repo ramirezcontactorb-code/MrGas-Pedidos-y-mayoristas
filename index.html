@@ -1388,8 +1388,8 @@ function entregasDe(chId,fecha){
   return {ventas,env,tarros:Object.values(ventas).reduce((a,b)=>a+b,0),envTot:Object.values(env).reduce((a,b)=>a+b,0),total:ps.reduce((s,p)=>s+totalP(p),0)};
 }
 const cargadoDe=(ch,fecha)=>{const o=st();(D.cargas||[]).filter(x=>x.chofer===ch&&x.fecha===fecha).forEach(x=>FORMATOS.forEach(f=>o[f.id]+=x.cant[f.id]||0));return o};
-function cargaDistDe(mid,fecha){const o=st();(D.cargasDist||[]).filter(x=>x.mayorista===mid&&x.fecha===fecha&&!x.anulada).forEach(x=>FORMATOS.forEach(f=>o[f.id]+=x.venta[f.id]||0));
-  return {ventas:o,env:st(),tarros:Object.values(o).reduce((a,b)=>a+b,0),envTot:0}}
+function cargaDistDe(mid,fecha){const o=st(),e=st();let dcto=0;(D.cargasDist||[]).filter(x=>x.mayorista===mid&&x.fecha===fecha&&!x.anulada).forEach(x=>{dcto+=+x.dcto||0;FORMATOS.forEach(f=>{o[f.id]+=x.venta[f.id]||0;e[f.id]+=(x.env||{})[f.id]||0})});
+  return {ventas:o,env:e,dcto,tarros:Object.values(o).reduce((a,b)=>a+b,0),envTot:Object.values(e).reduce((a,b)=>a+b,0)}}
 const prestamoPend=(mid,fid)=>(D.cargasDist||[]).filter(x=>x.mayorista===mid&&!x.anulada).reduce((s,x)=>s+(x.prestamo[fid]||0)-(x.devolucion[fid]||0),0);
 const comisionDe=(kind,v)=>FORMATOS.reduce((s,f)=>s+(v[f.id]||0)*((((D.comisiones||{})[kind]||{})[f.id])||0),0);
 const puedeEditarFecha=f=>esAdmin()||f>=hoyStr()||(((D.historico||{}).usuarios||[]).includes(yo.uid||yo.user)&&f>=((D.historico||{}).desde||"9999"));
@@ -1793,7 +1793,7 @@ function vistaLiq(kind){
       </div></div>`;
 }
 function aplicarCarga(x,sg){const l=ensureLoc(loc(x.local)),c=ensureCh(D.choferes.find(y=>y.id===x.chofer)||{});FORMATOS.forEach(f=>{const n=(x.cant[f.id]||0)*sg;l.stock[f.id]-=n;if(c.carga)c.carga[f.id]+=n})}
-function aplicarDist(x,sg){const l=ensureLoc(loc(x.local));FORMATOS.forEach(f=>{const v=x.venta[f.id]||0,p=x.prestamo[f.id]||0,d=x.devolucion[f.id]||0;l.stock[f.id]-=sg*v;l.vacios[f.id]+=sg*(v-p+d);l.prestados[f.id]+=sg*(p-d)})}
+function aplicarDist(x,sg){const l=ensureLoc(loc(x.local));FORMATOS.forEach(f=>{const v=x.venta[f.id]||0,p=x.prestamo[f.id]||0,d=x.devolucion[f.id]||0,e=(x.env||{})[f.id]||0;l.stock[f.id]-=sg*v;l.vacios[f.id]+=sg*(v-p-e+d);l.prestados[f.id]+=sg*(p-d)})}
 function enlazarCuadExtra(){
   const leer=a=>{const o=st();FORMATOS.forEach(f=>{const i=document.querySelector(`[data-${a}="${f.id}"]`);o[f.id]=i?Math.max(0,+i.value||0):0});return o};
   const fh=$("#f-hist");if(fh)fh.onsubmit=e=>{e.preventDefault();D.historico={desde:$("#hs-desde").value||D.historico.desde,usuarios:[...$$('input[name="hs-u"]:checked')].map(i=>i.value)};
@@ -3324,7 +3324,7 @@ const cliMay=id=>(D.mayoristas||[]).find(m=>m.id===id);
 function preciosCliMay(id){const c=cliMay(id),o={};FORMATOS.forEach(f=>o[f.id]=precioCliMay(c,f.id));return o}
 const comVale=cp=>{if(!cp)return 0;const t=((D.comisionVale||{})[cp.vale])||{};return (+cp.cant||0)*(+t[cp.formato]||0)};
 const nomListaMay=c=>esEspMay(c)?"Precio especial":listaMay(c)?listaMay(c).nombre:"Precio base";
-const valorDist=x=>FORMATOS.reduce((s,f)=>s+(x.venta[f.id]||0)*((x.precios||{})[f.id]??precioCliMay(cliMay(x.mayorista),f.id)),0);
+const valorDist=x=>FORMATOS.reduce((s,f)=>s+(x.venta[f.id]||0)*((x.precios||{})[f.id]??precioCliMay(cliMay(x.mayorista),f.id))+((x.env||{})[f.id]||0)*((x.precioEnv||{})[f.id]||0),0)-(+x.dcto||0);
 const cilTxt=o=>FORMATOS.filter(f=>o[f.id]).map(f=>`${o[f.id]}×${f.et}`).join(", ")||"—";
 
 /* la comisión por vale baja el saldo del cliente en la rendición mayorista */
@@ -3334,7 +3334,9 @@ const cilTxt=o=>FORMATOS.filter(f=>o[f.id]).map(f=>`${o[f.id]}×${f.et}`).join("
 
 /* si ya existe la rendición del cliente ese día, se actualiza con las ventas */
 function syncRendMay(mid,fecha){const r=(D.rendiciones||[]).find(x=>x.tipo==="mayorista"&&x.ref===mid&&x.fecha===fecha);if(!r)return;
-  Object.assign(r.ventas,st(),cargaDistDe(mid,fecha).ventas);nubeGuardar("rendiciones",r)}
+  const cd=cargaDistDe(mid,fecha);Object.assign(r.ventas,st(),cd.ventas);r.envases={...st(),...cd.env};
+  r.pagos=r.pagos.filter(p=>p.auto!=="may");if(cd.dcto>0)r.pagos.push({id:(r.pagos.reduce((m,p)=>Math.max(m,+p.id||0),0))+1,tipo:"descuento",monto:cd.dcto,detalle:"Descuentos dados en Venta Mayorista",hora:ahora(),auto:"may"});
+  nubeGuardar("rendiciones",r)}
 
 let mayTab="venta",mayFecha=null,mayCli=null,mayFiltro={cli:"",d1:"",d2:""};
 
@@ -3988,6 +3990,115 @@ L.ventachofer=function(){
 // «Cuadratura» ya no está en el menú: sus pantallas de inicio llevan a Venta Choferes (o a Venta Mayorista si venía de ahí)
 {const lc=L.cuadratura;L.cuadratura=function(){lc.call(this);if(mod!=="cuadratura")return;
   $$("[data-ctab='menu']").forEach(b=>b.onclick=()=>{if(cuadTab==="mayorista"||cuadTab==="venta-dist")ir("mayorista");else{vcTab="venta";ir("ventachofer")}})}}
+
+/* ===================== VENTA MAYORISTA con la misma interfaz que Venta Choferes ===================== */
+{const v0=V.mayorista,l0=L.mayorista;
+V.mayorista=function(){
+  asegMay();if(!["venta","rend","cuenta"].includes(mayTab))mayTab="venta";
+  const mays=(D.mayoristas||[]).filter(m=>(m.local??1)===suc).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  if(!mays.some(m=>m.id===mayCli))mayCli=(mays[0]||{}).id??null;mayFecha=fechaCuad;
+  const side=`<aside class="vc-side caja">${[["venta","Venta Mayorista","factura"],["rend","Rendición","cuadratura"]].map(([k,t,ic])=>`<button type="button" class="vc-t" data-mytab="${k}" aria-selected="${mayTab===k}">${svg(ic)}<span>${t}</span></button>`).join("")}
+    <p class="vc-sep">Otros</p><button type="button" class="vc-t chico" data-mytab="cuenta" aria-selected="${mayTab==="cuenta"}"><span>Cuenta clientes</span></button></aside>`;
+  const fechaSel=`<label>Fecha<input type="date" id="f-cuad" value="${fechaCuad}"></label>`;
+  let main;
+  if(!mays.length&&mayTab!=="cuenta")main=v0().replace(/<div class="tabs" role="tablist">[\s\S]*?<\/div>/,"");
+  else if(mayTab==="cuenta")main=v0().replace(/<div class="tabs" role="tablist">[\s\S]*?<\/div>/,"");
+  else if(mayTab==="rend"){cuadTab="mayorista";cuadSel=mayCli;const r=getRend("mayorista",mayCli,fechaCuad,true);syncRendMay(mayCli,fechaCuad);main=vistaRend(r,fechaSel)}
+  else main=vistaVentaMay(mays,fechaSel);
+  return `<div class="vc-lay">${side}<div class="vc-main">${main}</div></div>`};
+function vistaVentaMay(mays,fechaSel){
+  const ed=puedeEditarFecha(fechaCuad)&&!soloVer("mayorista"),c=cliMay(mayCli),l=ensureLoc(loc(suc)),PE=D.preciosEnvase||{},FE=fmtEnv();
+  const vs=(D.cargasDist||[]).filter(x=>x.mayorista===mayCli&&x.fecha===fechaCuad).sort((a,b)=>(+a.k||0)-(+b.k||0)),act=vs.filter(x=>!x.anulada);
+  const r=getRend("mayorista",mayCli,fechaCuad,false),k=r?calcRend(r):null;
+  const sel=`<label>Cliente<select id="my-cli2" class="vc-chsel">${mays.map(m=>`<option value="${m.id}" ${m.id===mayCli?"selected":""}>${esc(m.nombre)}</option>`).join("")}</select></label>`;
+  return cabeza("Venta Mayorista",`<div class="acc" style="align-items:end">${sel}${fechaSel}</div>`)+(ed?"":`<div class="banner">${soloVer("mayorista")?"Solo puede ver este cuadro.":"Este día ya pasó y está bloqueado. Para editarlo, el administrador debe darle acceso a históricos."}</div>`)+`
+  <form class="caja vc-caja" id="f-vm" autocomplete="off"><div class="vc-card">
+   <div class="vc-g" style="--n:${FORMATOS.length}">
+    <div class="vc-izq"><span class="vc-plab">Precio cliente</span>
+      <div class="vc-tot"><span>TOTAL</span><b class="num" id="vm-total">${clp(0)}</b></div>
+      <label class="vc-dc"><span>DESCUENTO</span><span class="vc-pesos">$ <input id="vm-dcto" type="number" min="0" inputmode="numeric" placeholder="0" ${ed?"":"disabled"}></span></label></div>
+    ${FORMATOS.map(f=>`<div class="vc-col"><span class="vc-pr num">${clp(c?precioCliMay(c,f.id):0)}</span><div class="vc-img">${cilBlanco(f)}</div>
+      <span class="vc-et"><b>${f.tipo==="h"?"H15":f.kg}</b> ${f.tipo==="h"?"Aluminio":"kg"}</span>
+      <input class="vc-in" type="number" min="0" inputmode="numeric" data-vmq="${f.id}" placeholder="0" aria-label="Cantidad ${f.et}" ${ed?"":"disabled"}>
+      <span class="vc-stock ${(l.stock[f.id]||0)>0?"":"cero"}">Stock: ${l.stock[f.id]||0}</span></div>`).join("")}
+   </div>
+   <div class="vc-envh">VENTA DE ENVASES</div>
+   <div class="vc-g env" style="--n:${FORMATOS.length}"><div class="vm-extra">
+      <label class="radio"><input type="checkbox" id="vm-canje" checked ${ed?"":"disabled"}> Entrega vacíos a cambio</label>
+      <input id="vm-obs" placeholder="Observación / N° guía" ${ed?"":"disabled"}></div>
+    ${FORMATOS.map(f=>FE.includes(f)?`<div class="vc-col"><span class="vc-pr num">${clp(PE[f.id]||0)}</span><input class="vc-in" type="number" min="0" inputmode="numeric" data-vme="${f.id}" placeholder="0" aria-label="Envases ${f.et}" ${ed?"":"disabled"}></div>`:"<div></div>").join("")}
+   </div></div>
+   <div class="vc-acc"><button class="btn" type="submit" ${ed&&c?"":"disabled"}>Grabar venta</button><button class="btn linea" type="button" id="vm-pago" ${c?"":"disabled"}>Ingresar pago</button>
+     <button class="btn linea" type="button" id="vm-imp" ${act.length?"":"disabled"}>Imprimir</button><button class="btn linea rojo" type="button" id="vm-anular" ${ed&&act.length?"":"disabled"}>Anular</button>
+     <button class="btn linea" type="button" id="vm-volver">Volver</button><span style="flex:1"></span><button class="btn linea" type="reset">Nueva venta</button></div>
+   <p class="error" id="vm-err" hidden></p></form>
+  <h4 class="vc-h4">VENTAS DE HOY <span>· si hay un error, anula la venta y vuelve a ingresarla</span></h4>
+  <div class="tabla-wrap"><table class="vc-tab"><thead><tr><th>N°</th><th>Hora</th><th>Usuario</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15A":f.kg+"N"}</th>`).join("")}<th class="c">Envases</th><th>Obs.</th><th class="der">Desc.</th><th class="der">Total</th><th></th></tr></thead><tbody>
+   ${vs.length?vs.map((x,i)=>`<tr class="${x.anulada?"anul":""}"><td class="num">${i+1}</td><td class="num">${esc(String(x.hora||"").slice(0,5))}</td><td>${esc(x.user||"")}</td>
+     ${FORMATOS.map(f=>`<td class="c num">${+x.venta[f.id]||"–"}</td>`).join("")}<td class="c num">${FORMATOS.reduce((a,f)=>a+((x.env||{})[f.id]||0),0)||"–"}</td>
+     <td>${esc(x.guia||"")}${x.canje===false?'<br><span class="nota" style="margin:0">envases prestados</span>':""}</td><td class="der num">${x.dcto?clp(x.dcto):"–"}</td><td class="der num"><b>${clp(valorDist(x))}</b></td>
+     <td>${x.anulada?'<span class="pill anulado">Anulada</span>':`<div class="acc"><button class="btn chico linea" type="button" data-vmimp="${x.k}" title="Imprimir">🖨</button>${ed?`<button class="btn chico linea rojo" type="button" data-anmay="${x.k}">Anular</button>`:""}</div>`}</td></tr>`).join("")
+     :`<tr><td colspan="${FORMATOS.length+8}" class="vc-vacio">Aún no hay ventas hoy</td></tr>`}
+   ${act.length?`<tr class="fila-tot"><td colspan="3"><b>Total del día (${act.length} venta${act.length>1?"s":""})</b></td>${FORMATOS.map(f=>`<td class="c num"><b>${act.reduce((a,x)=>a+(+x.venta[f.id]||0),0)||"–"}</b></td>`).join("")}<td class="c num">${act.reduce((a,x)=>a+FORMATOS.reduce((b,f)=>b+((x.env||{})[f.id]||0),0),0)||"–"}</td><td></td><td class="der num">${clp(act.reduce((a,x)=>a+(+x.dcto||0),0))}</td><td class="der num"><b>${clp(act.reduce((a,x)=>a+valorDist(x),0))}</b></td>
+     <td>${r&&r.guardada?(Math.round(k.saldo)===0?'<span class="pill entregado">Rendido</span>':`<span class="pill bajo">Debe ${clp(k.saldo)}</span>`):'<span class="pill ruta">Por rendir</span>'}</td></tr>`:""}
+  </tbody></table></div>`;
+}
+function imprimirVentaMay(x){const c=cliMay(x.mayorista),emp=D.empresa||{},w=window.open("","_blank","width=380,height=600");if(!w)return aviso("Imprimir","El navegador bloqueó la ventana. Permita ventanas emergentes.");
+  const filas=FORMATOS.filter(f=>+x.venta[f.id]>0).map(f=>`<tr><td>${x.venta[f.id]} × ${f.tipo==="h"?"H15 Alum.":f.kg+" kg"}</td><td style="text-align:right">${clp(x.venta[f.id]*((x.precios||{})[f.id]??precioCliMay(c,f.id)))}</td></tr>`).join("")
+    +FORMATOS.filter(f=>+(x.env||{})[f.id]>0).map(f=>`<tr><td>${x.env[f.id]} × envase ${f.kg} kg</td><td style="text-align:right">${clp(x.env[f.id]*((x.precioEnv||{})[f.id]||0))}</td></tr>`).join("");
+  w.document.write(`<!doctype html><meta charset="utf-8"><title>Venta mayorista</title><body style="font:13px monospace;padding:10px;max-width:300px"><h3 style="margin:0">${esc(emp.nombre||"MR Gas")}</h3><p style="margin:4px 0">Venta mayorista · ${esc(c?c.nombre:"")}<br>${esc(x.fecha)} ${esc(String(x.hora||"").slice(0,5))}${x.guia?"<br>"+esc(x.guia):""}</p><hr><table style="width:100%">${filas}${x.dcto?`<tr><td>Descuento</td><td style="text-align:right">-${clp(x.dcto)}</td></tr>`:""}</table><hr><b style="font-size:15px">TOTAL ${clp(valorDist(x))}</b>${x.canje===false?"<p>Envases prestados</p>":""}<p style="margin-top:8px">Atendido por: ${esc(x.user||"")}</p><script>print()<\/script></body>`);w.document.close()}
+L.mayorista=function(){
+  $$("[data-mytab]").forEach(b=>b.onclick=()=>{mayTab=b.dataset.mytab;pintarSistema();window.scrollTo(0,0)});
+  const fc=$("#f-cuad");if(fc)fc.onchange=e=>{fechaCuad=e.target.value||hoyStr();pintarSistema()};
+  if(mayTab==="cuenta"){l0();$$("[data-mytab]").forEach(b=>b.onclick=()=>{mayTab=b.dataset.mytab;pintarSistema();window.scrollTo(0,0)});return}
+  if(mayTab==="rend"){L.cuadratura();
+    $$("[data-ctab]").forEach(b=>b.onclick=()=>{mayTab="venta";pintarSistema()});
+    const cl=$("#cu-lista");if(cl){cl.textContent="← Volver a Venta Mayorista";cl.onclick=()=>{mayTab="venta";pintarSistema()}}
+    const rs=$("#rd-sel");if(rs)rs.onchange=()=>{mayCli=+rs.value;pintarSistema()};
+    $$(".vr-sum [data-ctab]").forEach(x=>x.onclick=()=>{mayTab="venta";pintarSistema()});
+    {const fc2=$("#f-cuad");if(fc2)fc2.onchange=e=>{fechaCuad=e.target.value||hoyStr();pintarSistema()}}
+    return}
+  $$("[data-ircfg]").forEach(b=>b.onclick=()=>{cfgTab=b.dataset.ircfg;ir("config")});
+  const f=$("#f-vm");if(!f)return;
+  const sel=$("#my-cli2");if(sel)sel.onchange=()=>{mayCli=+sel.value;pintarSistema()};
+  const leer=a=>{const o=st();$$(`[data-${a}]`).forEach(i=>o[i.dataset[a]]=Math.max(0,Math.round(+i.value||0)));return o};
+  const calc=()=>{const c=cliMay(mayCli),PE=D.preciosEnvase||{},q=leer("vmq"),e=leer("vme"),d=Math.max(0,+$("#vm-dcto").value||0);
+    $("#vm-total").textContent=clp(Math.max(0,FORMATOS.reduce((s,x)=>s+q[x.id]*(c?precioCliMay(c,x.id):0)+e[x.id]*(PE[x.id]||0),0)-d))};
+  $$("[data-vmq],[data-vme],#vm-dcto").forEach(i=>i.oninput=calc);
+  f.onreset=()=>setTimeout(()=>{calc();$("#vm-err").hidden=true},0);
+  f.onsubmit=e=>{e.preventDefault();const er=$("#vm-err");er.hidden=true;const c=cliMay(mayCli);if(!c)return;
+    if(!puedeEditarFecha(fechaCuad)){er.textContent="Día cerrado: solo un administrador puede grabar en días anteriores.";er.hidden=false;return}
+    const venta=leer("vmq"),env=leer("vme"),dcto=Math.max(0,Math.round(+$("#vm-dcto").value||0));
+    if(!FORMATOS.some(x=>venta[x.id])){er.textContent="Escriba al menos una cantidad de cilindros.";er.hidden=false;return}
+    if(FORMATOS.some(x=>env[x.id]>venta[x.id])){er.textContent="Los envases vendidos no pueden ser más que los cilindros de ese formato.";er.hidden=false;return}
+    const canje=$("#vm-canje").checked,precios={},precioEnv={};FORMATOS.forEach(x=>{if(venta[x.id])precios[x.id]=precioCliMay(c,x.id);if(env[x.id])precioEnv[x.id]=(D.preciosEnvase||{})[x.id]||0});
+    const bruto=FORMATOS.reduce((s,x)=>s+venta[x.id]*(precios[x.id]||0)+env[x.id]*(precioEnv[x.id]||0),0);
+    if(dcto>bruto){er.textContent="El descuento no puede ser mayor que la venta.";er.hidden=false;return}
+    const prestamo=st();if(!canje)FORMATOS.forEach(x=>prestamo[x.id]=venta[x.id]-env[x.id]);
+    const x={k:Date.now(),local:suc,fecha:fechaCuad,hora:ahora().slice(11),mayorista:c.id,guia:$("#vm-obs").value.trim(),tb:"",chofer:null,
+      venta,env,precioEnv,dcto,prestamo,devolucion:st(),precios,canje,user:yo.nombre};
+    D.cargasDist=D.cargasDist||[];D.cargasDist.unshift(x);aplicarDist(x,1);nubeGuardar("cargasDist",x);
+    const r=(D.rendiciones||[]).find(y=>y.tipo==="mayorista"&&y.ref===c.id&&y.fecha===fechaCuad);if(r&&r.guardada){r.guardada=null}
+    syncRendMay(c.id,fechaCuad);
+    log("bodega","Venta mayorista",`${c.nombre} · ${cilTxt(venta)}${dcto?" · desc. "+clp(dcto):""} · ${clp(valorDist(x))}`);guardar();pintarSistema();
+    aviso("Venta grabada",`${c.nombre}: ${clp(valorDist(x))}. Total del día: ${clp((D.cargasDist||[]).filter(y=>y.mayorista===c.id&&y.fecha===fechaCuad&&!y.anulada).reduce((s,y)=>s+valorDist(y),0))}.`)};
+  const anular=k=>{const x=D.cargasDist.find(y=>String(y.k)===String(k));if(!x||x.anulada)return;x.anulada=true;aplicarDist(x,-1);nubeGuardar("cargasDist",x);
+    const r=(D.rendiciones||[]).find(y=>y.tipo==="mayorista"&&y.ref===x.mayorista&&y.fecha===x.fecha);if(r&&r.guardada)r.guardada=null;syncRendMay(x.mayorista,x.fecha);
+    log("bodega","Venta mayorista anulada",`${(cliMay(x.mayorista)||{}).nombre||""} · ${cilTxt(x.venta)} (los cilindros vuelven a bodega)`);guardar();pintarSistema()};
+  $$("[data-anmay]").forEach(b=>b.onclick=()=>confirmar(b,()=>anular(b.dataset.anmay)));
+  const ultima=()=>(D.cargasDist||[]).filter(y=>y.mayorista===mayCli&&y.fecha===fechaCuad&&!y.anulada).sort((a,b)=>b.k-a.k)[0];
+  const an=$("#vm-anular");if(an)an.onclick=()=>confirmar(an,()=>{const u=ultima();if(u)anular(u.k)});
+  $$("[data-vmimp]").forEach(b=>b.onclick=()=>imprimirVentaMay(D.cargasDist.find(y=>String(y.k)===b.dataset.vmimp)));
+  const im=$("#vm-imp");if(im)im.onclick=()=>{const u=ultima();if(u)imprimirVentaMay(u)};
+  $("#vm-pago").onclick=()=>{mayTab="rend";pintarSistema();window.scrollTo(0,0)};
+  $("#vm-volver").onclick=()=>ir("menu");
+};}
+// Rendición mayorista: si el cliente tiene ventas, las cantidades vienen de ellas (se cambian en Venta Mayorista)
+{const v0=vistaRendERP;vistaRendERP=function(r,f){let h=v0(r,f);if(r.tipo!=="mayorista")return h;
+  const vs=(D.cargasDist||[]).filter(x=>x.mayorista===r.ref&&x.fecha===r.fecha&&!x.anulada).sort((a,b)=>(+a.k||0)-(+b.k||0));if(!vs.length)return h;
+  h=h.replace(/ data-(rcant|renv)=/g,' disabled data-$1=').replace(/<button class="btn chico linea" id="rd-usar"[^>]*>[^<]*<\/button>/,"");
+  const lista=vs.map((x,i)=>`<span class="vr-v"><b>${i+1}</b> ${esc(String(x.hora||"").slice(0,5))} · ${esc(cilTxt(x.venta))} · ${clp(valorDist(x))}</span>`).join("");
+  return h.replace('<fieldset class="bloqueo"',`<div class="vr-sum"><span>Venta del día = suma de <b>${vs.length}</b> venta${vs.length>1?"s":""}:</span>${lista}<button type="button" class="btn chico linea" data-ctab="menu">Agregar o quitar ventas</button></div><fieldset class="bloqueo"`)}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -4620,6 +4731,15 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .vc-vacio{text-align:center;color:var(--mu);padding:22px}
 @media (max-width:1180px){.sis .vc-lay{grid-template-columns:minmax(0,1fr)}.sis .vc-side{position:static;display:flex;flex-wrap:wrap}.sis .vc-sep{display:none}.sis .vc-t[aria-selected="true"]::before{display:none}}
 @media (max-width:760px){.sis .vc-g{grid-template-columns:repeat(3,minmax(0,1fr))}.sis .vc-izq{grid-column:1/-1}.sis .vc-g.env>div:first-child{display:none}.sis .vc-img{height:90px}.sis .cilb{height:88px}}
+
+/* Rendiciones en un solo color (sin tantos colores por recuadro) */
+.rerp .rbox,.rerp .k-ing,.rerp .k-val,.rerp .k-ban,.rerp .k-res,.rerp .k-car,.rerp .k-obs{--kc:var(--tx2,#344054);--kb:#f6f7f9;--kd:#e4e7ec}
+.rerp .rbox-h{color:var(--tx2,#344054)}
+.rerp .tbox .saldo.falta{background:transparent;color:#b42318}.rerp .tbox .saldo.sobra{background:transparent;color:var(--tx2,#344054)}
+
+.sis .vm-extra{align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:8px 12px}
+.sis .vm-extra .radio{display:flex;align-items:center;gap:6px;font-size:12.5px}.sis .vm-extra .radio input{width:auto}
+.sis .vm-extra input:not([type]){font-size:12.5px;padding:6px 8px}
 </style>
 </body>
 </html>
