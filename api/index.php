@@ -110,7 +110,8 @@ try {
         salida(['n' => $n]);
     }
     case 'pedido_web': {
-        // Pedido desde el sitio público (sin usuario)
+        // Sitio para clientes desactivado: el sistema es solo de control interno
+        salida(['error' => 'Los pedidos se ingresan solo desde el sistema interno.'], 403);
         limitar('web', 5, 600); $b = cuerpo();
         $txt = fn($k, $n) => mb_substr(trim((string) ($b[$k] ?? '')), 0, $n);
         if ($txt('fono', 30) === '' || $txt('dir', 160) === '') salida(['error' => 'Faltan el teléfono o la dirección.'], 400);

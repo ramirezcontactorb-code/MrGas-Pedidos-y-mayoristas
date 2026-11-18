@@ -5,17 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MR Gas</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="MR Gas: cilindros de gas licuado de 5, 11, 15 y 45 kg con despacho a domicilio. Precios, pedidos en línea y 6 locales. Emergencias 600 600 7799.">
-<meta name="keywords" content="gas licuado, cilindro de gas, gas a domicilio, precio gas 15 kg, MR Gas">
-<meta name="robots" content="index, follow">
-<link rel="canonical" href="https://www.TU-DOMINIO.cl/">
-<meta property="og:title" content="MR Gas | Gas licuado a domicilio">
-<meta property="og:description" content="Precios de cilindros, pedidos a domicilio y locales.">
-<meta property="og:type" content="website">
-<meta property="og:locale" content="es_CL">
-<script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Organization","name":"MR Gas","url":"https://www.TU-DOMINIO.cl/","telephone":"+56 600 600 7799","description":"Distribuidora de gas licuado con despacho a domicilio."}
-</script>
+<meta name="description" content="MR Gas · sistema de control interno.">
+<meta name="robots" content="noindex, nofollow">
 <!-- App instalable (PWA) -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#06275E">
@@ -330,7 +321,6 @@ body.arrancando::after{content:"Cargando MR Gas…";position:fixed;inset:0;displ
       <a class="pt-b" href="repartidores/"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></svg></span><b>App repartidores</b><small>Pedidos a domicilio y reparto a mayoristas</small><i>Entrar →</i></a>
       <a class="pt-b" href="#acceso"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="3" y="13" width="4" height="6" rx="1"/><rect x="17" y="13" width="4" height="6" rx="1"/></svg></span><b>App distribución</b><small>Pedidos, rutas, cuadratura y bodega</small><i>Entrar →</i></a>
     </div>
-    <a class="pt-sitio" href="#sitio">Sitio web para clientes →</a>
   </div>
 </div>
 <style>
@@ -355,6 +345,7 @@ body.arrancando::after{content:"Cargando MR Gas…";position:fixed;inset:0;displ
 .portal .pt-sitio:hover{color:#fff}
 @media (max-width:860px){.portal .pt-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.portal h1{font-size:30px}.portal .pt-b{min-height:170px}}
 @media (max-width:420px){.portal .pt-grid{grid-template-columns:minmax(0,1fr)}.portal .pt-b{min-height:0}}
+#vista-publica{display:none!important}
 .il-portal{display:inline-block;margin-top:10px;color:inherit;opacity:.75;font-size:13.5px;text-decoration:none}
 </style>
 <div id="vista-login" class="il" hidden>
@@ -387,7 +378,7 @@ body.arrancando::after{content:"Cargando MR Gas…";position:fixed;inset:0;displ
       <button class="btn" type="submit">Ingresar</button>
       <button type="button" class="btn linea" id="btn-instalar" hidden>Instalar aplicación en este equipo</button>
       <p class="nota" id="ios-instalar" hidden style="margin:0">En iPhone: toque Compartir y luego "Agregar a pantalla de inicio" para instalar la app.</p>
-      <a href="#sitio" class="il-sitio">Ver sitio web para clientes →</a>
+      <a href="#" class="il-portal">← Volver al menú de inicio</a>
     </form>
   </div>
 </div>
@@ -3644,9 +3635,10 @@ function deudasRend(r){const rs=(D.rendiciones||[]).filter(x=>x.tipo===r.tipo&&x
 
 /* ===================== PORTAL: menú de 4 botones antes de iniciar sesión ===================== */
 {const r0=ruta;ruta=function(){const h=location.hash.slice(1),pt=document.getElementById("vista-portal");
-  if(pt&&h===""&&!yo){document.body.classList.remove("arrancando");["vista-publica","vista-login","vista-panel"].forEach(id=>{const e=document.getElementById(id);if(e)e.hidden=true});pt.hidden=false;window.scrollTo(0,0);return}
+  if(pt&&(h===""||PUBLICO.includes(h))&&!yo){if(h)history.replaceState(null,"",location.pathname+location.search);document.body.classList.remove("arrancando");["vista-publica","vista-login","vista-panel"].forEach(id=>{const e=document.getElementById(id);if(e)e.hidden=true});pt.hidden=false;window.scrollTo(0,0);return}
+  if(yo&&PUBLICO.includes(h)){location.hash="panel";return}
   if(pt)pt.hidden=true;return r0.apply(this,arguments)}}
-{const s=document.querySelector(".il-sitio");if(s&&!document.querySelector(".il-portal")){const a=document.createElement("a");a.href="#";a.className="il-portal";a.textContent="← Volver al menú de inicio";s.insertAdjacentElement("afterend",a)}}
+{const s=document.querySelector(".il-sitio");if(s&&!document.querySelector(".il-portal")){const a=document.createElement("a");a.href="#";a.className="il-portal";a.textContent="← Volver al menú de inicio";s.insertAdjacentElement("afterend",a);s.remove()}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
