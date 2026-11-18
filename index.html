@@ -1031,7 +1031,7 @@ function itemsEstado(){const out=[];
   return out}
 function puedeSubir(col,id){if(!yo)return false;if(esAdmin())return true;
   if(yo.rol==="chofer")return col==="pedidos"||col==="bitacora"||(col==="estado"&&id==="stk-"+yo.chofer);
-  if(col==="estado"){if(ESTADO_SOLO_ADMIN.includes(id))return false;if(id.startsWith("loc-"))return misSucs().includes(+id.slice(4));return true}
+  if(col==="estado"){if(ESTADO_SOLO_ADMIN.includes(id))return ESTADO_PRECIOS.includes(id)&&tieneExtra("cfg.precios");if(id.startsWith("loc-"))return misSucs().includes(+id.slice(4));return true}
   return true}
 function piezas(){const out=[];
   for(const d of SYNC)for(const o of (D[d.col]||[])){const id=d.key(o);if(puedeSubir(d.col,id))out.push({col:d.col,id,data:d.dato?d.dato(o):o})}
@@ -1059,8 +1059,9 @@ async function enviar(){
       r.res.forEach((s,j)=>{const x=parte[j],k=x.col+"|"+x.id;
         if(s.ok){if(x.data===null)NUBE.cache.delete(k);else NUBE.cache.set(k,x.f)}
         else{ // sin permiso: se vuelve a la versión del servidor
-          if(s.actual)aplicarDoc(x.col,x.id,s.actual,false);else{NUBE.cache.set(k,x.f)}}})}
+          if(s.actual){NUBE.cache.delete(k);aplicarDoc(x.col,x.id,s.actual,false);NUBE.revertido=true}else{NUBE.cache.set(k,x.f)}}})}
     try{localStorage.removeItem(COLA)}catch(e){}
+    if(NUBE.revertido){NUBE.revertido=false;guardarLocal();pintarSistema();aviso("Sin permiso","Su usuario no puede cambiar eso. Se dejó como estaba.")}
     estadoNube(true)}
   catch(e){estadoNube(false);if(e.status===401)sesionVencida()}
   finally{NUBE.enviando=false;if(NUBE.otraVez){NUBE.otraVez=false;programarEnvio()}}}
@@ -1281,26 +1282,65 @@ const ACCIONES=[
   {id:"sucursal",t:"Cambio de<br>Sucursal",r:[A]},
   {id:"salir",t:"Salir del<br>Sistema",r:[A,E,C]}
 ];
-const MOD_PERM=["pedidos","ruta","mayorista","cuadratura","bodega","compras","informes"];
+const MOD_PERM=["pedidos","ruta","sectorizar","mayorista","cuadratura","bodega","compras","informes"];
+/* Permisos detallados (versión 2, marcada con "_v2"):
+   "pedidos" = ver y trabajar · "pedidos:ver" = solo ver · acciones y apps aparte */
+const PERM_EXTRA=[["pedidos.anular","Anular pedidos"],["cfg.choferes","Configurar choferes y móviles"],["cfg.clientes","Configurar clientes mayoristas"],["cfg.precios","Cambiar precios (gas, mayoristas, vales y QR)"]];
+const PERM_APPS=[["app.repartidores","App repartidores (oficina)"],["app.distribucion","App distribución"]];
+const CFG_PERM={choferes:"cfg.choferes",clientesMay:"cfg.clientes",precios:"cfg.precios",preciosMay:"cfg.precios",comVale:"cfg.precios",descQR:"cfg.precios"};
+const ESTADO_PRECIOS=["precios","preciosMayor","preciosEnvase","preciosConvenio","listas","historico","listasMay","comisionVale","descQR"];
+const PLANTILLAS=[
+  ["Telefonista",["pedidos","ruta:ver","app.repartidores"]],
+  ["Despachador",["pedidos","pedidos.anular","ruta","sectorizar","informes:ver","app.repartidores","app.distribucion"]],
+  ["Cajero / cuadratura",["pedidos:ver","ruta:ver","cuadratura","mayorista","informes"]],
+  ["Vendedor mayorista",["mayorista","informes:ver","cfg.clientes","app.distribucion"]],
+  ["Bodeguero",["ruta:ver","bodega","compras"]],
+  ["Supervisor",["pedidos","pedidos.anular","ruta","sectorizar","mayorista","cuadratura","bodega","compras","informes","cfg.choferes","cfg.clientes","app.repartidores","app.distribucion"]]];
+const esV2=p=>Array.isArray(p)&&p.includes("_v2");
+// acciones especiales y apps: los usuarios antiguos (sin "_v2") conservan lo que podían hacer antes
+const tieneExtra=c=>{if(!yo)return false;if(esAdmin())return true;if(yo.rol!=="encargado")return false;
+  if(!esV2(yo.permisos))return c==="pedidos.anular"||c.startsWith("app.");return yo.permisos.includes(c)};
+const soloVer=id=>!!yo&&yo.rol==="encargado"&&Array.isArray(yo.permisos)&&yo.permisos.includes(id+":ver")&&!yo.permisos.includes(id);
 const misSucs=()=>!yo?[]:esAdmin()?D.locales.map(l=>l.id):((yo.sucursales&&yo.sucursales.length)?yo.sucursales:[yo.local]).filter(x=>x!=null);
 const puede=id=>{
   if(id==="sucursal")return D.locales.length>1&&(esAdmin()||misSucs().length>1);
-  if(id==="sectorizar")return esAdmin();
+  if(id==="sectorizar"&&(!yo||yo.rol!=="encargado"||!esV2(yo.permisos)))return !!yo&&esAdmin();
+  if(id==="config")return !!yo&&(esAdmin()||cfgTabsLista().length>0);
   if(id==="precios"||id==="usuarios"||id==="admin")return esAdmin();
   if(id==="respaldos")return esAdmin()&&(yo.permisos==null||(Array.isArray(yo.permisos)&&yo.permisos.includes("respaldos")));
   if(id==="caja"||id==="petroleo")return false; // desactivados (los datos antiguos se conservan)
   if(id==="chofer")return !!yo&&yo.rol==="chofer"; // solo la pantalla del repartidor
   const m=[...MODULOS,...ACCIONES].find(x=>x.id===id);if(!m)return true;if(!m.r.includes(yo.rol))return false;
-  if(yo.rol==="encargado"&&Array.isArray(yo.permisos)&&MOD_PERM.includes(id))return yo.permisos.includes(id);
+  if(yo.rol==="encargado"&&Array.isArray(yo.permisos)&&MOD_PERM.includes(id))return yo.permisos.includes(id)||yo.permisos.includes(id+":ver");
   return true};
 function camposAcceso(u){
   const sucs=u?(u.sucursales&&u.sucursales.length?u.sucursales:(u.local?[u.local]:[])):[suc];
-  const per=u&&Array.isArray(u.permisos)?u.permisos:MOD_PERM;
+  const p=u&&Array.isArray(u.permisos)?u.permisos:null,v2=esV2(p);
+  const nivel=id=>!p?(u&&id!=="sectorizar"?"usar":""):p.includes(id)?"usar":p.includes(id+":ver")?"ver":"";
+  const extra=c=>p?(v2?p.includes(c):(c==="pedidos.anular"||c.startsWith("app."))):!!u&&(c==="pedidos.anular"||c.startsWith("app."));
+  const T=id=>id==="informes"?"Informes":(MODULOS.find(m=>m.id===id)||{}).t;
+  const radio=(id,v,t)=>`<label class="pm-op"><input type="radio" name="pm-${id}" value="${v}" ${nivel(id)===v?"checked":""}><span>${t}</span></label>`;
   return `<fieldset class="acceso" id="us-acceso"><legend>Sucursales a las que puede entrar</legend><div class="checks-grid">${D.locales.map(l=>`<label class="radio"><input type="checkbox" name="us-suc" value="${l.id}" ${sucs.includes(l.id)?"checked":""}>${esc(l.nombre)}</label>`).join("")}</div></fieldset>
-  <fieldset class="acceso" id="us-permisos"><legend>Qué puede usar</legend><div class="checks-grid">${MOD_PERM.map(id=>`<label class="radio"><input type="checkbox" name="us-perm" value="${id}" ${per.includes(id)?"checked":""}>${(MODULOS.find(m=>m.id===id)||{}).t}</label>`).join("")}</div>
-    <p class="nota" style="margin:8px 0 0">Ejemplo: para que una telefonista solo ingrese pedidos de su local, marque solo esa sucursal y "Pedidos de Gas".</p></fieldset>`;
+  <fieldset class="acceso" id="us-permisos"><legend>Qué puede hacer</legend>
+    <div class="pl-bar"><span>Plantilla rápida:</span>${PLANTILLAS.map(([t],i)=>`<button type="button" class="btn chico linea" data-plantilla="${i}">${t}</button>`).join("")}<button type="button" class="btn chico linea" data-plantilla="-1">Nada</button></div>
+    <div class="perm-cols">
+      <table class="perm-t"><thead><tr><th>Cuadro</th><th>No entra</th><th>Solo ver</th><th>Ver y trabajar</th></tr></thead><tbody>
+      ${MOD_PERM.map(id=>`<tr><td>${T(id)}</td><td>${radio(id,"","No")}</td><td>${radio(id,"ver","Ver")}</td><td>${radio(id,"usar","Trabajar")}</td></tr>`).join("")}
+      </tbody></table>
+      <div class="perm-der">
+        <p class="perm-tit">Acciones especiales</p>${PERM_EXTRA.map(([c,t])=>`<label class="radio"><input type="checkbox" name="us-perm" value="${c}" ${extra(c)?"checked":""}>${t}</label>`).join("")}
+        <p class="perm-tit">Apps del celular</p>${PERM_APPS.map(([c,t])=>`<label class="radio"><input type="checkbox" name="us-perm" value="${c}" ${extra(c)?"checked":""}>${t}</label>`).join("")}
+      </div>
+    </div>
+    <p class="nota" style="margin:8px 0 0"><b>Solo ver</b>: entra y mira, pero no puede guardar cambios. Los repartidores siempre pueden usar sus apps; los administradores, todo.</p></fieldset>`;
 }
-const leerAcceso=()=>({sucursales:[...$$('input[name="us-suc"]:checked')].map(i=>+i.value),permisos:[...$$('input[name="us-perm"]:checked')].map(i=>i.value)});
+const leerAcceso=()=>({sucursales:[...$$('input[name="us-suc"]:checked')].map(i=>+i.value),
+  permisos:["_v2",...MOD_PERM.map(id=>{const r=$(`input[name="pm-${id}"]:checked`);return !r||!r.value?null:r.value==="ver"?id+":ver":id}).filter(Boolean),...[...$$('input[name="us-perm"]:checked')].map(i=>i.value)]});
+function resumenPerm(p){if(!Array.isArray(p))return "Todos los cuadros";
+  const T=id=>id==="informes"?"Informes":(MODULOS.find(m=>m.id===id)||{}).t;
+  const tr=MOD_PERM.filter(id=>p.includes(id)).map(T),vr=MOD_PERM.filter(id=>p.includes(id+":ver")&&!p.includes(id)).map(T);
+  const ex=esV2(p)?[...PERM_EXTRA,...PERM_APPS].filter(([c])=>p.includes(c)).map(([,t])=>t):[];
+  return [tr.length?"Trabaja: "+tr.join(", "):"",vr.length?"Solo ve: "+vr.join(", "):"",ex.length?"Además: "+ex.join(", "):""].filter(Boolean).join("<br>")||"Sin cuadros"}
 
 /* ===================== PINTAR SISTEMA ===================== */
 function pintarSistema(){
@@ -2270,7 +2310,7 @@ const V={
       <p class="nota">Emergencias de gas: 600 600 7799.</p>`;
   },
   config(){
-    if(!cfgTabsLista().some(t=>t[0]===cfgTab)||cfgTab==="sectorizar")cfgTab="choferes";
+    if(!cfgTabsLista().some(t=>t[0]===cfgTab)||cfgTab==="sectorizar")cfgTab=(cfgTabsLista().find(t=>t[0]!=="sectorizar")||["choferes"])[0];
     const tabs=cfgTabsHtml(cfgTab);
     if(cfgTab==="precios")return cabeza("Configuraciones")+tabs+V.precios().replace(cabeza("Precios del Gas"),"");
     if(cfgTab==="usuarios")return cabeza("Configuraciones")+tabs+V.usuarios().replace(cabeza("Permisos Usuarios"),"");
@@ -2341,7 +2381,7 @@ const V={
     const keyOf=u=>nube?u.uid:u.user,ed=editUser!=null?lista.find(u=>keyOf(u)===editUser):null,yoKey=nube?yo.uid:yo.user;
     const ROL={admin:"Administrador",encargado:"Encargado",chofer:"Repartidor"},rolSel=ed?ed.rol:"encargado";
     const acceso=u=>u.rol==="admin"?"Todo"+(Array.isArray(u.permisos)&&!u.permisos.includes("respaldos")?' <span class="nota" style="margin:0">· sin respaldos</span>':" · con respaldos"):u.rol==="chofer"?"Móvil "+esc(nomChofer(u.chofer))
-      :`${((u.sucursales&&u.sucursales.length?u.sucursales:(u.local?[u.local]:[])).map(nomLocal).map(esc).join(", "))||"—"}<br><span class="nota" style="margin:0">${Array.isArray(u.permisos)?u.permisos.map(id=>(MODULOS.find(m=>m.id===id)||{}).t).filter(Boolean).join(" · "):"Todos los cuadros"}</span>`;
+      :`${((u.sucursales&&u.sucursales.length?u.sucursales:(u.local?[u.local]:[])).map(nomLocal).map(esc).join(", "))||"—"}<br><span class="nota" style="margin:0">${resumenPerm(u.permisos)}</span>`;
     return cabeza("Permisos Usuarios")+`<p class="nota" style="margin:-8px 0 18px">${nube?"Los usuarios se guardan en el servidor. ":""}Elija a qué sucursales entra cada persona y qué cuadros puede usar. Cada sucursal ve solo sus propios pedidos, ventas, cuadraturas y bodega.</p>
     <form class="caja" id="f-usr" style="max-width:900px;margin-bottom:22px"><h3>${ed?"Editar a "+esc(ed.nombre):"Agregar usuario"}</h3>
       <div class="fila"><label>Nombre<input id="us-nombre" required value="${ed?esc(ed.nombre):""}"></label><label>Usuario<input id="us-user" required autocomplete="off" value="${ed?esc(ed.user):""}" ${ed?"readonly":""} placeholder="Ej: maria.maipu"></label></div>
@@ -2707,7 +2747,7 @@ const L={
       const ch=r==="chofer"?D.choferes.find(x=>x.id===+$("#us-chofer").value):null;
       if(r==="chofer"&&!ch)return falla("Primero agregue el móvil en Asigna Ruta.");
       if(r==="encargado"&&!acc.sucursales.length)return falla("Marque al menos una sucursal.");
-      if(r==="encargado"&&!acc.permisos.length)return falla("Marque al menos un cuadro que pueda usar.");
+      if(r==="encargado"&&!acc.permisos.some(x=>MOD_PERM.includes(x.split(":")[0])||x.startsWith("app.")))return falla("Marque al menos un cuadro o una app que pueda usar.");
       const datos={nombre:$("#us-nombre").value.trim(),rol:r,sucursales:r==="admin"?[]:r==="chofer"?[ch.local]:acc.sucursales,permisos:r==="encargado"?acc.permisos:r==="admin"?(puede("respaldos")?($("#us-resp").checked?null:[]):[]):null,chofer:ch?ch.id:null};
       datos.local=r==="admin"?null:datos.sucursales[0];
       if(editUser!=null){
@@ -3249,7 +3289,8 @@ function volverAtras(){
 document.addEventListener("keydown",e=>{if(e.altKey&&e.key==="ArrowLeft"&&yo&&location.hash==="#panel"){e.preventDefault();volverAtras()}});
 
 /* ===================== PESTAÑAS DE CONFIGURACIONES (Sectorizar vive aquí) ===================== */
-const cfgTabsLista=()=>[["choferes","Choferes"],["sectorizar","Sectorizar"],["precios","Precios del Gas"],["clientesMay","Clientes mayoristas"],["preciosMay","Precios mayoristas"],["comVale","Comisión por vale"],["descQR","Descuento QR"],["usuarios","Usuarios y permisos"],["sucursal","Sucursal"],["general","Stock y envases"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
+const cfgTabsTodas=()=>[["choferes","Choferes"],["sectorizar","Sectorizar"],["precios","Precios del Gas"],["clientesMay","Clientes mayoristas"],["preciosMay","Precios mayoristas"],["comVale","Comisión por vale"],["descQR","Descuento QR"],["usuarios","Usuarios y permisos"],["sucursal","Sucursal"],["general","Stock y envases"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
+const cfgTabsLista=()=>!yo?[]:esAdmin()?cfgTabsTodas():cfgTabsTodas().filter(([k])=>CFG_PERM[k]&&tieneExtra(CFG_PERM[k]));
 const cfgTabsHtml=sel=>`<div class="tabs" role="tablist">${cfgTabsLista().map(([k,t])=>`<button type="button" role="tab" data-cfgtab="${k}" aria-selected="${sel===k}">${t}</button>`).join("")}</div>`;
 function enlazarCfgTabs(){$$("[data-cfgtab]").forEach(b=>b.onclick=()=>{const k=b.dataset.cfgtab;cfgCh=null;
   if(k==="sectorizar"){if(mod!=="sectorizar")ir("sectorizar");return}
@@ -3639,6 +3680,19 @@ function deudasRend(r){const rs=(D.rendiciones||[]).filter(x=>x.tipo===r.tipo&&x
   if(yo&&PUBLICO.includes(h)){location.hash="panel";return}
   if(pt)pt.hidden=true;return r0.apply(this,arguments)}}
 {const s=document.querySelector(".il-sitio");if(s&&!document.querySelector(".il-portal")){const a=document.createElement("a");a.href="#";a.className="il-portal";a.textContent="← Volver al menú de inicio";s.insertAdjacentElement("afterend",a);s.remove()}}
+
+/* ===================== PERMISOS DETALLADOS ===================== */
+function aplicarPermisosUI(){const main=document.getElementById("sis-main");if(!main||!yo||esAdmin())return;
+  if(!tieneExtra("pedidos.anular"))main.querySelectorAll("[data-anular]").forEach(b=>b.remove());
+  if(mod!=="menu"&&soloVer(mod)){
+    if(!main.querySelector(".aviso-ver"))main.insertAdjacentHTML("afterbegin",'<div class="aviso-ver"><b>Solo lectura.</b> Puede ver este cuadro, pero sus cambios no se guardan. Pida permiso al administrador si necesita trabajar aquí.</div>');
+    main.querySelectorAll('form button[type=submit],form button:not([type]),[data-asignar],[data-entregar],[data-devolver],[data-anular],[data-reclamo]').forEach(b=>{b.disabled=true;b.title="Solo lectura"})}}
+function enlazarPlantillas(){
+  $$("[data-plantilla]").forEach(b=>b.onclick=()=>{const i=+b.dataset.plantilla,p=i<0?[]:PLANTILLAS[i][1];
+    MOD_PERM.forEach(id=>{const v=p.includes(id)?"usar":p.includes(id+":ver")?"ver":"";const r=$(`input[name="pm-${id}"][value="${v}"]`);if(r)r.checked=true});
+    $$('input[name="us-perm"]').forEach(c=>c.checked=p.includes(c.value));
+    $$("[data-plantilla]").forEach(x=>x.classList.toggle("activo",x===b))})}
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{aplicarPermisosUI();enlazarPlantillas()}catch(e){}return r}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -4160,6 +4214,24 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .mrbar select.big{width:auto;flex:0 0 auto}
 .sis .mrbar{padding:4px 10px;margin-bottom:6px}
 .rerp .tbox.lista td{padding:3px 8px}
+
+/* permisos detallados */
+.sis .pl-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px}
+.sis .pl-bar>span{font-size:12px;font-weight:700;color:var(--b8);margin-right:4px}
+.sis .pl-bar .btn.activo{background:var(--b1);border-color:var(--b6);color:var(--b8)}
+.sis .perm-cols{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:8px 22px;align-items:start}
+.sis .perm-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.sis .perm-t th{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--mu);text-align:center;padding:3px 6px;border-bottom:1px solid var(--line,#e7eaf0)}
+.sis .perm-t th:first-child,.sis .perm-t td:first-child{text-align:left;font-weight:600}
+.sis .perm-t td{padding:2px 6px;border-bottom:1px solid var(--line,#e7eaf0);text-align:center}
+.sis .perm-t .pm-op{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:var(--mu)}
+.sis .perm-t .pm-op input{margin:0}
+.sis .perm-t .pm-op input:checked+span{color:var(--b8);font-weight:700}
+.sis .perm-der .radio{display:flex;font-size:12.5px;margin:1px 0}
+.sis .perm-tit{margin:2px 0 3px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)}
+.sis .perm-tit~.perm-tit{margin-top:8px}
+.sis .aviso-ver{grid-column:1/-1;margin:0 0 8px;padding:6px 12px;border-radius:8px;border:1px solid #fedf89;background:#fffaeb;color:#93370d;font-size:12.5px}
+@media (max-width:760px){.sis .perm-cols{grid-template-columns:minmax(0,1fr)}}
 </style>
 </body>
 </html>

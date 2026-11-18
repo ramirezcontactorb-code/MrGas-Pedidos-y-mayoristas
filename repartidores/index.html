@@ -802,6 +802,8 @@ function llego(v){recien.add(v.key);aviso(v.tipo==="dom"?`Nuevo pedido ${v.num}`
 
 /* ===================== Sesión ===================== */
 async function entrar(perfil){
+  if(perfil.rol==="encargado"&&Array.isArray(perfil.permisos)&&perfil.permisos.includes("_v2")&&!perfil.permisos.includes("app.repartidores")){
+    $("#v-app").hidden=true;$("#v-login").hidden=false;const e=$("#lg-err");e.textContent="Su usuario no tiene permiso para la App repartidores. Pídalo al administrador en ERP Matriz → Configuraciones → Usuarios y permisos.";e.hidden=false;return}
   S.yo=perfil;$("#v-login").hidden=true;$("#v-app").hidden=false;
   $("#top-sub").textContent=`${perfil.nombre||perfil.user} · ${perfil.rol==="chofer"?"Repartidor":perfil.rol==="admin"?"Administrador":"Encargado"}`;
   $("#aj-yo").textContent=`${perfil.nombre||perfil.user} (${perfil.rol==="chofer"?"Repartidor":perfil.rol==="admin"?"Administrador":"Encargado"})`;

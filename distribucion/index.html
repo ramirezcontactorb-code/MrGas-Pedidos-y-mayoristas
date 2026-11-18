@@ -985,6 +985,8 @@ $("cv-tab-ent").onclick=()=>{cvTab="ent";renderChofer()};
 $("cv-salir").onclick=()=>salir();
 
 async function entrar(perfil){
+  if(perfil.rol==="encargado"&&Array.isArray(perfil.permisos)&&perfil.permisos.includes("_v2")&&!perfil.permisos.includes("app.distribucion")){
+    $("pantalla-login").hidden=false;$("app").hidden=true;$("lg-msg").textContent="Tu usuario no tiene permiso para la App distribución. Pídelo al administrador en ERP Matriz → Configuraciones → Usuarios y permisos.";return}
   const cuenta={id:perfil.user,uid:perfil.uid,usuario:perfil.nombre||perfil.user,rol:perfil.rol,choferId:perfil.chofer!=null?String(perfil.chofer):""};
   sesion=cuenta;
   $("lg-msg").textContent="Cargando datos…";
@@ -1052,7 +1054,7 @@ $("f-usuario").addEventListener("submit",async e=>{
   if(rol==="chofer"&&!choferId){$("us-msg").textContent="Elige el chofer que usará esta cuenta.";return}
   $("us-btn").disabled=true;
   const nombre=rol==="chofer"?((choferes.find(c=>c.id===choferId)||{}).nombre||id):id;
-  try{await api("usuario",{user:id,pass:pw,nombre,rol,sucursales:[1],permisos:rol==="encargado"?["mayorista","ruta","pedidos"]:null,...(rol==="chofer"?{chofer:+choferId}:{})});
+  try{await api("usuario",{user:id,pass:pw,nombre,rol,sucursales:[1],permisos:rol==="encargado"?["_v2","mayorista","app.distribucion","app.repartidores"]:null,...(rol==="chofer"?{chofer:+choferId}:{})});
     $("f-usuario").reset();$("us-chofer-box").hidden=false;$("us-msg").textContent="Usuario creado. Ya puede entrar en MR Gas, App repartidores y App distribución.";await cargarUsuarios()}
   catch(err){$("us-msg").textContent="No se pudo crear: "+err.message}
   $("us-btn").disabled=false;

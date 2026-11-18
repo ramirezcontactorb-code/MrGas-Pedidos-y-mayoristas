@@ -1,5 +1,5 @@
 // MR Gas Distribución: guarda la app para abrirla rápido; los pedidos (api/) nunca se guardan
-const VERSION="mrgas-dist-v1";
+const VERSION="mrgas-dist-v2";
 self.addEventListener("install",e=>{e.waitUntil(caches.open(VERSION).then(c=>c.addAll(["./","./index.html"])).catch(()=>{}));self.skipWaiting()});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith("mrgas-dist")&&k!==VERSION).map(k=>caches.delete(k)))));self.clients.claim()});
 self.addEventListener("fetch",e=>{const u=new URL(e.request.url);

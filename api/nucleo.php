@@ -6,12 +6,14 @@ const COLS_PERMITIDAS = ['pedidos','bitacora','ventas','gastos','rendiciones','c
     'peonetas','clientes','choferes','movimientos','recuentos','historialPrecios','ventasAnuladas','programados','estado','reparto','camiones'];
 // Documentos de "estado" que solo cambia el administrador
 const ESTADO_SOLO_ADMIN = ['precios','preciosMayor','preciosEnvase','preciosConvenio','listas','empresa','comisiones','historico','listasMay','comisionVale','descQR'];
+// De esos, los precios también los puede cambiar un encargado con el permiso «cfg.precios»
+const ESTADO_PRECIOS = ['precios','preciosMayor','preciosEnvase','preciosConvenio','listas','historico','listasMay','comisionVale','descQR'];
 // Cuadro (permiso) que necesita un encargado para escribir en cada colección
 const PERMISO_COL = [
     'rendiciones' => ['cuadratura'], 'cargas' => ['cuadratura'], 'cargasDist' => ['cuadratura'], 'anticipos' => ['cuadratura'], 'peonetas' => ['cuadratura'],
     'ventas' => ['caja','cuadratura'], 'gastos' => ['caja','cuadratura'], 'ventasAnuladas' => ['caja','cuadratura'],
     'movimientos' => ['compras','bodega'], 'recuentos' => ['bodega'],
-    'pedidos' => ['pedidos','ruta','chofer'], 'reparto' => ['mayorista','ruta','pedidos'], 'camiones' => ['mayorista','ruta'], 'clientes' => ['pedidos','ruta'], 'petroleo' => ['petroleo','cuadratura'],
+    'pedidos' => ['pedidos','ruta','chofer','app.repartidores'], 'reparto' => ['mayorista','ruta','pedidos','app.repartidores','app.distribucion'], 'camiones' => ['mayorista','ruta','app.distribucion'], 'clientes' => ['pedidos','ruta'], 'petroleo' => ['petroleo','cuadratura'],
 ];
 
 // Dónde buscar la configuración. Lo recomendado es FUERA de public_html (un nivel arriba),
@@ -175,7 +177,7 @@ function puedeEscribir(array $u, string $col, string $id, array $m, ?array $nuev
     }
     // encargado
     if ($col === 'estado') {
-        if (in_array($id, ESTADO_SOLO_ADMIN, true)) return false;
+        if (in_array($id, ESTADO_SOLO_ADMIN, true)) return in_array($id, ESTADO_PRECIOS, true) && is_array($u['permisos']) && in_array('cfg.precios', $u['permisos'], true);
         if (str_starts_with($id, 'loc-')) return in_array((int) substr($id, 4), sucs($u), true);
         return true;
     }
