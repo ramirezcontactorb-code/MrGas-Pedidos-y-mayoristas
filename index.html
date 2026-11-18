@@ -1269,7 +1269,7 @@ const MODULOS=[
   {id:"sectorizar",t:"Sectorizar",s:"Mapa y despacho automático",r:[A,E]},
   {id:"informes",t:"Informes",s:"Pedidos y rendiciones",r:[A,E]},
   {id:"petroleo",t:"Petróleo",s:"Combustible de móviles",r:[A,E]},
-  {id:"cuadratura",t:"Cuadratura Móvil",s:"Móviles y mayoristas",r:[A,E]},
+  {id:"cuadratura",t:"Venta de Repartidor",s:"Ingresar ventas y rendir el día",r:[A,E]},
   {id:"mayorista",t:"Venta Mayorista",s:"Ventas a clientes y su cuenta",r:[A,E]},
   {id:"compras",t:"Compras y Devoluciones",s:"Entradas y salidas",r:[A,E]},
   {id:"chofer",t:"Pedidos Chofer",s:"Entregas en ruta",r:[A,E,C]},
@@ -1699,7 +1699,7 @@ function hubCuad(fechaSel){
 
   </div><aside class="hub-lado caja"><h3>Liquidaciones</h3>${tile("liq-chofer","Liquidación chofer","Comisiones y anticipos","usuarios")}${tile("liq-peoneta","Liquidación peoneta","Comisiones de ayudantes","usuarios")}</aside></div>`;
 }
-const volverHub=`<button class="volver" type="button" data-ctab="menu" style="margin:-10px 0 16px">← Volver a Cuadratura</button>`;
+const volverHub=`<button class="volver" type="button" data-ctab="menu" style="margin:-10px 0 16px">← Volver a Venta de Repartidor</button>`;
 const bloqueo=f=>puedeEditarFecha(f)?"":`<div class="banner">Este día ya pasó y está bloqueado. Para editarlo, el administrador debe darle acceso a históricos.</div>`;
 function vistaCarga(tipo,fechaSel){
   const chs=chOrden().filter(c=>c.local===suc&&c.activo!==false);
@@ -2040,7 +2040,7 @@ const V={
     const lista=T==="movil"?chOrden().filter(c=>c.local===suc):T==="local"?D.locales.filter(l=>misSucs().includes(l.id)):(D.mayoristas||[]).filter(m=>(m.local??1)===suc);
     const rows=lista.map(x=>{const r=getRend(T,x.id,fechaCuad,false);return {x,r,c:r?calcRend(r):null,ent:T==="movil"?entregasDe(x.id,fechaCuad):T==="local"?ventasLocalDe(x.id,fechaCuad):null}});
     const tot=k=>rows.reduce((s,o)=>s+(o.c?o.c[k]:0),0);
-    const tabs=`<button class="volver" type="button" data-ctab="menu" style="margin:-10px 0 16px">← Volver a Cuadratura</button>`;
+    const tabs=`<button class="volver" type="button" data-ctab="menu" style="margin:-10px 0 16px">← Volver a Venta de Repartidor</button>`;
     const estado=o=>!o.r?'<span class="pill pendiente">Sin cuadrar</span>':Math.round(o.c.saldo)===0?'<span class="pill entregado">Cuadrado</span>':o.c.saldo>0?`<span class="pill bajo">Debe ${clp(o.c.saldo)}</span>`:`<span class="pill ruta">A favor ${clp(-o.c.saldo)}</span>`;
     const col2=T==="movil"?"Entregas en sistema":T==="local"?"Ventas en Venta Local":"RUT";
     const sub=x=>T==="movil"?esc(x.patente||"Sin patente")+" · "+esc(nomLocal(x.local)):T==="local"?esc(x.comuna):esc(x.fono||"Sin teléfono");
@@ -3787,6 +3787,91 @@ function corregirEstado(id){
   dl.showModal();
 }
 {const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{if(mod==="ruta")$$("[data-editest]").forEach(b=>b.onclick=()=>corregirEstado(b.dataset.editest))}catch(e){}return r}}
+
+/* ===================== VENTA DE REPARTIDOR: varias ventas al día que se suman, y «Rendir día» ===================== */
+let vrCh=null;
+const sumaVueltas=r=>{const v=st(),e=st();(r.vueltas||[]).forEach(x=>FORMATOS.forEach(f=>{v[f.id]+=+(x.ventas||{})[f.id]||0;e[f.id]+=+(x.env||{})[f.id]||0}));return {v,e}};
+function aplicarVueltas(r){const {v,e}=sumaVueltas(r);r.ventas=v;r.envases=e}
+const montoVuelta=(r,x)=>FORMATOS.reduce((s,f)=>s+(+(x.ventas||{})[f.id]||0)*(r.precios[f.id]||0)+(+(x.env||{})[f.id]||0)*((r.precioEnv||{})[f.id]||0),0);
+const resumenQ=o=>FORMATOS.filter(f=>+o[f.id]>0).map(f=>`${o[f.id]}×${f.tipo==="h"?"H15":f.kg+" kg"}`).join(", ");
+hubCuad=function(fechaSel){
+  const H=D.historico,lista=NUBE.activo?NUBE.usuarios:D.usuarios,key=u=>NUBE.activo?u.uid:u.user;
+  const nombres=lista.filter(u=>u.rol==="admin"||H.usuarios.includes(key(u))).map(u=>u.nombre);
+  const ed=puedeEditarFecha(fechaCuad),chs=chOrden().filter(c=>c.local===suc&&(c.activo!==false||getRend("movil",c.id,fechaCuad,false)));
+  if(!chs.some(c=>c.id===vrCh))vrCh=(chs.find(c=>c.activo!==false)||chs[0]||{}).id??null;
+  const filas=chs.map(c=>{const r=getRend("movil",c.id,fechaCuad,false),k=r?calcRend(r):null;return {c,r,k,vs:r&&r.vueltas||[]}});
+  const tot=f=>filas.reduce((s,o)=>s+(o.k?f(o.k,o):0),0);
+  const estado=o=>!o.r||!(o.k.tarros||o.vs.length)?'<span class="pill pendiente">Sin venta</span>':!o.r.guardada?'<span class="pill ruta">Por rendir</span>':Math.round(o.k.saldo)===0?'<span class="pill entregado">Rendido</span>':o.k.saldo>0?`<span class="pill bajo">Debe ${clp(o.k.saldo)}</span>`:`<span class="pill ruta">A favor ${clp(-o.k.saldo)}</span>`;
+  const rSel=vrCh!=null?getRend("movil",vrCh,fechaCuad,false):null,nV=(rSel&&rSel.vueltas||[]).length,P=rSel?rSel.precios:D.precios,PE=rSel?rSel.precioEnv||{}:D.preciosEnvase||{};
+  const ent=vrCh!=null?entregasDe(vrCh,fechaCuad):null;
+  const tile=(ctab,t,sub,ic)=>`<button type="button" class="rep hub-t" data-ctab="${ctab}"><span class="ico">${svg(ic)}</span><span><b>${t}</b><br><span class="nota" style="margin:0">${sub}</span></span></button>`;
+  return cabeza("Venta de Repartidor",fechaSel)+(ed?"":`<div class="banner">Este día ya pasó y está bloqueado. Para editarlo, el administrador debe darle acceso a históricos.</div>`)+`
+  <div class="kpis vr-kpis"><div class="kpi"><span>Vendido</span><b class="num">${clp(tot(k=>k.venta))}</b></div><div class="kpi"><span>Rendido</span><b class="num">${clp(tot(k=>k.pagado))}</b></div>
+    <div class="kpi"><span>Por rendir</span><b class="num">${clp(tot((k,o)=>o.r.guardada?0:k.venta))}</b></div><div class="kpi"><span>Choferes rendidos</span><b class="num">${filas.filter(o=>o.r&&o.r.guardada).length} / ${filas.filter(o=>o.r&&(o.k.tarros||o.vs.length)).length}</b></div></div>
+  <div class="vr-grid">
+   <form class="caja vr-form" id="f-vr"><h3>Ingresar venta</h3>
+    <label>Chofer<select id="vr-ch" ${ed?"":"disabled"}>${chs.map(c=>`<option value="${c.id}" ${c.id===vrCh?"selected":""}>${esc(c.nombre)}${c.patente?" · "+esc(c.patente):""}</option>`).join("")}</select></label>
+    <p class="nota" style="margin:0">${nV?`Esta será la <b>venta N° ${nV+1}</b> de hoy. Se suma ${nV===1?"a la anterior":"a las "+nV+" anteriores"}.`:"Primera venta del día de este chofer."}${ent&&ent.tarros?` · Pedidos del sistema entregados hoy: <b>${resumenVentas(ent.ventas)}</b>`:""}</p>
+    <div class="tabla-wrap"><table class="vr-q"><thead><tr><th></th>${FORMATOS.map(f=>`<th>${f.tipo==="h"?"H15":f.kg+" kg"}</th>`).join("")}</tr></thead><tbody>
+      <tr><td class="l">Vendidos</td>${FORMATOS.map(f=>`<td><input type="number" min="0" inputmode="numeric" data-vrq="${f.id}" placeholder="0" ${ed?"":"disabled"}></td>`).join("")}</tr>
+      <tr><td class="l">Con envase</td>${FORMATOS.map(f=>`<td><input type="number" min="0" inputmode="numeric" data-vre="${f.id}" placeholder="0" ${ed?"":"disabled"}></td>`).join("")}</tr>
+      <tr class="pr"><td class="l">Precio</td>${FORMATOS.map(f=>`<td class="num">${clp(P[f.id]||0)}</td>`).join("")}</tr></tbody></table></div>
+    <div class="vr-tot"><span>Total de esta venta</span><b class="num" id="vr-total">${clp(0)}</b></div>
+    <div class="acc"><button class="btn" type="submit" ${ed&&vrCh!=null?"":"disabled"}>Agregar venta</button>${ent&&ent.tarros&&ed?'<button class="btn linea" type="button" id="vr-usar">Usar pedidos entregados</button>':""}</div>
+    <p class="error" id="vr-err" hidden></p></form>
+   <div style="min-width:0">
+    <div class="tabla-wrap"><table class="vr-lista"><thead><tr><th>Chofer</th><th>Ventas del día</th><th class="der">Cilindros</th><th class="der">Total vendido</th><th>Estado</th><th></th></tr></thead><tbody>
+    ${filas.map(o=>`<tr class="${o.c.id===vrCh?"vr-on":""}"><td><button type="button" class="vr-nom" data-vrsel="${o.c.id}"><b>${esc(o.c.nombre)}</b></button><br><span class="nota" style="margin:0">${esc(o.c.patente||"Sin patente")}</span></td>
+      <td>${o.vs.length?o.vs.map((x,i)=>`<span class="vr-v" title="${esc(resumenQ(x.ventas||{}))}"><b>${i+1}</b> ${esc((x.hora||"").slice(11,16))} · ${clp(montoVuelta(o.r,x))}${ed&&!o.r.guardada?`<button type="button" data-vrdel="${o.c.id}|${x.id}" aria-label="Quitar venta ${i+1}">✕</button>`:""}</span>`).join(""):o.k&&o.k.tarros?'<span class="nota" style="margin:0">Ingresada en la rendición</span>':'<span class="nota" style="margin:0">—</span>'}</td>
+      <td class="der num">${o.k?o.k.tarros:0}</td><td class="der num"><b>${o.k?clp(o.k.venta):"—"}</b></td><td>${estado(o)}</td>
+      <td>${o.r&&(o.k.tarros||o.vs.length)?`<button class="btn chico ${o.r.guardada?"linea":""}" type="button" data-cuadrar="${o.c.id}" data-vrrend="1">${o.r.guardada?"Ver rendición":"Rendir día"}</button>`:""}</td></tr>`).join("")||'<tr><td colspan="6">No hay choferes activos en esta sucursal.</td></tr>'}
+    </tbody></table></div>
+    <p class="nota" style="margin:6px 0 0">Si el chofer vuelve más de una vez, ingrese cada venta: se suman en su total del día. Al final toque <b>Rendir día</b> para registrar efectivo, vales y demás pagos.</p>
+   </div></div>
+  <details class="caja vr-otros"><summary>Más opciones: cargas, distribuidores y liquidaciones</summary><div class="rep-grid" style="margin-top:10px">
+    ${tile("carga","Carga inicial","Con qué sale cada móvil","ruta")}${tile("recarga","Recarga de cilindros","Cargas durante el día","compras")}${tile("movil","Rendiciones chofer","Lista de todas las rendiciones","cuadratura")}
+    ${tile("venta-dist","Venta recargas","Carga y préstamos de envases","ruta")}${tile("mayorista","Rendición distribuidor","Pagos y saldo del distribuidor","cuadratura")}
+    ${tile("liq-chofer","Liquidación chofer","Comisiones y anticipos","usuarios")}${tile("liq-peoneta","Liquidación peoneta","Comisiones de ayudantes","usuarios")}</div>
+    <div class="hist" style="margin-top:12px"><p>Acceso a históricos (editar días anteriores) desde <b>${fF(H.desde)}</b> para: <b>${nombres.map(esc).join(", ")||"solo administradores"}</b>.</p>
+      ${esAdmin()?`<form id="f-hist" class="grid" style="gap:12px;margin-top:8px"><label style="max-width:220px">Desde<input type="date" id="hs-desde" value="${H.desde}"></label>
+        <div class="checks-grid">${lista.filter(u=>u.rol==="encargado").map(u=>`<label class="radio"><input type="checkbox" name="hs-u" value="${esc(key(u))}" ${H.usuarios.includes(key(u))?"checked":""}>${esc(u.nombre)}</label>`).join("")||'<span class="nota" style="margin:0">Todavía no hay encargados.</span>'}</div>
+        <div><button class="btn chico" type="submit">Guardar acceso</button></div></form>`:""}</div></details>`;
+};
+function enlazarVR(){
+  const f=$("#f-vr");if(!f)return;
+  const P=()=>{const r=vrCh!=null?getRend("movil",vrCh,fechaCuad,false):null;return {P:r?r.precios:D.precios,PE:r?r.precioEnv||{}:D.preciosEnvase||{}}};
+  const leerQ=a=>{const o=st();$$(`[data-${a}]`).forEach(i=>o[i.dataset[a]]=Math.max(0,Math.round(+i.value||0)));return o};
+  const calc=()=>{const {P:p,PE:pe}=P(),q=leerQ("vrq"),e=leerQ("vre");$("#vr-total").textContent=clp(FORMATOS.reduce((s,x)=>s+q[x.id]*(p[x.id]||0)+e[x.id]*(pe[x.id]||0),0))};
+  $$("[data-vrq],[data-vre]").forEach(i=>i.oninput=calc);
+  const sel=$("#vr-ch");if(sel)sel.onchange=()=>{vrCh=+sel.value;pintarSistema()};
+  $$("[data-vrsel]").forEach(b=>b.onclick=()=>{vrCh=+b.dataset.vrsel;pintarSistema()});
+  const us=$("#vr-usar");if(us)us.onclick=()=>{const en=entregasDe(vrCh,fechaCuad);FORMATOS.forEach(x=>{const a=$(`[data-vrq="${x.id}"]`),b=$(`[data-vre="${x.id}"]`);if(a)a.value=en.ventas[x.id]||"";if(b)b.value=(en.env||{})[x.id]||""});calc()};
+  f.onsubmit=e=>{e.preventDefault();const er=$("#vr-err");er.hidden=true;
+    const q=leerQ("vrq"),en=leerQ("vre");if(!FORMATOS.some(x=>q[x.id]||en[x.id])){er.textContent="Escriba al menos una cantidad.";er.hidden=false;return}
+    if(FORMATOS.some(x=>en[x.id]>q[x.id])){er.textContent="«Con envase» no puede ser mayor que los vendidos de ese formato.";er.hidden=false;return}
+    const existia=!!getRend("movil",vrCh,fechaCuad,false),r=getRend("movil",vrCh,fechaCuad,true);r.vueltas=r.vueltas||[];
+    if(existia&&!r.vueltas.length&&FORMATOS.some(x=>(r.ventas[x.id]||0)||((r.envases||{})[x.id]||0)))r.vueltas.push({id:1,hora:r.creada||ahora(),ventas:{...r.ventas},env:{...(r.envases||st())},user:r.usuario||"",previa:true});
+    const x={id:(r.vueltas.reduce((m,v)=>Math.max(m,v.id),0))+1,hora:ahora(),ventas:q,env:en,user:yo.nombre};r.vueltas.push(x);
+    if(r.guardada){r.guardada=null}            // hay venta nueva: hay que volver a rendir
+    aplicarVueltas(r);nubeGuardar("rendiciones",r);
+    log("cuadratura","Venta de repartidor",`${nomChofer(vrCh)} (${fechaCuad}) · venta N° ${r.vueltas.length}: ${resumenQ(q)} · ${clp(montoVuelta(r,x))}`,{chofer:vrCh});
+    guardar();pintarSistema();aviso("Venta agregada",`${nomChofer(vrCh)}: venta N° ${r.vueltas.length} por ${clp(montoVuelta(r,x))}. Total del día: ${clp(calcRend(r).venta)}.`)};
+  $$("[data-vrdel]").forEach(b=>b.onclick=()=>confirmar(b,()=>{const [c,id]=b.dataset.vrdel.split("|").map(Number),r=getRend("movil",c,fechaCuad,false);if(!r)return;
+    const x=r.vueltas.find(v=>v.id===id);r.vueltas=r.vueltas.filter(v=>v.id!==id);aplicarVueltas(r);nubeGuardar("rendiciones",r);
+    log("cuadratura","Venta de repartidor quitada",`${nomChofer(c)} (${fechaCuad}) · ${x?resumenQ(x.ventas||{}):""}`,{chofer:c});guardar();pintarSistema()}));
+  // desde aquí «Rendir día» abre la rendición del chofer
+  $$("[data-vrrend]").forEach(b=>b.onclick=()=>{cuadTab="movil";cuadSel=+b.dataset.cuadrar;pintarSistema();window.scrollTo(0,0)});
+}
+// En la rendición: si el chofer tiene varias ventas, las cantidades son la suma (se cambian en Venta de Repartidor)
+{const v0=vistaRendERP;vistaRendERP=function(r,f){let h=v0(r,f);
+  if(r.tipo!=="movil"||!(r.vueltas&&r.vueltas.length))return h;
+  h=h.replace(/ data-(rcant|renv)=/g,' disabled data-$1=');
+  h=h.replace(/<button class="btn chico linea" id="rd-usar"[^>]*>[^<]*<\/button>/,"");
+  const lista=r.vueltas.map((x,i)=>`<span class="vr-v"><b>${i+1}</b> ${esc((x.hora||"").slice(11,16))} · ${esc(resumenQ(x.ventas||{}))} · ${clp(montoVuelta(r,x))}</span>`).join("");
+  return h.replace('<fieldset class="bloqueo"',`<div class="vr-sum"><span>Venta del día = suma de <b>${r.vueltas.length}</b> venta${r.vueltas.length>1?"s":""}:</span>${lista}<button type="button" class="btn chico linea" data-ctab="menu">Agregar o quitar ventas</button></div><fieldset class="bloqueo"`)}}
+{const lc=L.cuadratura;L.cuadratura=function(){lc.call(this);if(cuadTab==="menu")enlazarVR();
+  if(cuadTab==="movil"&&cuadSel!=null){const b=$("#cu-lista");if(b){b.textContent="← Volver a Venta de Repartidor";b.onclick=()=>{cuadTab="menu";cuadSel=null;pintarSistema()}}
+    $$(".vr-sum [data-ctab]").forEach(x=>x.onclick=()=>{vrCh=cuadSel;cuadTab="menu";cuadSel=null;pintarSistema()})}}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -4358,6 +4443,30 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .dl-estado .est-op:has(input:checked){border-color:#1a66d6;background:#ecf3fd}
 .dl-estado .est-op input{margin-top:3px;width:auto}
 .dl-estado .est-op b{display:block;font-size:13.5px}.dl-estado .est-op small{display:block;color:#6b7488;font-size:12px}
+
+/* Venta de Repartidor */
+.sis .vr-kpis{margin-bottom:10px}
+.sis .vr-grid{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);gap:14px;align-items:start}
+.sis .vr-form{display:grid;gap:8px}
+.sis .vr-form h3{margin:0}
+.sis .vr-q{width:100%;font-size:12.5px}
+.sis .vr-q th{text-align:center;font-size:11px}
+.sis .vr-q td{padding:3px 4px;text-align:center}
+.sis .vr-q td.l{text-align:left;font-weight:600;white-space:nowrap;font-size:12px}
+.sis .vr-q input{width:100%;min-width:46px;text-align:center;padding:5px 4px;font:600 15px "JetBrains Mono",ui-monospace,monospace;color:var(--b8)}
+.sis .vr-q tr.pr td{color:var(--mu);font-size:11px}
+.sis .vr-tot{display:flex;justify-content:space-between;align-items:center;background:var(--b1);color:var(--b8);border-radius:10px;padding:8px 12px}
+.sis .vr-tot span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}.sis .vr-tot b{font-size:20px}
+.sis .vr-lista td{vertical-align:middle}
+.sis .vr-lista tr.vr-on td{background:var(--b0)}
+.sis .vr-nom{background:none;border:0;padding:0;cursor:pointer;color:inherit;font:inherit;text-align:left}
+.sis .vr-v{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--b2);background:#fff;border-radius:8px;padding:1px 6px;margin:2px 4px 2px 0;font-size:12px;white-space:nowrap}
+.sis .vr-v b{display:inline-grid;place-items:center;min-width:17px;height:17px;border-radius:50%;background:var(--b7);color:#fff;font-size:10.5px}
+.sis .vr-v button{border:0;background:none;color:var(--mu);cursor:pointer;padding:0 0 0 2px}
+.sis .vr-sum{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:0 0 8px;padding:6px 10px;border:1px solid var(--b2);border-radius:8px;background:var(--b0);font-size:12.5px}
+.sis .vr-lista .pill{display:inline-flex;width:auto;white-space:nowrap}.sis .vr-lista .btn{white-space:nowrap}
+.sis .vr-otros{margin-top:12px}.sis .vr-otros summary{cursor:pointer;font-weight:600}
+@media (max-width:1000px){.sis .vr-grid{grid-template-columns:minmax(0,1fr)}}
 </style>
 </body>
 </html>
