@@ -24,8 +24,8 @@ mrgas/
     └── .htaccess         ← protege los archivos internos
 ```
 
-`api/config.php` **no está en GitHub** a propósito: tiene la clave de la base de datos.
-Se crea una sola vez en Hostinger (paso 6).
+La conexión a la base (`mrgas-config.php`) **no está en GitHub** a propósito: tiene la clave.
+Se crea una sola vez en Hostinger, fuera de `public_html` (paso 6), y así no se borra al actualizar.
 
 ---
 
@@ -67,34 +67,35 @@ hPanel → **Archivos → Administrador de archivos** → `public_html` → borr
 
 Desde ahora, cada cambio que subas a GitHub se publica solo en Hostinger.
 
-### Paso 6. Crear `config.php` (una sola vez, en Hostinger)
-1. Administrador de archivos → `public_html/api`.
-2. Clic derecho en `config.ejemplo.php` → **Copiar** → nombre: `config.php`.
-3. Abre `config.php` y reemplaza los 3 textos `PEGA_AQUI_...` con los datos del paso 2:
-   ```php
-   'db_name' => 'u123456789_mrgas',
-   'db_user' => 'u123456789_mrgas',
-   'db_pass' => 'tu-clave',
+### Paso 6. Conectar la base de datos (una sola vez)
+1. Abre `https://tu-dominio/api/instalar.php`.
+2. Escribe los 3 datos del paso 2 (nombre de la base, usuario y clave) → **Probar y guardar**.
+3. El sistema crea solo el archivo `mrgas-config.php` **fuera de `public_html`** (al lado de esa carpeta):
    ```
-4. Guarda. Este archivo queda solo en Hostinger: GitHub no lo toca en las actualizaciones.
+   tu-dominio.com/
+   ├── mrgas-config.php   ← aquí queda la conexión (GitHub nunca lo borra)
+   └── public_html/       ← aquí llegan los archivos de GitHub
+   ```
+4. Si Hostinger no deja crearlo solo, la página te muestra el texto para crearlo a mano en ese mismo lugar.
 
 ### Paso 7. Activar el candado (SSL)
 hPanel → **Seguridad → SSL** → instala el certificado gratis para tu dominio.
 
-### Paso 8. Instalar
-1. Abre `https://tu-dominio/api/instalar.php`.
+### Paso 8. Crear el administrador
+1. En la misma página `https://tu-dominio/api/instalar.php` (paso 2 de 2).
 2. Usuario `matias`, tu nombre y una clave → **Instalar**. La página se bloquea sola después.
 
 ### Paso 9. Entrar
 1. `https://tu-dominio/#acceso` con tu usuario.
-2. La primera vez se suben las sucursales, choferes y precios de ejemplo: cámbialos en **Administración**, **Precios del Gas** y **Asigna Ruta**.
-3. En **Permisos Usuarios** crea a los encargados (con su sucursal) y a los repartidores (con su móvil).
+2. La primera vez se suben las sucursales, choferes y precios de ejemplo: cámbialos en **Configuraciones** (pestañas Choferes, Precios del Gas y Sucursal).
+3. En **Configuraciones → Usuarios y permisos** crea a los encargados y a los repartidores (con su móvil).
+   Para otros administradores, marca **Respaldos y reset** solo a quien deba poder hacer copias o borrar datos.
 
 ---
 
 ## Cómo actualizar el sistema
 1. Cambia los archivos en GitHub (o súbelos de nuevo en **Add file → Upload files**).
-2. En `sw.js`, sube el número de versión: `mrgas-v3` → `mrgas-v4`. Así cada PC carga la versión nueva.
+2. En `sw.js`, sube el número de versión (ej: `mrgas-v22` → `mrgas-v23`). Así cada PC carga la versión nueva.
 3. Con la implementación automática, Hostinger lo publica solo. Sin ella: Hostinger → **GIT → Implementar**.
 
 ## Respaldos
