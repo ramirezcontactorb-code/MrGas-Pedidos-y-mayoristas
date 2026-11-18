@@ -279,6 +279,9 @@ td select.pill{border:0;padding:3px 9px}
   .lform input{font-size:16px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.status+.btn{min-height:30px}
+#push-banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:10px auto 0;max-width:1100px;width:calc(100% - 32px);padding:10px 14px;border-radius:12px;background:#fffaeb;border:1px solid #fedf89;color:#93370d;font-size:13.5px}
+#push-banner[hidden]{display:none}#push-banner button{min-height:40px}
 .volver{display:block;text-align:center;color:var(--mu);font-size:13px;text-decoration:none;margin-top:4px}.volver:hover{color:var(--b8)}
 html,body{min-height:100%}
 </style>
@@ -313,6 +316,7 @@ html,body{min-height:100%}
         <div class="sesion" id="sesion"></div>
         <span class="clock" id="clock"></span>
         <p class="status" id="status">Conectando…</p>
+        <button type="button" class="btn ghost" id="push-oficina" hidden style="color:#fff;border-color:rgba(255,255,255,.3);background:none">Activar avisos</button>
       </div>
     </div>
   </header>
@@ -528,6 +532,7 @@ html,body{min-height:100%}
       <button type="button" id="cv-tab-pend" aria-pressed="true">Pendientes</button>
       <button type="button" id="cv-tab-ent" aria-pressed="false">Entregados hoy</button>
     </div>
+    <div id="push-banner" hidden style="width:auto;margin:0"><span></span><button type="button" class="btn" id="push-activar">Activar avisos</button></div>
     <p class="cv-msg" id="cv-msg" aria-live="polite"></p>
     <div class="cv-list" id="cv-lista"></div>
   </main>
@@ -985,13 +990,14 @@ $("cv-tab-ent").onclick=()=>{cvTab="ent";renderChofer()};
 $("cv-salir").onclick=()=>salir();
 
 async function entrar(perfil){
-  if(perfil.rol==="encargado"&&Array.isArray(perfil.permisos)&&perfil.permisos.includes("_v2")&&!perfil.permisos.includes("app.distribucion")){
+  if(perfil.rol!=="admin"&&Array.isArray(perfil.permisos)&&perfil.permisos.includes("_v2")&&!perfil.permisos.includes("app.distribucion")){
     $("pantalla-login").hidden=false;$("app").hidden=true;$("lg-msg").textContent="Tu usuario no tiene permiso para la App distribución. Pídelo al administrador en ERP Matriz → Configuraciones → Usuarios y permisos.";return}
   const cuenta={id:perfil.user,uid:perfil.uid,usuario:perfil.nombre||perfil.user,rol:perfil.rol,choferId:perfil.chofer!=null?String(perfil.chofer):""};
   sesion=cuenta;
   $("lg-msg").textContent="Cargando datos…";
   try{const j=await api("cambios",null,"&desde=0");aplicar(j.docs);VER=j.ver}catch(e){setStatus("No se pudieron cargar los datos. Reintentando…",true)}
   clearTimeout(TIMER);TIMER=setTimeout(sondear,4000);
+  activarPush(false).then(pintarBannerPush);
   $("lg-msg").textContent="";
   if(cuenta.rol==="chofer"){
     canWrite=false;cvTab="pend";cvMsg("");
@@ -1013,7 +1019,7 @@ async function entrar(perfil){
   if(admin)cargarUsuarios();
 }
 function salir(msg){
-  clearTimeout(TIMER);api("salir",{}).catch(()=>{});
+  clearTimeout(TIMER);bajaPush().finally(()=>api("salir",{}).catch(()=>{}));
   sesion=null;usuarios=[];VER=0;Object.values(RAW).forEach(m=>m.clear());delete EST.mayoristas;
   $("app").hidden=true;$("vista-chofer").hidden=true;$("pantalla-login").hidden=false;
   $("f-login").reset();$("lg-msg").textContent=msg||"Sesión cerrada.";
@@ -1061,6 +1067,35 @@ $("f-usuario").addEventListener("submit",async e=>{
 });
 const _render0=render;render=function(){_render0();if(sesion&&sesion.rol==="admin")renderUsuarios()};
 
+
+/* ===================== Avisos con la app cerrada o la pantalla bloqueada (push) ===================== */
+const PUSH_APP="distribucion";
+const pushSoportado=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window&&location.protocol==="https:";
+const esIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent);
+const instalada=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const bytesDe=b=>{const s=atob(b.replace(/-/g,"+").replace(/_/g,"/")+"===".slice((b.length+3)%4));return Uint8Array.from(s,c=>c.charCodeAt(0))};
+async function activarPush(pedir){
+  if(!pushSoportado())return esIOS()&&!instalada()?"ios":"no";
+  if(Notification.permission==="denied")return "bloq";
+  if(Notification.permission!=="granted"){if(!pedir)return "falta";if(await Notification.requestPermission()!=="granted")return "bloq"}
+  try{const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();
+    if(!sub){const {clave}=await api("push_clave");sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytesDe(clave)})}
+    await api("push_alta",{...sub.toJSON(),app:PUSH_APP});return "ok"}
+  catch(e){return "error"}}
+async function bajaPush(){try{if(!pushSoportado())return;const reg=await navigator.serviceWorker.getRegistration();const sub=reg&&await reg.pushManager.getSubscription();
+  if(sub)await api("push_baja",{endpoint:sub.endpoint})}catch(e){}}
+const PUSH_TXT={ok:"Listo: este celular avisará cada pedido aunque la app esté cerrada o la pantalla bloqueada.",
+  ios:"En iPhone primero instale la app: en Safari toque Compartir → «Agregar a pantalla de inicio», ábrala desde ese ícono y active los avisos.",
+  no:"Este navegador no permite avisos con la app cerrada. Use Chrome en Android o Safari en iPhone (app instalada).",
+  bloq:"Los avisos están bloqueados. Actívelos en Ajustes del celular → Notificaciones → navegador o app MR Gas.",
+  error:"No se pudo activar. Revise la señal e intente otra vez.",falta:""};
+var pintarBannerPush=function(){const b=document.getElementById("push-banner");if(!b)return;
+  const ver=pushSoportado()?Notification.permission==="default":esIOS()&&!instalada();
+  b.hidden=!ver;b.querySelector("span").textContent=pushSoportado()?"Active los avisos para enterarse de cada pedido con el celular bloqueado.":PUSH_TXT.ios;
+  b.querySelector("button").hidden=!pushSoportado()};
+{const pb0=pintarBannerPush;pintarBannerPush=function(){pb0();const o=$("push-oficina");if(o)o.hidden=!(pushSoportado()&&Notification.permission==="default")}}
+$("push-activar").onclick=async()=>{const r=await activarPush(true);pintarBannerPush();cvMsg(PUSH_TXT[r]||"",r!=="ok")};
+$("push-oficina").onclick=async()=>{const r=await activarPush(true);pintarBannerPush();setStatus(PUSH_TXT[r]||"",r!=="ok")};
 // Inicio: si ya hay sesión de MR Gas en este navegador, entra solo
 (async()=>{
   if(!location.protocol.startsWith("http")){$("lg-msg").textContent="Abre esta app desde el sitio de MR Gas.";return}

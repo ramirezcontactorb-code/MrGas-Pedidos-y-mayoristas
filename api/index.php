@@ -2,6 +2,7 @@
 // MR Gas · API del sistema (Hostinger: PHP + MySQL)
 declare(strict_types=1);
 require __DIR__ . '/nucleo.php';
+require __DIR__ . '/push.php';
 date_default_timezone_set('America/Santiago');
 iniciarSesion();
 
@@ -84,7 +85,7 @@ try {
         // Guarda o borra varios documentos: {docs:[{col,id,data|null}]}
         $u = requiereYo(); $raw = file_get_contents('php://input') ?: '{}';
         $b = json_decode($raw, true) ?: []; $bo = json_decode($raw, false);
-        $res = [];
+        $res = []; $cambios = [];
         $p = db(); $p->beginTransaction();
         $leer = $p->prepare('SELECT local_id, data, borrado FROM docs WHERE col = ? AND id = ?');
         foreach (array_slice($b['docs'] ?? [], 0, 500, true) as $i => $d) {
@@ -97,9 +98,37 @@ try {
             if (!puedeEscribir($u, $col, $id, $m, $data, $antes, $prev)) { $res[] = ['ok' => false, 'error' => 'sin permiso', 'actual' => $prev && !$prev['borrado'] ? json_decode($prev['data']) : null]; continue; }
             if ($data === null && !$prev) { $res[] = ['ok' => true]; continue; }
             $res[] = ['ok' => true, 'ver' => grabarDoc($col, $id, $data, $u['uid'], $json)];
+            if ($col === 'pedidos' || $col === 'reparto') $cambios[] = [$col, $id, $data, $antes];
         }
         $p->commit();
-        salida(['res' => $res]);
+        $envios = [];
+        if ($cambios) { try { $envios = avisosDe($cambios, (int) $u['uid']); } catch (Throwable $e) { error_log('MR Gas push: ' . $e->getMessage()); } }
+        if (!$envios) salida(['res' => $res]);
+        responderYSeguir(['res' => $res], fn() => enviarPush($envios)); // responde al tiro y después avisa a los celulares
+    }
+    // ---------- avisos al celular (push) ----------
+    case 'push_clave':
+        requiereYo(); salida(['clave' => vapid()['pub']]);
+    case 'push_alta': {
+        $u = requiereYo(); $b = cuerpo(); asegurarPush();
+        $ep = (string) ($b['endpoint'] ?? ''); $k = $b['keys'] ?? [];
+        if (!preg_match('#^https://#', $ep) || strlen($ep) > 1000 || empty($k['p256dh']) || empty($k['auth'])) salida(['error' => 'Suscripción no válida.'], 400);
+        $id = hash('sha256', $ep); $app = in_array($b['app'] ?? '', ['repartidores', 'distribucion'], true) ? $b['app'] : 'repartidores';
+        db()->prepare('DELETE FROM push_subs WHERE id = ?')->execute([$id]);
+        db()->prepare('INSERT INTO push_subs (id, uid, endpoint, p256dh, auth, app, creado) VALUES (?,?,?,?,?,?,?)')
+            ->execute([$id, $u['uid'], $ep, substr((string) $k['p256dh'], 0, 200), substr((string) $k['auth'], 0, 100), $app, ahora()]);
+        salida(['ok' => true]);
+    }
+    case 'push_baja': {
+        $b = cuerpo(); asegurarPush();
+        db()->prepare('DELETE FROM push_subs WHERE id = ?')->execute([hash('sha256', (string) ($b['endpoint'] ?? ''))]);
+        salida(['ok' => true]);
+    }
+    case 'push_prueba': {
+        $u = requiereYo(); $subs = subsDe('s.uid = ?', [$u['uid']]);
+        if (!$subs) salida(['error' => 'Este usuario no tiene celulares con avisos activados.'], 400);
+        $r = enviarPush(array_map(fn($s) => [$s, ['titulo' => 'Prueba de aviso', 'cuerpo' => 'Así llegará cada pedido, aunque la app esté cerrada.', 'tag' => 'prueba']], $subs));
+        salida(['ok' => true, 'enviados' => count(array_filter($r, fn($c) => $c >= 200 && $c < 300)), 'total' => count($subs)]);
     }
     case 'contador': {
         // Número correlativo de pedido, compartido por todos los PC

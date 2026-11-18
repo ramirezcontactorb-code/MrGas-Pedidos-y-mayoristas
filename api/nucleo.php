@@ -187,6 +187,19 @@ function puedeEscribir(array $u, string $col, string $id, array $m, ?array $nuev
     return true;
 }
 
+// Responde al navegador y sigue trabajando (para enviar avisos sin hacer esperar a nadie)
+function responderYSeguir(array $datos, callable $luego): never {
+    ignore_user_abort(true); set_time_limit(30);
+    $json = json_encode($datos, JSON_UNESCAPED_UNICODE);
+    http_response_code(200); header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store');
+    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+    if (function_exists('litespeed_finish_request')) { echo $json; litespeed_finish_request(); }
+    elseif (function_exists('fastcgi_finish_request')) { echo $json; fastcgi_finish_request(); }
+    else { header('Content-Length: ' . strlen($json)); header('Connection: close'); echo $json; while (ob_get_level()) ob_end_flush(); flush(); }
+    try { $luego(); } catch (Throwable $e) { error_log('MR Gas push: ' . $e->getMessage()); }
+    exit;
+}
+
 // Siguiente número de un contador (pedidos, versión de cambios)
 function siguiente(string $nombre, int $minimo = 0): int {
     $p = db();

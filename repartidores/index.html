@@ -210,6 +210,9 @@ td select.pill{border:0;padding:3px 9px}
 /* aviso */
 .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translate(-50%,-160%);z-index:60;width:min(560px,calc(100% - 32px));background:var(--tx);color:#fff;border-radius:14px;padding:14px 16px;display:grid;gap:2px;box-shadow:0 12px 30px rgba(0,0,0,.3);transition:transform .35s cubic-bezier(.2,.9,.3,1.2);cursor:pointer}
 .toast.ver{transform:translate(-50%,0)}
+#push-banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:10px auto 0;max-width:1100px;width:calc(100% - 32px);padding:10px 14px;border-radius:12px;background:#fffaeb;border:1px solid #fedf89;color:#93370d;font-size:13.5px}
+#push-banner[hidden]{display:none}#push-banner button{min-height:38px}
+
 .toast b{font-size:15px}.toast span{font-size:13px;opacity:.85}
 
 @media (max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}}
@@ -254,6 +257,7 @@ td select.pill{border:0;padding:3px 9px}
   <nav class="tabs" id="tabs" aria-label="Secciones"><div class="in" id="tabs-in"></div></nav>
 
   <!-- BANDEJA -->
+  <div id="push-banner" hidden><span></span><button type="button" class="btn" id="push-activar">Activar avisos</button></div>
   <main class="wrap" id="v-bandeja" hidden>
     <div class="estados" role="group" aria-label="Estado de los pedidos">
       <button class="est" data-est="pendiente" aria-pressed="true"><b id="n-pendiente">0</b><span>Por despachar</span></button>
@@ -367,8 +371,9 @@ td select.pill{border:0;padding:3px 9px}
       <div class="bloque"><h2>Avisos de pedidos nuevos</h2>
         <div class="interr"><span>Sonido al llegar un pedido</span><input type="checkbox" id="aj-sonido" checked></div>
         <div class="interr"><span>Vibrar</span><input type="checkbox" id="aj-vibrar" checked></div>
-        <button class="btn sec" type="button" id="aj-push">Activar notificaciones en este celular</button>
-        <p class="note" id="aj-push-msg">Deje la app abierta o en segundo plano para recibir el aviso de cada pedido nuevo.</p>
+        <button class="btn sec" type="button" id="aj-push">Activar avisos con la pantalla bloqueada</button>
+        <button class="btn sec" type="button" id="aj-push-prueba">Enviar aviso de prueba a este celular</button>
+        <p class="note" id="aj-push-msg">Con los avisos activos, el celular suena con cada pedido aunque la app esté cerrada o la pantalla bloqueada (no si está apagado).</p>
         <button class="btn sec" type="button" id="aj-probar">Probar aviso</button></div>
       <div class="bloque"><h2>Instalar en el celular</h2>
         <p class="note"><b>iPhone:</b> abra la app en Safari, toque Compartir y luego «Agregar a pantalla de inicio».</p>
@@ -802,16 +807,17 @@ function llego(v){recien.add(v.key);aviso(v.tipo==="dom"?`Nuevo pedido ${v.num}`
 
 /* ===================== Sesión ===================== */
 async function entrar(perfil){
-  if(perfil.rol==="encargado"&&Array.isArray(perfil.permisos)&&perfil.permisos.includes("_v2")&&!perfil.permisos.includes("app.repartidores")){
+  if(perfil.rol!=="admin"&&Array.isArray(perfil.permisos)&&perfil.permisos.includes("_v2")&&!perfil.permisos.includes("app.repartidores")){
     $("#v-app").hidden=true;$("#v-login").hidden=false;const e=$("#lg-err");e.textContent="Su usuario no tiene permiso para la App repartidores. Pídalo al administrador en ERP Matriz → Configuraciones → Usuarios y permisos.";e.hidden=false;return}
   S.yo=perfil;$("#v-login").hidden=true;$("#v-app").hidden=false;
   $("#top-sub").textContent=`${perfil.nombre||perfil.user} · ${perfil.rol==="chofer"?"Repartidor":perfil.rol==="admin"?"Administrador":"Encargado"}`;
   $("#aj-yo").textContent=`${perfil.nombre||perfil.user} (${perfil.rol==="chofer"?"Repartidor":perfil.rol==="admin"?"Administrador":"Encargado"})`;
   try{const j=await api("cambios",null,"&desde=0");aplicar(j.docs,true);S.ver=j.ver}catch(e){aviso("Sin conexión","No se pudieron cargar los pedidos. Reintentando…",false)}
+  activarPush(false).then(pintarBannerPush);
   S.listo=true;const v=leer("vista",null),ok=(perfil.rol==="chofer"?TABS_CHOFER:TABS_EQUIPO).some(t=>t[0]===v);
   ir(ok?v:perfil.rol==="chofer"?"chofer":"bandeja");clearTimeout(S.timer);S.timer=setTimeout(sondear,4000);
 }
-function salir(msg){clearTimeout(S.timer);api("salir",{}).catch(()=>{});S.yo=null;S.listo=false;S.ver=0;Object.values(S.col).forEach(m=>m.clear());S.est={};
+function salir(msg){clearTimeout(S.timer);bajaPush().finally(()=>api("salir",{}).catch(()=>{}));S.yo=null;S.listo=false;S.ver=0;Object.values(S.col).forEach(m=>m.clear());S.est={};
   $("#v-app").hidden=true;$("#v-login").hidden=false;const e=$("#lg-err");e.textContent=msg||"";e.hidden=!msg}
 $("#b-salir").onclick=()=>salir();
 $("#f-login").addEventListener("submit",async e=>{e.preventDefault();desbloquear();const err=$("#lg-err"),btn=$("#lg-btn");err.hidden=true;btn.disabled=true;btn.textContent="Ingresando…";
@@ -823,8 +829,35 @@ $("#f-login").addEventListener("submit",async e=>{e.preventDefault();desbloquear
 $("#aj-sonido").checked=leer("sonido",true);$("#aj-sonido").onchange=e=>grabar("sonido",e.target.checked);
 $("#aj-vibrar").checked=leer("vibrar",true);$("#aj-vibrar").onchange=e=>grabar("vibrar",e.target.checked);
 $("#aj-probar").onclick=()=>{desbloquear();aviso("Así suena un pedido nuevo","Este aviso aparece cada vez que llega un pedido.",true)};
-$("#aj-push").onclick=async()=>{const m=$("#aj-push-msg");if(!("Notification" in window)){m.textContent="Este navegador no permite notificaciones. En iPhone, primero instale la app en la pantalla de inicio.";return}
-  const p=await Notification.requestPermission();m.textContent=p==="granted"?"Listo. El celular avisará mientras la app esté abierta o en segundo plano.":"Las notificaciones quedaron bloqueadas. Actívelas en los ajustes del celular."};
+
+/* ===================== Avisos con la app cerrada o la pantalla bloqueada (push) ===================== */
+const PUSH_APP="repartidores";
+const pushSoportado=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window&&location.protocol==="https:";
+const esIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent);
+const instalada=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const bytesDe=b=>{const s=atob(b.replace(/-/g,"+").replace(/_/g,"/")+"===".slice((b.length+3)%4));return Uint8Array.from(s,c=>c.charCodeAt(0))};
+async function activarPush(pedir){
+  if(!pushSoportado())return esIOS()&&!instalada()?"ios":"no";
+  if(Notification.permission==="denied")return "bloq";
+  if(Notification.permission!=="granted"){if(!pedir)return "falta";if(await Notification.requestPermission()!=="granted")return "bloq"}
+  try{const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();
+    if(!sub){const {clave}=await api("push_clave");sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytesDe(clave)})}
+    await api("push_alta",{...sub.toJSON(),app:PUSH_APP});return "ok"}
+  catch(e){return "error"}}
+async function bajaPush(){try{if(!pushSoportado())return;const reg=await navigator.serviceWorker.getRegistration();const sub=reg&&await reg.pushManager.getSubscription();
+  if(sub)await api("push_baja",{endpoint:sub.endpoint})}catch(e){}}
+const PUSH_TXT={ok:"Listo: este celular avisará cada pedido aunque la app esté cerrada o la pantalla bloqueada.",
+  ios:"En iPhone primero instale la app: en Safari toque Compartir → «Agregar a pantalla de inicio», ábrala desde ese ícono y active los avisos.",
+  no:"Este navegador no permite avisos con la app cerrada. Use Chrome en Android o Safari en iPhone (app instalada).",
+  bloq:"Los avisos están bloqueados. Actívelos en Ajustes del celular → Notificaciones → navegador o app MR Gas.",
+  error:"No se pudo activar. Revise la señal e intente otra vez.",falta:""};
+function pintarBannerPush(){const b=document.getElementById("push-banner");if(!b)return;
+  const ver=pushSoportado()?Notification.permission==="default":esIOS()&&!instalada();
+  b.hidden=!ver;b.querySelector("span").textContent=pushSoportado()?"Active los avisos para enterarse de cada pedido con el celular bloqueado.":PUSH_TXT.ios;
+  b.querySelector("button").hidden=!pushSoportado()}
+$("#aj-push").onclick=async()=>{desbloquear();const m=$("#aj-push-msg");m.textContent="Activando…";const r=await activarPush(true);m.textContent=PUSH_TXT[r]||"";pintarBannerPush()};
+$("#push-activar").onclick=async()=>{desbloquear();const r=await activarPush(true);pintarBannerPush();aviso(r==="ok"?"Avisos activados":"Avisos",PUSH_TXT[r]||"",false)};
+$("#aj-push-prueba").onclick=async()=>{const m=$("#aj-push-msg");try{const j=await api("push_prueba",{});m.textContent=j.enviados?"Aviso de prueba enviado. Bloquee la pantalla: debería sonar en unos segundos.":"No se pudo enviar el aviso de prueba."}catch(e){m.textContent=e.message}};
 let instEv=null;addEventListener("beforeinstallprompt",e=>{e.preventDefault();instEv=e;$("#aj-instalar").hidden=false});
 $("#aj-instalar").onclick=async()=>{if(!instEv)return;instEv.prompt();await instEv.userChoice.catch(()=>{});instEv=null;$("#aj-instalar").hidden=true};
 try{if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}

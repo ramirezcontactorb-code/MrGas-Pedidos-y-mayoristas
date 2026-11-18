@@ -1329,18 +1329,21 @@ function camposAcceso(u){
       </tbody></table>
       <div class="perm-der">
         <p class="perm-tit">Acciones especiales</p>${PERM_EXTRA.map(([c,t])=>`<label class="radio"><input type="checkbox" name="us-perm" value="${c}" ${extra(c)?"checked":""}>${t}</label>`).join("")}
-        <p class="perm-tit">Apps del celular</p>${PERM_APPS.map(([c,t])=>`<label class="radio"><input type="checkbox" name="us-perm" value="${c}" ${extra(c)?"checked":""}>${t}</label>`).join("")}
       </div>
     </div>
-    <p class="nota" style="margin:8px 0 0"><b>Solo ver</b>: entra y mira, pero no puede guardar cambios. Los repartidores siempre pueden usar sus apps; los administradores, todo.</p></fieldset>`;
+    <p class="nota" style="margin:8px 0 0"><b>Solo ver</b>: entra y mira, pero no puede guardar cambios. Los administradores pueden todo.</p></fieldset>
+  <fieldset class="acceso" id="us-apps"><legend>Apps a las que puede entrar</legend><div class="checks-grid">${PERM_APPS.map(([c,t])=>`<label class="radio"><input type="checkbox" name="us-app" value="${c}" ${(p?(v2?p.includes(c):true):true)?"checked":""}>${t.replace(" (oficina)","")}</label>`).join("")}</div>
+    <p class="nota" style="margin:6px 0 0">Encargado: trabaja en la app con los cuadros que tenga permitidos. Repartidor: ve sus entregas en la app. Si no la marca, no puede entrar.</p></fieldset>`;
 }
 const leerAcceso=()=>({sucursales:[...$$('input[name="us-suc"]:checked')].map(i=>+i.value),
-  permisos:["_v2",...MOD_PERM.map(id=>{const r=$(`input[name="pm-${id}"]:checked`);return !r||!r.value?null:r.value==="ver"?id+":ver":id}).filter(Boolean),...[...$$('input[name="us-perm"]:checked')].map(i=>i.value)]});
+  permisos:["_v2",...MOD_PERM.map(id=>{const r=$(`input[name="pm-${id}"]:checked`);return !r||!r.value?null:r.value==="ver"?id+":ver":id}).filter(Boolean),...[...$$('input[name="us-perm"]:checked')].map(i=>i.value),...[...$$('input[name="us-app"]:checked')].map(i=>i.value)],
+  apps:[...$$('input[name="us-app"]:checked')].map(i=>i.value)});
 function resumenPerm(p){if(!Array.isArray(p))return "Todos los cuadros";
   const T=id=>id==="informes"?"Informes":(MODULOS.find(m=>m.id===id)||{}).t;
   const tr=MOD_PERM.filter(id=>p.includes(id)).map(T),vr=MOD_PERM.filter(id=>p.includes(id+":ver")&&!p.includes(id)).map(T);
-  const ex=esV2(p)?[...PERM_EXTRA,...PERM_APPS].filter(([c])=>p.includes(c)).map(([,t])=>t):[];
-  return [tr.length?"Trabaja: "+tr.join(", "):"",vr.length?"Solo ve: "+vr.join(", "):"",ex.length?"Además: "+ex.join(", "):""].filter(Boolean).join("<br>")||"Sin cuadros"}
+  const ex=esV2(p)?PERM_EXTRA.filter(([c])=>p.includes(c)).map(([,t])=>t):[];
+  return [tr.length?"Trabaja: "+tr.join(", "):"",vr.length?"Solo ve: "+vr.join(", "):"",ex.length?"Además: "+ex.join(", "):"",appsTxt(p)].filter(Boolean).join("<br>")||"Sin cuadros"}
+function appsTxt(p){const l=!esV2(p)?PERM_APPS:PERM_APPS.filter(([c])=>p.includes(c));return l.length?"Apps: "+l.map(([,t])=>t.replace(" (oficina)","")).join(", "):"Sin apps"}
 
 /* ===================== PINTAR SISTEMA ===================== */
 function pintarSistema(){
@@ -2380,7 +2383,7 @@ const V={
     const nube=NUBE.activo,lista=(nube?NUBE.usuarios:D.usuarios).slice().sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
     const keyOf=u=>nube?u.uid:u.user,ed=editUser!=null?lista.find(u=>keyOf(u)===editUser):null,yoKey=nube?yo.uid:yo.user;
     const ROL={admin:"Administrador",encargado:"Encargado",chofer:"Repartidor"},rolSel=ed?ed.rol:"encargado";
-    const acceso=u=>u.rol==="admin"?"Todo"+(Array.isArray(u.permisos)&&!u.permisos.includes("respaldos")?' <span class="nota" style="margin:0">· sin respaldos</span>':" · con respaldos"):u.rol==="chofer"?"Móvil "+esc(nomChofer(u.chofer))
+    const acceso=u=>u.rol==="admin"?"Todo"+(Array.isArray(u.permisos)&&!u.permisos.includes("respaldos")?' <span class="nota" style="margin:0">· sin respaldos</span>':" · con respaldos"):u.rol==="chofer"?"Móvil "+esc(nomChofer(u.chofer))+'<br><span class="nota" style="margin:0">'+appsTxt(u.permisos)+"</span>"
       :`${((u.sucursales&&u.sucursales.length?u.sucursales:(u.local?[u.local]:[])).map(nomLocal).map(esc).join(", "))||"—"}<br><span class="nota" style="margin:0">${resumenPerm(u.permisos)}</span>`;
     return cabeza("Permisos Usuarios")+`<p class="nota" style="margin:-8px 0 18px">${nube?"Los usuarios se guardan en el servidor. ":""}Elija a qué sucursales entra cada persona y qué cuadros puede usar. Cada sucursal ve solo sus propios pedidos, ventas, cuadraturas y bodega.</p>
     <form class="caja" id="f-usr" style="max-width:900px;margin-bottom:22px"><h3>${ed?"Editar a "+esc(ed.nombre):"Agregar usuario"}</h3>
@@ -2733,7 +2736,7 @@ const L={
   empresa(){$("#f-emp").onsubmit=e=>{e.preventDefault();D.empresa={razon:$("#em-razon").value.trim(),rut:$("#em-rut").value.trim(),giro:$("#em-giro").value.trim(),dir:$("#em-dir").value.trim(),fono:$("#em-fono").value.trim(),correo:$("#em-correo").value.trim()};guardar();$("#em-ok").hidden=false}},
   usuarios(){
     const nube=NUBE.activo,rol=$("#us-rol");
-    const upd=()=>{const enc=rol.value==="encargado";$("#us-acceso").hidden=!enc;$("#us-permisos").hidden=!enc;$("#us-chofer-l").hidden=rol.value!=="chofer";$("#us-resp-l").hidden=rol.value!=="admin"};rol.onchange=upd;upd();
+    const upd=()=>{const enc=rol.value==="encargado";$("#us-acceso").hidden=!enc;$("#us-permisos").hidden=!enc;$("#us-apps").hidden=rol.value==="admin";$("#us-chofer-l").hidden=rol.value!=="chofer";$("#us-resp-l").hidden=rol.value!=="admin"};rol.onchange=upd;upd();
     const c=$("#us-cancelar");if(c)c.onclick=()=>{editUser=null;pintarSistema()};
     $$("[data-edituser]").forEach(b=>b.onclick=()=>{editUser=b.dataset.edituser;pintarSistema();window.scrollTo(0,0)});
     $$("[data-toggleuser]").forEach(b=>b.onclick=async()=>{const k=b.dataset.toggleuser;
@@ -2748,7 +2751,7 @@ const L={
       if(r==="chofer"&&!ch)return falla("Primero agregue el móvil en Asigna Ruta.");
       if(r==="encargado"&&!acc.sucursales.length)return falla("Marque al menos una sucursal.");
       if(r==="encargado"&&!acc.permisos.some(x=>MOD_PERM.includes(x.split(":")[0])||x.startsWith("app.")))return falla("Marque al menos un cuadro o una app que pueda usar.");
-      const datos={nombre:$("#us-nombre").value.trim(),rol:r,sucursales:r==="admin"?[]:r==="chofer"?[ch.local]:acc.sucursales,permisos:r==="encargado"?acc.permisos:r==="admin"?(puede("respaldos")?($("#us-resp").checked?null:[]):[]):null,chofer:ch?ch.id:null};
+      const datos={nombre:$("#us-nombre").value.trim(),rol:r,sucursales:r==="admin"?[]:r==="chofer"?[ch.local]:acc.sucursales,permisos:r==="encargado"?acc.permisos:r==="admin"?(puede("respaldos")?($("#us-resp").checked?null:[]):[]):["_v2",...acc.apps],chofer:ch?ch.id:null};
       datos.local=r==="admin"?null:datos.sucursales[0];
       if(editUser!=null){
         if(nube){try{await api("usuario",{uid:+editUser,...datos,pass});await cargarUsuarios()}catch(x){return falla(x.message)}}
@@ -3690,7 +3693,7 @@ function aplicarPermisosUI(){const main=document.getElementById("sis-main");if(!
 function enlazarPlantillas(){
   $$("[data-plantilla]").forEach(b=>b.onclick=()=>{const i=+b.dataset.plantilla,p=i<0?[]:PLANTILLAS[i][1];
     MOD_PERM.forEach(id=>{const v=p.includes(id)?"usar":p.includes(id+":ver")?"ver":"";const r=$(`input[name="pm-${id}"][value="${v}"]`);if(r)r.checked=true});
-    $$('input[name="us-perm"]').forEach(c=>c.checked=p.includes(c.value));
+    $$('input[name="us-perm"],input[name="us-app"]').forEach(c=>c.checked=p.includes(c.value));
     $$("[data-plantilla]").forEach(x=>x.classList.toggle("activo",x===b))})}
 {const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{aplicarPermisosUI();enlazarPlantillas()}catch(e){}return r}}
 </script>
