@@ -1853,7 +1853,7 @@ function aplicarMov(l,m,sg){const c=movCant(m),e=TIPOS_DOC[m.tipo]||{};ensureLoc
   FORMATOS.forEach(f=>{const n=(c[f.id]||0)*sg;l.stock[f.id]+=n*(e.ll||0);l.vacios[f.id]+=n*(e.va||0);l.comodato[f.id]+=n*(e.co||0)})}
 const marcasP=p=>`${p.reclamado?' <span class="marca m-r" title="Reclamado por cliente">R</span>':""}${p.cierreFalso?' <span class="marca m-cf" title="Cierre falso">CF</span>':""}`;
 const contadores=ps=>{const n=e=>ps.filter(p=>p.estado===e).length;
-  return `<div class="contadores"><span>Nuevos <b class="num">${n("pendiente")}</b></span><span>En ruta <b class="num">${n("ruta")}</b></span><span>Entregados <b class="num">${n("entregado")}</b></span><span>Anulados <b class="num">${n("anulado")}</b></span><span>Reclamados (activos) <b class="num">${ps.filter(p=>p.reclamado&&["pendiente","ruta"].includes(p.estado)).length}</b></span><span>Total <b class="num">${ps.length}</b></span></div>`};
+  return `<div class="contadores"><span>${mod==="ruta"?"Por despachar":"Nuevos"} <b class="num">${n("pendiente")}</b></span><span>En ruta <b class="num">${n("ruta")}</b></span><span>Entregados <b class="num">${n("entregado")}</b></span><span>Anulados <b class="num">${n("anulado")}</b></span><span>Reclamados (activos) <b class="num">${ps.filter(p=>p.reclamado&&["pendiente","ruta"].includes(p.estado)).length}</b></span><span>Total <b class="num">${ps.length}</b></span></div>`};
 
 const nomCli=p=>p.nombre||p.fono||"Sin datos";
 const items=p=>p.items||[{formato:p.formato,cant:p.cant,precio:p.precio}];
@@ -1925,7 +1925,7 @@ const V={
   },
   pedidos(){
     const ps=pedidosSuc();
-    const tabs=`<p class="nota" style="margin:0 0 8px">El historial completo de pedidos está en <button type="button" class="enlace" data-modulo-ir="informes">Informes → Historial de pedidos</button>.</p>`;
+    const tabs="";
     const radios=(name,obj,sel)=>Object.entries(obj).map(([k,v])=>`<label class="radio"><input type="radio" name="${name}" value="${k}" ${k===sel?"checked":""}>${esc(v)}</label>`).join("");
     const PE=D.preciosEnvase||{};
     return cabeza("Pedidos de Gas")+contadores(ps)+tabs+`<form id="f-ped" class="ped">
@@ -3488,18 +3488,18 @@ const CFG_MAY={
         <tr class="base"><td><b>Precio base</b></td><td class="c">—</td>${FORMATOS.map(f=>`<td class="c"><b>${clp(precioBaseMay(f.id))}</b></td>`).join("")}<td class="c">${CL.filter(c=>!listaMay(c)&&!esEspMay(c)).length}</td><td></td></tr>
         ${L.map(l=>`<tr><td><b>${esc(l.nombre)}</b></td><td class="c">−$${l.dto} / kg</td>${FORMATOS.map(f=>`<td class="c azul">${clp(precioListaMay(l,f.id))}</td>`).join("")}<td class="c">${CL.filter(c=>c.lista===l.id).length}</td><td class="c"><button class="x-rojo" type="button" data-dellm="${l.id}" aria-label="Eliminar ${esc(l.nombre)}">✕</button></td></tr>`).join("")}
       </tbody></table></div>
-      <h3 class="sub">Actualiza precio base mayorista</h3>
+      <div class="cfg-dos abajo"><div><h3 class="sub">Actualiza precio base mayorista</h3>
       <p class="cfgp-nota izq">Escribe el precio base nuevo de cada cilindro. Todas las listas y clientes se calculan desde este precio.</p>
       <form id="f-base-may"><div class="tabla-wrap cfgt angosta"><table><thead><tr><th>Cilindro</th><th class="c">Precio base actual</th><th class="c">Precio nuevo</th></tr></thead><tbody>
         ${FORMATOS.map(f=>`<tr><td><b>Cilindro ${f.tipo==="h"?"H15A":f.kg+"N"}</b> <span class="gris">${f.tipo==="h"?"Aluminio":f.kg+" kilos"}</span></td><td class="c azul">${clp(precioBaseMay(f.id))}</td><td class="pn"><span>$</span><input type="number" min="0" class="azul" data-pbm="${f.id}" value="${precioBaseMay(f.id)}" aria-label="Precio base ${f.et}"></td></tr>`).join("")}
-      </tbody></table></div><div class="cfgp-btn"><button class="btn" type="submit">Actualizar precio base</button></div></form>
-      <h3 class="sub">Precio especial</h3>
+      </tbody></table></div><div class="cfgp-btn"><button class="btn" type="submit">Actualizar precio base</button></div></form></div>
+      <div><h3 class="sub">Precio especial</h3>
       <p class="cfgp-nota izq">Para clientes con un precio distinto a las listas. Escribe el precio de cada cilindro; no cambia cuando actualizas el precio base.</p>
       <div class="cfgp-fila"><label class="g4">Cliente<select id="esp-cli"><option value="">Elige un cliente...</option>${O.map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join("")}</select></label><button class="btn" type="button" id="esp-dar">＋ Dar precio especial</button></div>
       <div class="tabla-wrap cfgt"><table><thead><tr><th>Cliente</th>${TH}<th></th></tr></thead><tbody>
       ${E.map(c=>`<tr><td><b>${esc(c.nombre)}</b></td>${FORMATOS.map(f=>espEdit===c.id?`<td class="pn"><span>$</span><input type="number" min="1" class="azul" data-esp="${f.id}" value="${precioCliMay(c,f.id)}" aria-label="Precio especial ${f.et}"></td>`:`<td class="c azul">${clp(precioCliMay(c,f.id))}</td>`).join("")}
         <td class="c" style="white-space:nowrap">${espEdit===c.id?`<button class="btn chico" type="button" data-espok="${c.id}">Guardar</button> <button class="btn chico linea" type="button" data-espno="1">Cancelar</button>`:`<button class="btn chico linea" type="button" data-espedit="${c.id}">Modificar</button> <button class="x-rojo" type="button" data-espquitar="${c.id}" aria-label="Quitar precio especial">✕</button>`}</td></tr>`).join("")||`<tr><td colspan="${FORMATOS.length+2}" class="vacio">Ningún cliente tiene precio especial.</td></tr>`}
-      </tbody></table></div></section>`},
+      </tbody></table></div></div></div></section>`},
     l(){const fl=$("#f-lista-may");if(!fl)return;
       fl.onsubmit=e=>{e.preventDefault();const n=$("#lm-nombre").value.trim(),d=Math.round(+$("#lm-dto").value||0);if(!n||d<=0)return;
         D.listasMay.push({id:Date.now(),nombre:n,dto:d});log("precios","Lista mayorista creada",`${n} · −$${d}/kg`);guardar();pintarSistema()};
@@ -4112,7 +4112,7 @@ L.mayorista=function(){
 /* ===================== CONTROL DE BODEGA rediseñado: bodega (llenos / vacíos) y carga de cada camión ===================== */
 {const v0=V.bodega,l0=L.bodega;
 V.bodega=function(){
-  const TABS=[["stock","Stock bodega y camiones","bodega"],["cargas","Cargar y descargar camión","ruta"],["recuento","Cuadratura de stock","cuadratura"],["ventas","Ventas por fecha","informes"],["historial","Historial","manual"]];
+  const TABS=[["stock","Stock","bodega"],["cargas","Cargar camión","ruta"],["recuento","Cuadratura stock","cuadratura"],["ventas","Ventas por fecha","informes"],["historial","Historial","manual"]];
   if(!TABS.some(t=>t[0]===bTab))bTab="stock";
   const side=`<aside class="vc-side caja">${TABS.map(([k,t,ic])=>`<button type="button" class="vc-t${k==="stock"||k==="cargas"?"":" chico"}" data-btab="${k}" aria-selected="${bTab===k}">${k==="stock"||k==="cargas"?svg(ic):""}<span>${t}</span></button>`).join("")}</aside>`;
   let main;
@@ -4138,19 +4138,20 @@ function vistaStockBodega(){
   (bajos.length?`<div class="banner" style="background:#fef3f2;color:#b42318">Stock bajo en bodega: ${bajos.map(f=>`${f.et} (${l.stock[f.id]||0})`).join(", ")}. Mínimo: ${min}.</div>`:"")+`
   <div class="kpis bd-kpis"><div class="kpi"><span>Llenos en bodega</span><b class="num">${tot(l.stock)}</b></div><div class="kpi"><span>Vacíos en bodega</span><b class="num">${tot(l.vacios)}</b></div>
     <div class="kpi"><span>Llenos en camiones</span><b class="num">${tot(enCam)}</b></div><div class="kpi"><span>Prestados a clientes</span><b class="num">${tot(l.prestados)}</b></div></div>
-  <section class="caja bd-bod"><h3>Stock de bodega</h3><div class="vc-card"><div class="vc-g bd-g" style="--n:${FORMATOS.length}">
+  <div class="bd-dos"><section class="caja bd-bod"><h3>Stock de bodega</h3><div class="vc-card"><div class="vc-g bd-g" style="--n:${FORMATOS.length}">
     <div class="vc-izq bd-leyenda"><span class="bd-l ll">Llenos</span><span class="bd-l va">Vacíos</span><span class="bd-l pr">Prestados</span><span class="bd-l ca">En camiones</span></div>
     ${FORMATOS.map(f=>`<div class="vc-col"><div class="vc-img">${cilBlanco(f)}</div><span class="vc-et"><b>${f.tipo==="h"?"H15":f.kg}</b> ${f.tipo==="h"?"Aluminio":"kg"}</span>
       <span class="bd-v ll ${(l.stock[f.id]||0)<min?"bajo":""}">${n(l.stock[f.id]||0)}</span><span class="bd-v va">${n(l.vacios[f.id]||0)}</span><span class="bd-v pr">${n(l.prestados[f.id]||0)}</span><span class="bd-v ca">${n(enCam[f.id]||0)}</span></div>`).join("")}
   </div></div>
   <div class="bd-univ"><span>Universo de cilindros (bodega + camiones, llenos + vacíos): <b class="num">${tot(l.stock)+tot(l.vacios)+tot(enCam)+tot(vacCam)}</b></span><span>Con préstamos: <b class="num">${tot(l.stock)+tot(l.vacios)+tot(enCam)+tot(vacCam)+tot(l.prestados)}</b></span>
     <button class="btn chico linea" type="button" data-btab="recuento">Hacer cuadratura de stock</button></div></section>
-  <section class="bd-cams-h"><h3>Carga de los camiones</h3><span class="nota" style="margin:0">Lo que lleva cada camión ahora. Las entregas y ventas se descuentan de su carga.</span></section>
-  <div class="bd-cams">${chs.map(tarjeta).join("")||'<div class="caja"><p>Esta sucursal no tiene camiones. Agréguelos en Configuraciones → Choferes.</p></div>'}</div>
+  <div class="bd-der"><section class="bd-cams-h"><h3>Carga de los camiones</h3><span class="nota" style="margin:0">Lo que lleva cada camión ahora. Las entregas y ventas se descuentan de su carga.</span></section>
+  <div class="bd-cams">${chs.map(tarjeta).join("")||'<div class="caja"><p>Esta sucursal no tiene camiones. Agréguelos en Configuraciones → Choferes.</p></div>'}</div></div></div>
   ${D.locales.filter(x=>misSucs().includes(x.id)).length>1?`<section class="caja" style="margin-top:12px"><h3>Bodega de ${esAdmin()?"todas las sucursales":"sus sucursales"}</h3><div class="tabla-wrap"><table><thead><tr><th>Sucursal</th>${FORMATOS.map(f=>`<th class="der">${f.et}</th>`).join("")}<th class="der">Total llenos</th><th class="der">Vacíos</th></tr></thead><tbody>
     ${D.locales.filter(x=>misSucs().includes(x.id)).map(x=>{ensureLoc(x);return `<tr><td>${esc(x.nombre)}</td>${FORMATOS.map(f=>`<td class="der num">${(x.stock[f.id]||0)<min?`<span class="pill bajo">${x.stock[f.id]||0}</span>`:x.stock[f.id]||0}</td>`).join("")}<td class="der num"><b>${tot(x.stock)}</b></td><td class="der num">${tot(x.vacios)}</td></tr>`}).join("")}</tbody></table></div></section>`:""}`;
 }
 L.bodega=function(){l0();
+  {const c=document.querySelector(".bd-cams");if(c&&innerWidth>900){const h=innerHeight-c.getBoundingClientRect().top-14;if(h>160&&c.scrollHeight>h){c.style.maxHeight=h+"px";c.style.overflow="auto"}}}
   $$("[data-bcargar]").forEach(b=>b.onclick=()=>{bChofer=+b.dataset.bcargar;bTab="cargas";pintarSistema();window.scrollTo(0,0)});};
 }
 
@@ -4158,7 +4159,7 @@ L.bodega=function(){l0();
 const CFG_IC={precios:"precios",envases:"factura",clientesMay:"usuarios",descQR:"precios",preciosMay:"precios",comVale:"cuadratura",histPrecios:"manual",histCambios:"manual",usuarios:"usuarios",choferes:"choferes",sectorizar:"ruta",sucursal:"sucursal",general:"bodega",respaldos:"config"};
 // Precio del Gas
 CFG_MAY.precios={v(){const p=D.precios,prog=(D.programados||[]).slice().sort((a,b)=>a.desde.localeCompare(b.desde));
-  return `<form class="cfgp" id="f-pr"><h3>Precio del gas</h3>
+  return `<div class="cfg-dos"><form class="cfgp" id="f-pr"><h3>Precio del gas</h3>
     <p class="cfgp-nota">Es el precio de cada cilindro para pedidos a domicilio y venta de choferes${D.locales.length>1?` en las ${D.locales.length} sucursales`:""}. Vigente desde el ${fechaLarga(p.fecha)}. Cada cambio queda en el Historial de Precios.</p>
     <div class="tabla-wrap cfgt"><table><thead><tr><th>Cilindro</th><th class="c">Precio actual</th><th class="c">Precio nuevo</th><th class="c">Cambio</th></tr></thead><tbody>
     ${FORMATOS.map(f=>`<tr><td><b>Cilindro ${f.tipo==="h"?"H15A":f.kg+"N"}</b> <span class="gris">${f.tipo==="h"?"Aluminio":f.kg+" kilos"}</span></td><td class="c azul">${clp(p[f.id])}</td><td class="pn"><span>$</span><input type="number" min="0" step="1" id="pn-${f.id}" value="${p[f.id]}" aria-label="Precio nuevo ${f.et}"></td><td class="c" id="dif-${f.id}"></td></tr>`).join("")}
@@ -4171,12 +4172,12 @@ CFG_MAY.precios={v(){const p=D.precios,prog=(D.programados||[]).slice().sort((a,
     <p class="error" id="pn-error" hidden style="text-align:center"></p><p class="aviso ok" id="pn-ok" hidden></p>
     ${prog.length?`<h3 class="sub">Cambios programados</h3><div class="tabla-wrap cfgt"><table><thead><tr><th>Rige desde</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15A":f.kg+"N"}</th>`).join("")}<th></th></tr></thead><tbody>
       ${prog.map(x=>`<tr><td>${fechaLarga(x.desde)}</td>${FORMATOS.map(f=>`<td class="c azul">${clp(x.precios[f.id])}</td>`).join("")}<td class="c"><button class="x-rojo" data-cancelar="${x.id}" type="button" aria-label="Cancelar cambio">✕</button></td></tr>`).join("")}</tbody></table></div>`:""}</form>
-  <form class="cfgp" id="f-listas" style="margin-top:12px"><h3>Precio convenio</h3>
+  <form class="cfgp" id="f-listas"><h3>Precio convenio</h3>
     <p class="cfgp-nota">La lista convenio se elige al ingresar un pedido.</p>
     <div class="cfgp-fila"><label class="g2">Nombre de la lista<input id="lp-nombre" value="${esc(nomLista("convenio"))}"></label></div>
-    <div class="tabla-wrap cfgt"><table><thead><tr><th></th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15A":f.kg+"N"}</th>`).join("")}</tr></thead><tbody>
-      <tr><td><b>${esc(nomLista("convenio"))}</b></td>${FORMATOS.map(f=>`<td class="pn c"><span>$</span><input type="number" min="0" step="1" data-lc="${f.id}" value="${D.preciosConvenio[f.id]}" aria-label="Convenio ${f.et}"></td>`).join("")}</tr></tbody></table></div>
-    <div class="cfgp-btn"><button class="btn" type="submit">Guardar precio convenio</button></div><p class="aviso ok" id="lp-ok" hidden>Precio convenio guardado.</p></form>`},
+    <div class="tabla-wrap cfgt"><table><thead><tr><th>Cilindro</th><th class="c">Precio convenio</th></tr></thead><tbody>
+      ${FORMATOS.map(f=>`<tr><td><b>Cilindro ${f.tipo==="h"?"H15A":f.kg+"N"}</b></td><td class="pn c"><span>$</span><input type="number" min="0" step="1" data-lc="${f.id}" value="${D.preciosConvenio[f.id]}" aria-label="Convenio ${f.et}"></td></tr>`).join("")}</tbody></table></div>
+    <div class="cfgp-btn"><button class="btn" type="submit">Guardar precio convenio</button></div><p class="aviso ok" id="lp-ok" hidden>Precio convenio guardado.</p></form></div>`},
   l(){L.precios()}};
 // Precio de envases
 CFG_MAY.envases={v(){const PE=D.preciosEnvase||{};return `<form class="cfgp" id="f-env"><h3>Precio de envases</h3>
@@ -4939,6 +4940,120 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .np-env input{width:56px;text-align:center;padding:4px 2px;font:600 14px "JetBrains Mono",ui-monospace,monospace;color:var(--b8);border-radius:8px}
 .sis .np-envp{font-size:11.5px;color:var(--mu)}
 @media (max-width:760px){.sis .np-cils{grid-template-columns:repeat(3,minmax(0,1fr))}.sis .np-cil:nth-child(4){border-left:0}.sis .np-cil{border-top:1px solid var(--line,#e7eaf0)}}
+
+/* ===== Ajuste de dimensiones (todas las pantallas) ===== */
+.sis .vc-lay{grid-template-columns:178px minmax(0,1fr);gap:12px}
+.sis .vc-t{padding:8px 10px;font-size:13.5px}.sis .vc-t.chico{padding:6px 10px}
+.sis .cfg-lay{grid-template-columns:206px minmax(0,1fr);gap:14px}
+.sis .cfg-side .vc-t{padding:7px 10px}
+/* Configuraciones compactas */
+.sis section.cfgp,.sis form.cfgp{padding:16px 20px!important}
+.sis .cfgp h3{margin:0 0 10px;padding-bottom:9px}
+.sis .cfgp h3.sub{margin-top:16px}
+.sis .cfgp-nota{margin:0 0 10px;font-size:12.5px}
+.sis .cfgt td{padding:6px 12px}.sis .cfgt th{padding:7px 12px}
+.sis .cfgt td.pn input{padding:6px 10px;font-size:14px;width:130px}
+.sis .cfgt td.pn.c input{width:96px}
+.sis .cfgp-btn{margin:10px 0 4px}.sis .cfgp-btn .btn{padding:9px 22px;font-size:14px;min-width:220px}
+.sis .cfgp-fila{margin:0 0 10px}.sis .cfgp-fila input,.sis .cfgp-fila select{padding:8px 10px}.sis .cfgp-fila .btn{padding:9px 16px}
+.sis .cfgp-opc{margin-top:8px;padding:8px 10px}
+.sis .cfg-dos{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:14px;align-items:start}
+.sis .cfg-dos.abajo{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);margin-top:4px}
+.sis .cfg-dos.abajo .cfgt.angosta{max-width:none}
+.sis .cfg-dos .cfgt td select{min-width:0}
+@media (max-width:1250px){.sis .cfg-dos,.sis .cfg-dos.abajo{grid-template-columns:minmax(0,1fr)}}
+/* Usuarios compacto */
+.sis #f-usr{padding:14px 18px}.sis #f-usr .fila{gap:8px 14px}.sis #f-usr label{gap:3px}
+.sis #f-usr input,.sis #f-usr select{padding:7px 10px}
+.sis #f-usr fieldset.acceso{padding:6px 12px 10px;margin:8px 0}
+.sis .pl-bar .btn{padding:3px 10px;font-size:12px;min-height:0}
+/* Bodega compacta */
+.sis .bd-kpis .kpi{padding:8px 14px}.sis .bd-kpis .kpi b{font-size:19px}
+.sis .bd-bod{padding:12px 16px}.sis .bd-bod h3{margin:0 0 6px}
+.sis .bd-g .vc-col{padding:6px 4px 8px;gap:1px}
+.sis .bd-g .vc-img{height:70px}.sis .bd-g .cilb{height:68px;width:44px}
+.sis .bd-l,.sis .bd-v{height:25px}
+.sis .bd-v.ll b{font-size:18px}.sis .bd-v b{font-size:15px}
+.sis .bd-univ{margin-top:6px}
+.sis .bd-cams-h{margin:10px 0 6px}
+.sis .bd-cams{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;padding-right:2px}
+.sis .bd-cam{padding:8px 10px;gap:5px}
+.sis .bd-cam-tot b{font-size:19px}
+.sis .bd-mini td{padding:2px}
+/* Cargar camión: los 5 formatos en una fila */
+.sis .cil-ins{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:6px!important}
+.sis .cil-ins input{text-align:center}
+/* Stock y envases: precios de envase en una fila */
+.sis #f-config .fila{grid-template-columns:repeat(5,minmax(0,1fr))}
+/* Asigna Ruta: que quepa la columna Detalle */
+.sis .acc.asignar select{width:104px;min-width:0;padding-left:6px;padding-right:2px}
+.sis .moviles .sel-mini{width:66px;min-width:0;padding:3px 2px}
+.sis .moviles{padding:12px!important}
+/* Rendiciones un poco más compactas */
+.rerp .rc-pagos .rbox{margin-bottom:4px}
+.sis .vc-main .rerp .tbox td,.sis .vc-main .rerp .tbox th{padding-top:4px;padding-bottom:4px}
+/* tablas anchas: letra un poco más chica en pantallas medianas */
+@media (max-width:1500px){.sis .bod th,.sis .bod td{padding-left:6px;padding-right:6px;font-size:12.5px}}
+
+/* Bodega en dos columnas */
+.sis .bd-dos{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:12px;align-items:start}
+.sis .bd-dos .bd-cams-h{margin:0 0 6px}
+.sis .bd-dos .bd-cams{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.sis .bd-dos .bd-g{grid-template-columns:minmax(96px,.9fr) repeat(var(--n),minmax(0,1fr))}
+.sis .bd-dos .bd-univ{flex-direction:column;align-items:flex-start;gap:4px}.sis .bd-dos .bd-univ .btn{margin-left:0}
+@media (max-width:1150px){.sis .bd-dos{grid-template-columns:minmax(0,1fr)}}
+/* Usuarios: datos a la izquierda y permisos a la derecha */
+@media (min-width:1200px){
+.sis #f-usr{max-width:none!important;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);column-gap:18px;align-items:start}
+.sis #f-usr>*{grid-column:1}
+.sis #f-usr>#us-permisos{grid-column:2;grid-row:1/span 9;margin-top:0}
+.sis #f-usr .fila{grid-template-columns:1fr 1fr}
+}
+
+.sis .bd-cam-p .btn{white-space:nowrap;padding:3px 9px;font-size:12px;min-height:0}
+.sis .bd-cam-p span{font-size:11.5px;line-height:1.25}
+.sis .bd-l{white-space:nowrap;font-size:12px}
+
+/* pantallas chicas: menú lateral arriba (va al final para que mande) */
+@media (max-width:1100px){
+ .sis .cfg-lay,.sis .vc-lay{grid-template-columns:minmax(0,1fr)}
+ .sis .cfg-side,.sis .vc-side{position:static;display:flex;flex-wrap:wrap;gap:4px;padding:8px}
+ .sis .cfg-side hr,.sis .vc-sep{display:none}
+ .sis .cfg-side .vc-t,.sis .vc-side .vc-t{padding:6px 10px;font-size:12.5px;border:1px solid var(--line,#e7eaf0)}
+ .sis .cfg-side .vc-t svg,.sis .vc-side .vc-t svg{display:none}
+ .sis .vc-t[aria-selected="true"]::before{display:none}
+}
+@media (max-width:600px){
+ .sis section.cfgp,.sis form.cfgp{padding:12px!important}
+ .sis .cfgt td.pn input{width:96px}
+ .sis .cfgp-btn .btn{min-width:0;width:100%}
+ .sis .cfgp-fila .btn{width:100%}
+ .sis .cfgp-opc label{max-width:none;flex:1 1 140px}
+}
+
+@media (max-width:600px){
+ .sis .perm-t .pm-op span{display:none}
+ .sis .perm-t th{font-size:9.5px;padding:3px 2px;letter-spacing:0}
+ .sis .perm-t td{padding:4px 2px}
+ .sis .perm-t td:first-child{font-size:12px}
+ .sis #f-usr fieldset{min-width:0}
+}
+
+/* Stock de bodega: números del mismo tamaño y líneas suaves entre filas */
+.sis .bd-g .vc-col,.sis .bd-g .vc-izq{gap:0!important}
+.sis .bd-g .vc-et{margin-bottom:6px}
+.sis .bd-l,.sis .bd-v{height:30px!important;width:100%;border-top:1px solid #eef0f3;border-radius:0}
+.sis .bd-v{justify-content:center}
+.sis .bd-v b,.sis .bd-v.ll b,.sis .bd-v.va b,.sis .bd-v.pr b,.sis .bd-v.ca b{font:600 15px "JetBrains Mono",ui-monospace,monospace!important}
+.sis .bd-v.ll.bajo{background:transparent}.sis .bd-v.ll.bajo b{color:#d92d20}
+.sis .bd-leyenda{padding:0 0 12px 12px}
+.sis .bd-g .vc-col{padding-bottom:12px!important}
+
+.sis .bd-g{column-gap:0!important}
+.sis .bd-g .vc-col{padding-left:0!important;padding-right:0!important}
+.sis .bd-leyenda{padding-left:0!important}
+.sis .bd-l{padding-left:12px}
+.sis .bd-l::before{flex-shrink:0}
 </style>
 </body>
 </html>
