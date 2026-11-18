@@ -4099,6 +4099,51 @@ L.mayorista=function(){
   h=h.replace(/ data-(rcant|renv)=/g,' disabled data-$1=').replace(/<button class="btn chico linea" id="rd-usar"[^>]*>[^<]*<\/button>/,"");
   const lista=vs.map((x,i)=>`<span class="vr-v"><b>${i+1}</b> ${esc(String(x.hora||"").slice(0,5))} · ${esc(cilTxt(x.venta))} · ${clp(valorDist(x))}</span>`).join("");
   return h.replace('<fieldset class="bloqueo"',`<div class="vr-sum"><span>Venta del día = suma de <b>${vs.length}</b> venta${vs.length>1?"s":""}:</span>${lista}<button type="button" class="btn chico linea" data-ctab="menu">Agregar o quitar ventas</button></div><fieldset class="bloqueo"`)}}
+
+/* ===================== CONTROL DE BODEGA rediseñado: bodega (llenos / vacíos) y carga de cada camión ===================== */
+{const v0=V.bodega,l0=L.bodega;
+V.bodega=function(){
+  const TABS=[["stock","Stock bodega y camiones","bodega"],["cargas","Cargar y descargar camión","ruta"],["recuento","Cuadratura de stock","cuadratura"],["ventas","Ventas por fecha","informes"],["historial","Historial","manual"]];
+  if(!TABS.some(t=>t[0]===bTab))bTab="stock";
+  const side=`<aside class="vc-side caja">${TABS.map(([k,t,ic])=>`<button type="button" class="vc-t${k==="stock"||k==="cargas"?"":" chico"}" data-btab="${k}" aria-selected="${bTab===k}">${k==="stock"||k==="cargas"?svg(ic):""}<span>${t}</span></button>`).join("")}</aside>`;
+  let main;
+  if(bTab==="stock")main=vistaStockBodega();
+  else main=v0().replace(/<div class="tabs" role="tablist">[\s\S]*?<\/div>/,"");
+  return `<div class="vc-lay">${side}<div class="vc-main">${main}</div></div>`};
+function vistaStockBodega(){
+  const l=ensureLoc(loc(suc)),min=D.precios.minimo||0,hoy=hoyStr();
+  const chs=D.choferes.filter(c=>c.local===suc).map(ensureCh).sort((a,b)=>((b.activo!==false)-(a.activo!==false))||a.nombre.localeCompare(b.nombre));
+  const sum=(arr,k)=>{const o=st();arr.forEach(c=>FORMATOS.forEach(f=>o[f.id]+=(c[k]||{})[f.id]||0));return o};
+  const tot=o=>FORMATOS.reduce((s,f)=>s+(o[f.id]||0),0);
+  const enCam=sum(chs,"carga"),vacCam=sum(chs,"vacios"),bajos=FORMATOS.filter(f=>(l.stock[f.id]||0)<min);
+  const n=v=>`<b class="num ${v<0?"neg":""}">${v}</b>`;
+  const tarjeta=c=>{const tl=tot(c.carga),tv=tot(c.vacios),hoyC=cargadoDe(c.id,hoy),on=c.activo!==false;
+    return `<article class="bd-cam ${tl?"":"vacio"} ${on?"":"off"}"><div class="bd-cam-h"><div><b>${esc(c.nombre)}</b><small>${esc(c.patente||"Sin patente")}</small></div>
+      <span class="bd-cam-tot"><b class="num">${tl}</b><small>llenos</small></span></div>
+      <table class="bd-mini"><thead><tr><th></th>${FORMATOS.map(f=>`<th>${f.tipo==="h"?"H15":f.kg}</th>`).join("")}</tr></thead><tbody>
+        <tr><td>Llenos</td>${FORMATOS.map(f=>`<td class="num ${(c.carga[f.id]||0)<0?"neg":(c.carga[f.id]||0)?"":"cero"}">${c.carga[f.id]||0}</td>`).join("")}</tr>
+        <tr><td>Vacíos</td>${FORMATOS.map(f=>`<td class="num ${(c.vacios[f.id]||0)<0?"neg":(c.vacios[f.id]||0)?"":"cero"}">${c.vacios[f.id]||0}</td>`).join("")}</tr></tbody></table>
+      <div class="bd-cam-p"><span>${tot(hoyC)?`Cargado hoy: <b>${esc(resumenQ(hoyC))}</b>`:"Hoy sin carga registrada"}${on?"":" · <b>No activo</b>"}</span>
+        <button class="btn chico linea" type="button" data-bcargar="${c.id}">Cargar / descargar</button></div></article>`};
+  return cabeza("Control de Bodega",`<span class="nota" style="margin:0">${esc(l.nombre)} · ${fechaLarga(hoy)}</span>`)+
+  (bajos.length?`<div class="banner" style="background:#fef3f2;color:#b42318">Stock bajo en bodega: ${bajos.map(f=>`${f.et} (${l.stock[f.id]||0})`).join(", ")}. Mínimo: ${min}.</div>`:"")+`
+  <div class="kpis bd-kpis"><div class="kpi"><span>Llenos en bodega</span><b class="num">${tot(l.stock)}</b></div><div class="kpi"><span>Vacíos en bodega</span><b class="num">${tot(l.vacios)}</b></div>
+    <div class="kpi"><span>Llenos en camiones</span><b class="num">${tot(enCam)}</b></div><div class="kpi"><span>Prestados a clientes</span><b class="num">${tot(l.prestados)}</b></div></div>
+  <section class="caja bd-bod"><h3>Stock de bodega</h3><div class="vc-card"><div class="vc-g bd-g" style="--n:${FORMATOS.length}">
+    <div class="vc-izq bd-leyenda"><span class="bd-l ll">Llenos</span><span class="bd-l va">Vacíos</span><span class="bd-l pr">Prestados</span><span class="bd-l ca">En camiones</span></div>
+    ${FORMATOS.map(f=>`<div class="vc-col"><div class="vc-img">${cilBlanco(f)}</div><span class="vc-et"><b>${f.tipo==="h"?"H15":f.kg}</b> ${f.tipo==="h"?"Aluminio":"kg"}</span>
+      <span class="bd-v ll ${(l.stock[f.id]||0)<min?"bajo":""}">${n(l.stock[f.id]||0)}</span><span class="bd-v va">${n(l.vacios[f.id]||0)}</span><span class="bd-v pr">${n(l.prestados[f.id]||0)}</span><span class="bd-v ca">${n(enCam[f.id]||0)}</span></div>`).join("")}
+  </div></div>
+  <div class="bd-univ"><span>Universo de cilindros (bodega + camiones, llenos + vacíos): <b class="num">${tot(l.stock)+tot(l.vacios)+tot(enCam)+tot(vacCam)}</b></span><span>Con préstamos: <b class="num">${tot(l.stock)+tot(l.vacios)+tot(enCam)+tot(vacCam)+tot(l.prestados)}</b></span>
+    <button class="btn chico linea" type="button" data-btab="recuento">Hacer cuadratura de stock</button></div></section>
+  <section class="bd-cams-h"><h3>Carga de los camiones</h3><span class="nota" style="margin:0">Lo que lleva cada camión ahora. Las entregas y ventas se descuentan de su carga.</span></section>
+  <div class="bd-cams">${chs.map(tarjeta).join("")||'<div class="caja"><p>Esta sucursal no tiene camiones. Agréguelos en Configuraciones → Choferes.</p></div>'}</div>
+  ${D.locales.filter(x=>misSucs().includes(x.id)).length>1?`<section class="caja" style="margin-top:12px"><h3>Bodega de ${esAdmin()?"todas las sucursales":"sus sucursales"}</h3><div class="tabla-wrap"><table><thead><tr><th>Sucursal</th>${FORMATOS.map(f=>`<th class="der">${f.et}</th>`).join("")}<th class="der">Total llenos</th><th class="der">Vacíos</th></tr></thead><tbody>
+    ${D.locales.filter(x=>misSucs().includes(x.id)).map(x=>{ensureLoc(x);return `<tr><td>${esc(x.nombre)}</td>${FORMATOS.map(f=>`<td class="der num">${(x.stock[f.id]||0)<min?`<span class="pill bajo">${x.stock[f.id]||0}</span>`:x.stock[f.id]||0}</td>`).join("")}<td class="der num"><b>${tot(x.stock)}</b></td><td class="der num">${tot(x.vacios)}</td></tr>`}).join("")}</tbody></table></div></section>`:""}`;
+}
+L.bodega=function(){l0();
+  $$("[data-bcargar]").forEach(b=>b.onclick=()=>{bChofer=+b.dataset.bcargar;bTab="cargas";pintarSistema();window.scrollTo(0,0)});};
+}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -4740,6 +4785,38 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .vm-extra{align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:8px 12px}
 .sis .vm-extra .radio{display:flex;align-items:center;gap:6px;font-size:12.5px}.sis .vm-extra .radio input{width:auto}
 .sis .vm-extra input:not([type]){font-size:12.5px;padding:6px 8px}
+
+/* ===== Control de Bodega ===== */
+.sis .bd-kpis{margin-bottom:10px}
+.sis .bd-bod h3,.sis .bd-cams-h h3{margin:0 0 8px}
+.sis .bd-g .vc-col{gap:3px;padding:10px 6px 12px}
+.sis .bd-g .vc-img{height:104px}.sis .bd-g .cilb{height:100px}
+.sis .bd-leyenda{justify-content:flex-end;gap:0;padding-bottom:12px}
+.sis .bd-l,.sis .bd-v{display:flex;align-items:center;height:30px}
+.sis .bd-v{justify-content:center;min-width:64px;border-radius:8px}
+.sis .bd-l{font-size:12.5px;font-weight:600;color:var(--tx2,#344054);gap:6px}
+.sis .bd-l::before{content:"";width:10px;height:10px;border-radius:3px;background:currentColor;opacity:.9}
+.sis .bd-l.ll{color:#0d3a85}.sis .bd-l.va{color:#667085}.sis .bd-l.pr{color:#b54708}.sis .bd-l.ca{color:#067647}
+.sis .bd-v b{font:700 17px "JetBrains Mono",ui-monospace,monospace}
+.sis .bd-v.ll b{color:#0d3a85;font-size:21px}.sis .bd-v.va b{color:#475467}.sis .bd-v.pr b{color:#b54708;font-size:15px}.sis .bd-v.ca b{color:#067647;font-size:15px}
+.sis .bd-v.ll.bajo{background:#fef3f2}.sis .bd-v.ll.bajo b{color:#d92d20}
+.sis b.neg,.sis td.neg{color:#d92d20!important}
+.sis .bd-univ{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;margin-top:10px;font-size:13px;color:var(--tx2,#344054)}
+.sis .bd-univ .btn{margin-left:auto}
+.sis .bd-cams-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:16px 0 8px}
+.sis .bd-cams{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.sis .bd-cam{background:#fff;border:1px solid var(--line,#e7eaf0);border-left:4px solid #067647;border-radius:12px;padding:10px 12px;display:grid;gap:8px;box-shadow:var(--sh1,none)}
+.sis .bd-cam.vacio{border-left-color:#d0d5dd}.sis .bd-cam.off{opacity:.6}
+.sis .bd-cam-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sis .bd-cam-h b{display:block;font-size:15px}.sis .bd-cam-h small{color:var(--mu);font-size:12px}
+.sis .bd-cam-tot{text-align:right;line-height:1}.sis .bd-cam-tot b{font:700 22px "JetBrains Mono",ui-monospace,monospace;color:#067647}.sis .bd-cam.vacio .bd-cam-tot b{color:#98a2b3}
+.sis .bd-cam-tot small{display:block;font-size:11px;color:var(--mu)}
+.sis .bd-mini{width:100%;border-collapse:collapse;font-size:12.5px}
+.sis .bd-mini th{font-size:10.5px;color:var(--mu);font-weight:600;text-align:center;padding:2px}
+.sis .bd-mini td{text-align:center;padding:3px 2px;border-top:1px solid var(--line,#e7eaf0)}
+.sis .bd-mini td:first-child{text-align:left;font-weight:600;color:var(--tx2,#344054)}
+.sis .bd-mini td.cero{color:#c7ccd6}
+.sis .bd-cam-p{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--mu)}
 </style>
 </body>
 </html>
