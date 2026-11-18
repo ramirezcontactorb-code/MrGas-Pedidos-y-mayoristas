@@ -1292,7 +1292,7 @@ const MOD_PERM=["pedidos","ruta","choferes","sectorizar","mayorista","ventachofe
    "pedidos" = ver y trabajar · "pedidos:ver" = solo ver · acciones y apps aparte */
 const PERM_EXTRA=[["pedidos.anular","Anular pedidos"],["cfg.choferes","Configurar choferes y móviles"],["cfg.clientes","Configurar clientes mayoristas"],["cfg.precios","Cambiar precios (gas, mayoristas, vales y QR)"]];
 const PERM_APPS=[["app.repartidores","App repartidores (oficina)"],["app.distribucion","App distribución"]];
-const CFG_PERM={choferes:"cfg.choferes",clientesMay:"cfg.clientes",precios:"cfg.precios",preciosMay:"cfg.precios",comVale:"cfg.precios",descQR:"cfg.precios"};
+const CFG_PERM={choferes:"cfg.choferes",clientesMay:"cfg.clientes",precios:"cfg.precios",envases:"cfg.precios",preciosMay:"cfg.precios",comVale:"cfg.precios",descQR:"cfg.precios",histPrecios:"cfg.precios"};
 const ESTADO_PRECIOS=["precios","preciosMayor","preciosEnvase","preciosConvenio","listas","historico","listasMay","comisionVale","descQR"];
 const PLANTILLAS=[
   ["Telefonista",["pedidos","ruta:ver","app.repartidores"]],
@@ -3300,9 +3300,9 @@ function volverAtras(){
 document.addEventListener("keydown",e=>{if(e.altKey&&e.key==="ArrowLeft"&&yo&&location.hash==="#panel"){e.preventDefault();volverAtras()}});
 
 /* ===================== PESTAÑAS DE CONFIGURACIONES (Sectorizar vive aquí) ===================== */
-const cfgTabsTodas=()=>[["choferes","Choferes"],["sectorizar","Sectorizar"],["precios","Precios del Gas"],["clientesMay","Clientes mayoristas"],["preciosMay","Precios mayoristas"],["comVale","Comisión por vale"],["descQR","Descuento QR"],["usuarios","Usuarios y permisos"],["sucursal","Sucursal"],["general","Stock y envases"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
+const cfgTabsTodas=()=>[["precios","Precio del Gas"],["envases","Precio Envases"],["clientesMay","Clientes"],["descQR","Descuento QR"],["preciosMay","Precios Mayoristas"],["comVale","Comisión Vales"],["histPrecios","Historial de Precios"],["histCambios","Historial de Cambios"],["usuarios","Usuarios"],["choferes","Choferes"],["sectorizar","Sectorizar"],["sucursal","Sucursal"],["general","Stock y envases"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
 const cfgTabsLista=()=>!yo?[]:esAdmin()?cfgTabsTodas():cfgTabsTodas().filter(([k])=>CFG_PERM[k]&&tieneExtra(CFG_PERM[k]));
-const cfgTabsHtml=sel=>`<div class="tabs" role="tablist">${cfgTabsLista().map(([k,t])=>`<button type="button" role="tab" data-cfgtab="${k}" aria-selected="${sel===k}">${t}</button>`).join("")}</div>`;
+const cfgTabsHtml=sel=>`<!--CFGTABS-->`;
 function enlazarCfgTabs(){$$("[data-cfgtab]").forEach(b=>b.onclick=()=>{const k=b.dataset.cfgtab;cfgCh=null;
   if(k==="sectorizar"){if(mod!=="sectorizar")ir("sectorizar");return}
   cfgTab=k;if(mod!=="config")ir("config");else pintarSistema()})}
@@ -3453,16 +3453,15 @@ function setListaCli(c,v){
   log("precios","Lista de cliente mayorista",`${c.nombre} → ${nomListaMay(c)}`);guardar();pintarSistema()}
 const CFG_MAY={
   clientesMay:{v(){asegMay();const CL=(D.mayoristas||[]).slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
-    return `<form class="caja" id="f-cli-may"><h3>Nuevo cliente mayorista</h3>
-      <div class="fila3"><label>Nombre<input id="cm-nombre" placeholder="Nombre del cliente o empresa" required></label><label>Lista de precios${selListaMay("cm-lista","")}</label><label>RUT <span class="nota" style="margin:0">(opcional)</span><input id="cm-rut" placeholder="12.345.678-9"></label></div>
-      <div class="fila3"><label>Teléfono <span class="nota" style="margin:0">(opcional)</span><input id="cm-fono" placeholder="+56 9 ..."></label></div>
-      <div class="acc"><button class="btn" type="submit">Agregar cliente</button></div></form>
-      <h3 style="margin:24px 0 12px">Clientes mayoristas</h3>
-      <div class="tabla-wrap"><table><thead><tr><th>Cliente</th><th>Lista de precios</th>${FORMATOS.map(f=>`<th class="der">${f.et}</th>`).join("")}<th></th></tr></thead><tbody>
-      ${CL.map(c=>`<tr><td><b>${esc(c.nombre)}</b>${c.rut||c.fono?`<br><span class="nota" style="margin:0">${esc([c.rut,c.fono].filter(Boolean).join(" · "))}</span>`:""}</td><td>${selListaMay("cl-"+c.id,c.lista??"")}</td>
-        ${FORMATOS.map(f=>`<td class="der num">${clp(precioCliMay(c,f.id))}</td>`).join("")}<td><button class="btn chico linea" type="button" data-delcli="${c.id}">Eliminar</button></td></tr>`).join("")||`<tr><td colspan="${FORMATOS.length+3}">Aún no hay clientes. Agregue el primero arriba.</td></tr>`}
+    return `<section class="cfgp"><h3>Clientes mayoristas</h3>
+      <form id="f-cli-may" class="cfgp-fila"><label class="g2">Nuevo cliente<input id="cm-nombre" placeholder="Nombre del cliente o empresa" required></label><label class="g2">Lista de precios${selListaMay("cm-lista","")}</label>
+        <label>RUT <small>(opcional)</small><input id="cm-rut" placeholder="12.345.678-9"></label><label>Teléfono <small>(opcional)</small><input id="cm-fono" placeholder="+56 9 ..."></label>
+        <button class="btn" type="submit">＋ Agregar cliente</button></form>
+      <div class="tabla-wrap cfgt"><table><thead><tr><th>Cliente</th><th>Lista de precios</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15A":f.kg+"N"}</th>`).join("")}<th></th></tr></thead><tbody>
+      ${CL.map(c=>`<tr><td><b>${esc(c.nombre)}</b>${c.rut||c.fono?`<br><small class="gris">${esc([c.rut,c.fono].filter(Boolean).join(" · "))}</small>`:""}</td><td>${selListaMay("cl-"+c.id,c.lista??"")}</td>
+        ${FORMATOS.map(f=>`<td class="c azul">${clp(precioCliMay(c,f.id))}</td>`).join("")}<td class="c"><button class="x-rojo" type="button" data-delcli="${c.id}" aria-label="Eliminar ${esc(c.nombre)}">✕</button></td></tr>`).join("")||`<tr><td colspan="${FORMATOS.length+3}" class="vacio">Aún no hay clientes. Agregue el primero arriba.</td></tr>`}
       </tbody></table></div>
-      <p class="nota">Los precios de cada cliente salen de su lista. Con <b>Precio especial</b> se escribe el precio de cada cilindro y no cambia con el precio base. Las listas y el precio base están en <b>Precios mayoristas</b>.</p>`},
+      <p class="cfgp-nota izq">Los precios de cada cliente salen de su lista. Si eliges <b>Precio especial</b>, escribes el precio de cada cilindro y no cambia con el precio base. Para cambiar listas o el precio base, ve a <a href="#" data-cfgtab="preciosMay">Precios Mayoristas</a>.</p></section>`},
     l(){const f=$("#f-cli-may");if(!f)return;
       f.onsubmit=e=>{e.preventDefault();const n=$("#cm-nombre").value.trim().replace(/\s+/g," ");if(!n)return;
         if((D.mayoristas||[]).some(m=>m.nombre.toLowerCase()===n.toLowerCase())){aviso("Ya existe","Ese cliente ya está creado.");return}
@@ -3472,25 +3471,26 @@ const CFG_MAY={
       $$("[data-cllista]").forEach(s=>s.onchange=()=>{const c=cliMay(+s.dataset.cllista);if(c)setListaCli(c,s.value)});
       $$("[data-delcli]").forEach(b=>b.onclick=()=>confirmar(b,()=>{const c=cliMay(+b.dataset.delcli);D.mayoristas=D.mayoristas.filter(m=>m!==c);log("precios","Cliente mayorista eliminado",c.nombre+" (sus ventas y rendiciones se conservan)");guardar();pintarSistema()}))}},
   preciosMay:{v(){asegMay();const L=D.listasMay.slice().sort((a,b)=>a.dto-b.dto),CL=D.mayoristas,E=CL.filter(esEspMay).sort((a,b)=>a.nombre.localeCompare(b.nombre)),O=CL.filter(c=>!esEspMay(c)).sort((a,b)=>a.nombre.localeCompare(b.nombre));
-    return `<div class="caja"><h3>Listas de precios</h3>
-      <p class="nota" style="margin:0">Cada lista descuenta pesos por kilo al precio base. Ejemplo: Mayorista 40 en un 15 kg descuenta 40 × 15 = $600. Los clientes se asignan a una lista en <b>Clientes mayoristas</b>.</p>
-      <form id="f-lista-may" class="fila3" style="margin-top:12px"><label>Nombre de la lista<input id="lm-nombre" placeholder="Ej: Mayorista 25" required></label><label>Descuento $ por kilo<input id="lm-dto" type="number" min="1" class="num" placeholder="25" required></label><div class="acc" style="align-self:end"><button class="btn" type="submit">Agregar lista</button></div></form>
-      <div class="tabla-wrap"><table><thead><tr><th>Lista</th><th>Descuento</th>${FORMATOS.map(f=>`<th class="der">${f.et}</th>`).join("")}<th class="der">Clientes</th><th></th></tr></thead><tbody>
-        <tr class="fila-tot"><td><b>Precio base</b></td><td>—</td>${FORMATOS.map(f=>`<td class="der num">${clp(precioBaseMay(f.id))}</td>`).join("")}<td class="der num">${CL.filter(c=>!listaMay(c)&&!esEspMay(c)).length}</td><td></td></tr>
-        ${L.map(l=>`<tr><td><b>${esc(l.nombre)}</b></td><td>−$${l.dto} / kg</td>${FORMATOS.map(f=>`<td class="der num">${clp(precioListaMay(l,f.id))}</td>`).join("")}<td class="der num">${CL.filter(c=>c.lista===l.id).length}</td><td><button class="btn chico linea" type="button" data-dellm="${l.id}">Eliminar</button></td></tr>`).join("")}
-      </tbody></table></div></div>
-      <form class="caja" id="f-base-may" style="margin-top:20px;max-width:640px"><h3>Actualiza precio base mayorista</h3>
-        <p class="nota" style="margin:0">Escriba el precio base nuevo de cada cilindro. Todas las listas y clientes se calculan desde este precio (menos los de precio especial).</p>
-        <div class="tabla-wrap"><table><thead><tr><th>Cilindro</th><th class="der">Precio base actual</th><th class="der">Precio nuevo</th></tr></thead><tbody>
-        ${FORMATOS.map(f=>`<tr><td><b>${f.nom||"Cilindro "+f.et}</b></td><td class="der num">${clp(precioBaseMay(f.id))}</td><td class="der"><input type="number" min="0" class="num" data-pbm="${f.id}" value="${precioBaseMay(f.id)}" style="width:120px" aria-label="Precio base ${f.et}"></td></tr>`).join("")}
-        </tbody></table></div><div class="acc"><button class="btn" type="submit">Actualizar precio base</button></div></form>
-      <div class="caja" style="margin-top:20px"><h3>Precio especial</h3>
-        <p class="nota" style="margin:0">Para clientes con un precio distinto a las listas. No cambia cuando se actualiza el precio base.</p>
-        <div class="fila3" style="margin-top:12px"><label>Cliente<select id="esp-cli"><option value="">Elija un cliente...</option>${O.map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join("")}</select></label><div class="acc" style="align-self:end"><button class="btn" type="button" id="esp-dar">Dar precio especial</button></div></div>
-        <div class="tabla-wrap"><table><thead><tr><th>Cliente</th>${FORMATOS.map(f=>`<th class="der">${f.et}</th>`).join("")}<th></th></tr></thead><tbody>
-        ${E.map(c=>`<tr><td><b>${esc(c.nombre)}</b></td>${FORMATOS.map(f=>espEdit===c.id?`<td class="der"><input type="number" min="1" class="num" data-esp="${f.id}" value="${precioCliMay(c,f.id)}" style="width:96px" aria-label="Precio especial ${f.et}"></td>`:`<td class="der num">${clp(precioCliMay(c,f.id))}</td>`).join("")}
-          <td style="white-space:nowrap">${espEdit===c.id?`<button class="btn chico" type="button" data-espok="${c.id}">Guardar</button> <button class="btn chico linea" type="button" data-espno="1">Cancelar</button>`:`<button class="btn chico linea" type="button" data-espedit="${c.id}">Modificar</button> <button class="btn chico linea" type="button" data-espquitar="${c.id}">Quitar</button>`}</td></tr>`).join("")||`<tr><td colspan="${FORMATOS.length+2}">Ningún cliente tiene precio especial.</td></tr>`}
-        </tbody></table></div></div>`},
+    const TH=FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15A":f.kg+"N"}</th>`).join("");
+    return `<section class="cfgp"><h3>Listas de precios mayoristas</h3>
+      <p class="cfgp-nota izq">Cada lista descuenta pesos por kilo al precio base. Ejemplo: Mayorista 40 en un 15 kg descuenta 40 × 15 = $600. Los clientes se asignan a una lista en <a href="#" data-cfgtab="clientesMay">Clientes</a>.</p>
+      <form id="f-lista-may" class="cfgp-fila"><label class="g3">Nombre de la lista<input id="lm-nombre" placeholder="Ej: Mayorista 25" required></label><label>Descuento $ por kilo<input id="lm-dto" type="number" min="1" placeholder="25" required></label><button class="btn" type="submit">＋ Agregar lista</button></form>
+      <div class="tabla-wrap cfgt"><table><thead><tr><th>Lista</th><th class="c">Descuento</th>${TH}<th class="c">Clientes</th><th></th></tr></thead><tbody>
+        <tr class="base"><td><b>Precio base</b></td><td class="c">—</td>${FORMATOS.map(f=>`<td class="c"><b>${clp(precioBaseMay(f.id))}</b></td>`).join("")}<td class="c">${CL.filter(c=>!listaMay(c)&&!esEspMay(c)).length}</td><td></td></tr>
+        ${L.map(l=>`<tr><td><b>${esc(l.nombre)}</b></td><td class="c">−$${l.dto} / kg</td>${FORMATOS.map(f=>`<td class="c azul">${clp(precioListaMay(l,f.id))}</td>`).join("")}<td class="c">${CL.filter(c=>c.lista===l.id).length}</td><td class="c"><button class="x-rojo" type="button" data-dellm="${l.id}" aria-label="Eliminar ${esc(l.nombre)}">✕</button></td></tr>`).join("")}
+      </tbody></table></div>
+      <h3 class="sub">Actualiza precio base mayorista</h3>
+      <p class="cfgp-nota izq">Escribe el precio base nuevo de cada cilindro. Todas las listas y clientes se calculan desde este precio.</p>
+      <form id="f-base-may"><div class="tabla-wrap cfgt angosta"><table><thead><tr><th>Cilindro</th><th class="c">Precio base actual</th><th class="c">Precio nuevo</th></tr></thead><tbody>
+        ${FORMATOS.map(f=>`<tr><td><b>Cilindro ${f.tipo==="h"?"H15A":f.kg+"N"}</b> <span class="gris">${f.tipo==="h"?"Aluminio":f.kg+" kilos"}</span></td><td class="c azul">${clp(precioBaseMay(f.id))}</td><td class="pn"><span>$</span><input type="number" min="0" class="azul" data-pbm="${f.id}" value="${precioBaseMay(f.id)}" aria-label="Precio base ${f.et}"></td></tr>`).join("")}
+      </tbody></table></div><div class="cfgp-btn"><button class="btn" type="submit">Actualizar precio base</button></div></form>
+      <h3 class="sub">Precio especial</h3>
+      <p class="cfgp-nota izq">Para clientes con un precio distinto a las listas. Escribe el precio de cada cilindro; no cambia cuando actualizas el precio base.</p>
+      <div class="cfgp-fila"><label class="g4">Cliente<select id="esp-cli"><option value="">Elige un cliente...</option>${O.map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join("")}</select></label><button class="btn" type="button" id="esp-dar">＋ Dar precio especial</button></div>
+      <div class="tabla-wrap cfgt"><table><thead><tr><th>Cliente</th>${TH}<th></th></tr></thead><tbody>
+      ${E.map(c=>`<tr><td><b>${esc(c.nombre)}</b></td>${FORMATOS.map(f=>espEdit===c.id?`<td class="pn"><span>$</span><input type="number" min="1" class="azul" data-esp="${f.id}" value="${precioCliMay(c,f.id)}" aria-label="Precio especial ${f.et}"></td>`:`<td class="c azul">${clp(precioCliMay(c,f.id))}</td>`).join("")}
+        <td class="c" style="white-space:nowrap">${espEdit===c.id?`<button class="btn chico" type="button" data-espok="${c.id}">Guardar</button> <button class="btn chico linea" type="button" data-espno="1">Cancelar</button>`:`<button class="btn chico linea" type="button" data-espedit="${c.id}">Modificar</button> <button class="x-rojo" type="button" data-espquitar="${c.id}" aria-label="Quitar precio especial">✕</button>`}</td></tr>`).join("")||`<tr><td colspan="${FORMATOS.length+2}" class="vacio">Ningún cliente tiene precio especial.</td></tr>`}
+      </tbody></table></div></section>`},
     l(){const fl=$("#f-lista-may");if(!fl)return;
       fl.onsubmit=e=>{e.preventDefault();const n=$("#lm-nombre").value.trim(),d=Math.round(+$("#lm-dto").value||0);if(!n||d<=0)return;
         D.listasMay.push({id:Date.now(),nombre:n,dto:d});log("precios","Lista mayorista creada",`${n} · −$${d}/kg`);guardar();pintarSistema()};
@@ -3508,19 +3508,19 @@ const CFG_MAY={
         if(ins.some(i=>!(+i.value>0))){aviso("Precio inválido","Escriba un precio en todos los cilindros.");return}
         c.esp=c.esp||{};ins.forEach(i=>{const f=i.dataset.esp,v=Math.round(+i.value),a=precioCliMay(c,f);if(v!==a){histMay("Precio especial "+c.nombre,f,a,v);c.esp[f]=v}});
         espEdit=null;log("precios","Precio especial guardado",c.nombre);guardar();pintarSistema()})}},
-  comVale:{v(){asegMay();return `<form class="caja" id="f-comvale"><h3>Comisión por vale</h3>
-      <p class="nota" style="margin:0">Cuánto se le abona al cliente por cada vale, según el tipo de vale y el cilindro. Solo se aplica en la <b>Rendición mayorista</b>: es un beneficio para el cliente. Se calcula sola al grabar un vale y baja su saldo (queda a favor en su cuenta).</p>
-      <div class="tabla-wrap" style="margin-top:12px"><table><thead><tr><th>Tipo de vale</th>${FORMATOS.map(f=>`<th class="der">${f.et}</th>`).join("")}</tr></thead><tbody>
-      ${Object.entries(VALES).map(([k,t])=>`<tr><td><b>${t}</b></td>${FORMATOS.map(f=>`<td class="der"><input type="number" min="0" class="num" data-cv="${k}|${f.id}" value="${D.comisionVale[k][f.id]||""}" placeholder="0" style="width:90px" aria-label="Comisión ${t} ${f.et}"></td>`).join("")}</tr>`).join("")}
-      </tbody></table></div><div class="acc"><button class="btn" type="submit">Guardar comisión</button></div>
-      <p class="nota" style="margin:0">Ejemplo: si un vale de 15 kg de la compañía deja $1.000 y entregan 3, la comisión es $3.000.</p></form>`},
+  comVale:{v(){asegMay();return `<form class="cfgp" id="f-comvale"><h3>Comisión de vales</h3>
+      <p class="cfgp-nota">Escribe cuánto se le abona al cliente por cada vale, según el tipo de vale y el cilindro. Solo se aplica en la <b>Rendición Mayorista</b>: es un beneficio para el cliente. Se calcula sola al grabar un vale y se descuenta de su saldo (queda a favor en su cuenta). En la rendición local no hay comisión.</p>
+      <div class="tabla-wrap cfgt"><table><thead><tr><th>Tipo de vale</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15":f.kg+" kg"}</th>`).join("")}</tr></thead><tbody>
+      ${Object.entries(VALES).map(([k,t])=>`<tr><td><b>${t}</b></td>${FORMATOS.map(f=>`<td class="pn c"><span>$</span><input type="number" min="0" class="azul" data-cv="${k}|${f.id}" value="${D.comisionVale[k][f.id]||0}" aria-label="Comisión ${t} ${f.et}"></td>`).join("")}</tr>`).join("")}
+      </tbody></table></div><div class="cfgp-btn"><button class="btn" type="submit">Guardar comisión</button></div>
+      <p class="cfgp-nota">Ejemplo: si un vale de 15 kg de la compañía deja $1.000 y te entregan 3, la comisión es $3.000.</p></form>`},
     l(){const f=$("#f-comvale");if(!f)return;f.onsubmit=e=>{e.preventDefault();let n=0;
       $$("[data-cv]").forEach(i=>{const [k,fo]=i.dataset.cv.split("|"),v=Math.max(0,Math.round(+i.value||0)),a=D.comisionVale[k][fo]||0;if(v!==a){histMay("Comisión "+VALES[k],fo,a,v);D.comisionVale[k][fo]=v;n++}});
       if(!n){aviso("Sin cambios","No cambió ninguna comisión.");return}
       log("precios","Comisión por vale actualizada",`${n} valor(es)`);guardar();pintarSistema();aviso("Comisión guardada","Se aplica a los vales que se graben desde ahora en la Rendición mayorista.")}}}
 };
 {const vc=V.config,lc=L.config;
-  V.config=function(){if(CFG_MAY[cfgTab]){if(!esAdmin()){cfgTab="choferes";return vc.call(this)}return cabeza("Configuraciones")+cfgTabsHtml(cfgTab)+CFG_MAY[cfgTab].v()}return vc.call(this)};
+  V.config=function(){if(CFG_MAY[cfgTab]){if(!esAdmin()&&!cfgTabsLista().some(t=>t[0]===cfgTab)){cfgTab=(cfgTabsLista()[0]||["choferes"])[0];if(!CFG_MAY[cfgTab])return vc.call(this)}return cabeza("Configuraciones")+cfgTabsHtml(cfgTab)+CFG_MAY[cfgTab].v()}return vc.call(this)};
   L.config=function(){if(CFG_MAY[cfgTab]){enlazarCfgTabs();CFG_MAY[cfgTab].l();return}return lc.call(this)}}
 
 /* ===================== RENDICIÓN MÓVIL Y MAYORISTA CON FORMATO ERP LOCAL =====================
@@ -3642,12 +3642,12 @@ function enlazarRendERP(){
 {const lc=L.cuadratura;L.cuadratura=function(){lc.call(this);if(cuadSel!=null&&(cuadTab==="movil"||cuadTab==="mayorista"))enlazarRendERP()}}
 
 /* Configuraciones → Descuento QR */
-CFG_MAY.descQR={v(){D.descQR=D.descQR||{};return `<form class="caja" id="f-qr" style="max-width:560px"><h3>Descuento QR</h3>
-    <p class="nota" style="margin:0">Cuánto se descuenta por cada venta pagada con QR, según el cilindro. En la rendición solo se escribe cuántos descuentos hubo y el monto se calcula solo.</p>
-    <div class="tabla-wrap" style="margin-top:12px"><table><thead><tr><th>Cilindro</th><th class="der">Descuento por unidad</th></tr></thead><tbody>
-    ${QR_F.map(f=>`<tr><td><b>${fmt(f).kg} kg</b></td><td class="der"><input type="number" min="0" class="num" data-qr="${f}" value="${D.descQR[f]||""}" placeholder="0" style="width:120px" aria-label="Descuento QR ${fmt(f).kg} kg"></td></tr>`).join("")}
-    </tbody></table></div><div class="acc"><button class="btn" type="submit">Guardar descuento QR</button></div>
-    <p class="nota" style="margin:0">Ejemplo: si el descuento QR del 15 kg es $4.400 y hubo 3, en la rendición se descuentan $13.200.</p></form>`},
+CFG_MAY.descQR={v(){D.descQR=D.descQR||{};return `<form class="cfgp" id="f-qr"><h3>Descuento QR</h3>
+    <p class="cfgp-nota">Es lo que se descuenta por cada venta pagada con QR, según el cilindro. En la rendición solo se escribe cuántos descuentos hubo y el monto se calcula solo.</p>
+    <div class="tabla-wrap cfgt angosta"><table><thead><tr><th>Cilindro</th><th class="c">Descuento actual</th><th class="c">Descuento nuevo</th></tr></thead><tbody>
+    ${QR_F.map(f=>`<tr><td><b>Cilindro ${fmt(f).kg}N</b> <span class="gris">${fmt(f).kg} kilos</span></td><td class="c azul">${D.descQR[f]?clp(D.descQR[f]):'<span class="gris">Sin descuento</span>'}</td><td class="pn"><span>$</span><input type="number" min="0" data-qr="${f}" value="${D.descQR[f]||0}" aria-label="Descuento QR ${fmt(f).kg} kg"></td></tr>`).join("")}
+    </tbody></table></div><div class="cfgp-btn"><button class="btn" type="submit">Guardar descuento QR</button></div>
+    <p class="cfgp-nota">Ejemplo: si el descuento QR del 15 kg es $4.400 y hubo 3, en la rendición se descuentan $13.200.</p></form>`},
   l(){const f=$("#f-qr");if(!f)return;f.onsubmit=e=>{e.preventDefault();D.descQR=D.descQR||{};let n=0;
     $$("[data-qr]").forEach(i=>{const k=i.dataset.qr,v=Math.max(0,Math.round(+i.value||0)),a=D.descQR[k]||0;if(v!==a){histMay("Descuento QR",k,a,v);D.descQR[k]=v;n++}});
     if(!n){aviso("Sin cambios","No cambió ningún valor.");return}guardar();pintarSistema();aviso("Descuento QR guardado","Se usa en las rendiciones desde ahora.")}}};
@@ -3661,7 +3661,7 @@ CFG_MAY.descQR={v(){D.descQR=D.descQR||{};return `<form class="caja" id="f-qr" s
    Si la pantalla no cabe, la tabla más larga se achica y se desplaza dentro de su cuadro. */
 function ajustarPantalla(){const main=document.getElementById("sis-main");if(!main)return;
   main.querySelectorAll(".tabla-wrap[data-fit]").forEach(t=>{t.style.maxHeight="";t.removeAttribute("data-fit")});
-  if(innerWidth<900||innerHeight<500)return;
+  if(innerWidth<900||innerHeight<500||main.querySelector(".cfgp"))return;
   for(let i=0;i<5;i++){const over=document.documentElement.scrollHeight-innerHeight;if(over<=2)break;
     const ts=[...main.querySelectorAll(".tabla-wrap")].filter(t=>!t.dataset.fit&&t.offsetHeight>190&&t.offsetParent).sort((a,b)=>b.offsetHeight-a.offsetHeight);if(!ts.length)break;
     const t=ts[0],h=Math.max(170,t.offsetHeight-over-4);t.style.maxHeight=h+"px";t.style.overflow="auto";t.dataset.fit=1}}
@@ -4144,6 +4144,58 @@ function vistaStockBodega(){
 L.bodega=function(){l0();
   $$("[data-bcargar]").forEach(b=>b.onclick=()=>{bChofer=+b.dataset.bcargar;bTab="cargas";pintarSistema();window.scrollTo(0,0)});};
 }
+
+/* ===================== CONFIGURACIONES con el formato del ERP Local ===================== */
+const CFG_IC={precios:"precios",envases:"factura",clientesMay:"usuarios",descQR:"precios",preciosMay:"precios",comVale:"cuadratura",histPrecios:"manual",histCambios:"manual",usuarios:"usuarios",choferes:"choferes",sectorizar:"ruta",sucursal:"sucursal",general:"bodega",respaldos:"config"};
+// Precio del Gas
+CFG_MAY.precios={v(){const p=D.precios,prog=(D.programados||[]).slice().sort((a,b)=>a.desde.localeCompare(b.desde));
+  return `<form class="cfgp" id="f-pr"><h3>Precio del gas</h3>
+    <p class="cfgp-nota">Es el precio de cada cilindro para pedidos a domicilio y venta de choferes${D.locales.length>1?` en las ${D.locales.length} sucursales`:""}. Vigente desde el ${fechaLarga(p.fecha)}. Cada cambio queda en el Historial de Precios.</p>
+    <div class="tabla-wrap cfgt"><table><thead><tr><th>Cilindro</th><th class="c">Precio actual</th><th class="c">Precio nuevo</th><th class="c">Cambio</th></tr></thead><tbody>
+    ${FORMATOS.map(f=>`<tr><td><b>Cilindro ${f.tipo==="h"?"H15A":f.kg+"N"}</b> <span class="gris">${f.tipo==="h"?"Aluminio":f.kg+" kilos"}</span></td><td class="c azul">${clp(p[f.id])}</td><td class="pn"><span>$</span><input type="number" min="0" step="1" id="pn-${f.id}" value="${p[f.id]}" aria-label="Precio nuevo ${f.et}"></td><td class="c" id="dif-${f.id}"></td></tr>`).join("")}
+    </tbody></table></div>
+    <div class="cfgp-opc"><label>Subir o bajar todos en<input id="aj-monto" type="number" min="0" step="10" value="500"></label><label>Tipo<select id="aj-tipo"><option value="pesos">Pesos</option><option value="pct">Porcentaje</option></select></label>
+      <div class="acc"><button type="button" class="btn chico linea" data-aj="1">▲ Subir</button><button type="button" class="btn chico linea" data-aj="-1">▼ Bajar</button></div>
+      <label>Rige desde<input type="date" id="pn-desde" value="${hoyStr()}"></label><div class="acc"><button type="button" class="btn chico linea" id="pn-hoy">Desde hoy</button><button type="button" class="btn chico linea" id="pn-jueves">Próximo jueves</button></div>
+      <label class="g2">Motivo (opcional)<input id="pn-motivo" placeholder="Ej: alza semanal del proveedor"></label></div>
+    <div class="cfgp-btn"><button class="btn" type="submit">Guardar precios</button></div>
+    <p class="error" id="pn-error" hidden style="text-align:center"></p><p class="aviso ok" id="pn-ok" hidden></p>
+    ${prog.length?`<h3 class="sub">Cambios programados</h3><div class="tabla-wrap cfgt"><table><thead><tr><th>Rige desde</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15A":f.kg+"N"}</th>`).join("")}<th></th></tr></thead><tbody>
+      ${prog.map(x=>`<tr><td>${fechaLarga(x.desde)}</td>${FORMATOS.map(f=>`<td class="c azul">${clp(x.precios[f.id])}</td>`).join("")}<td class="c"><button class="x-rojo" data-cancelar="${x.id}" type="button" aria-label="Cancelar cambio">✕</button></td></tr>`).join("")}</tbody></table></div>`:""}</form>
+  <form class="cfgp" id="f-listas" style="margin-top:12px"><h3>Precio convenio</h3>
+    <p class="cfgp-nota">La lista convenio se elige al ingresar un pedido.</p>
+    <div class="cfgp-fila"><label class="g2">Nombre de la lista<input id="lp-nombre" value="${esc(nomLista("convenio"))}"></label></div>
+    <div class="tabla-wrap cfgt"><table><thead><tr><th></th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15A":f.kg+"N"}</th>`).join("")}</tr></thead><tbody>
+      <tr><td><b>${esc(nomLista("convenio"))}</b></td>${FORMATOS.map(f=>`<td class="pn c"><span>$</span><input type="number" min="0" step="1" data-lc="${f.id}" value="${D.preciosConvenio[f.id]}" aria-label="Convenio ${f.et}"></td>`).join("")}</tr></tbody></table></div>
+    <div class="cfgp-btn"><button class="btn" type="submit">Guardar precio convenio</button></div><p class="aviso ok" id="lp-ok" hidden>Precio convenio guardado.</p></form>`},
+  l(){L.precios()}};
+// Precio de envases
+CFG_MAY.envases={v(){const PE=D.preciosEnvase||{};return `<form class="cfgp" id="f-env"><h3>Precio de envases</h3>
+    <p class="cfgp-nota">Es lo que se cobra cuando el cliente se lleva el cilindro sin entregar un vacío. Si dejas un precio en 0, ese envase no se puede vender. Cada cambio queda en el Historial de Precios.</p>
+    <div class="tabla-wrap cfgt"><table><thead><tr><th>Envase</th><th class="c">Precio actual</th><th class="c">Precio nuevo</th></tr></thead><tbody>
+    ${FORMATOS.map(f=>`<tr><td><b>Envase ${f.tipo==="h"?"H15A":f.kg+"N"}</b>${f.tipo==="h"?' <span class="gris">Aluminio</span>':""}</td><td class="c ${PE[f.id]?"azul":"gris mono"}">${PE[f.id]?clp(PE[f.id]):"No se vende"}</td><td class="pn"><span>$</span><input type="number" min="0" data-penv="${f.id}" value="${PE[f.id]||0}" aria-label="Precio envase ${f.et}"></td></tr>`).join("")}
+    </tbody></table></div><div class="cfgp-btn"><button class="btn" type="submit">Guardar precios de envases</button></div></form>`},
+  l(){const f=$("#f-env");if(!f)return;f.onsubmit=e=>{e.preventDefault();D.preciosEnvase=D.preciosEnvase||{};let n=0;
+    $$("[data-penv]").forEach(i=>{const k=i.dataset.penv,v=Math.max(0,Math.round(+i.value||0)),a=D.preciosEnvase[k]||0;if(v!==a){histMay("Precio envase",k,a,v);D.preciosEnvase[k]=v;n++}});
+    if(!n){aviso("Sin cambios","No cambió ningún precio.");return}guardar();pintarSistema();aviso("Precios de envases guardados",`${n} precio(s) actualizado(s).`)}}};
+// Historiales
+const histFila=x=>`<tr><td class="num">${esc(fF(x.fecha))} <span class="gris">${esc((x.fecha||"").slice(11,16))}</span></td><td>${esc(x.user||"")}</td><td><b>${esc(x.accion||"")}</b></td><td>${esc(x.detalle||"")}</td></tr>`;
+CFG_MAY.histPrecios={v(){const H=D.historialPrecios||[],B=(D.bitacora||[]).filter(x=>x.area==="precios").slice(0,200);
+  return `<section class="cfgp"><h3>Historial de precios del gas</h3>
+    <div class="tabla-wrap cfgt"><table><thead><tr><th>Rige desde</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15A":f.kg+"N"}</th>`).join("")}<th>Hecho por</th></tr></thead><tbody>
+    ${H.length?H.map(h=>`<tr><td class="num">${esc(h.desde.split("-").reverse().join("-"))}</td>${FORMATOS.map(f=>`<td class="c"><span class="azul">${clp(h.nuevos[f.id])}</span><br>${difPrecio(h.ant[f.id],h.nuevos[f.id])}</td>`).join("")}<td>${esc(h.user)}${h.motivo?`<br><small class="gris">${esc(h.motivo)}</small>`:""}</td></tr>`).join(""):`<tr><td colspan="${FORMATOS.length+2}" class="vacio">Todavía no hay cambios de precio.</td></tr>`}
+    </tbody></table></div>
+    <h3 class="sub">Otros precios (mayoristas, envases, vales y QR)</h3>
+    <div class="tabla-wrap cfgt"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Cambio</th><th>Detalle</th></tr></thead><tbody>${B.map(histFila).join("")||'<tr><td colspan="4" class="vacio">Sin cambios registrados.</td></tr>'}</tbody></table></div></section>`},l(){}};
+CFG_MAY.histCambios={v(){const B=(D.bitacora||[]).filter(x=>["sistema","precios"].includes(x.area)).slice(0,300);
+  return `<section class="cfgp"><h3>Historial de cambios</h3><p class="cfgp-nota izq">Cambios en la configuración: usuarios, choferes, precios, accesos y sucursales.</p>
+    <div class="tabla-wrap cfgt"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Cambio</th><th>Detalle</th></tr></thead><tbody>${B.map(histFila).join("")||'<tr><td colspan="4" class="vacio">Sin cambios registrados.</td></tr>'}</tbody></table></div></section>`},l(){}};
+// menú lateral
+{const vc=V.config;V.config=function(){const h=vc.apply(this,arguments),k="<!--CFGTABS-->",i=h.indexOf(k);if(i<0)return h;
+  const T=cfgTabsLista(),sep=["usuarios","choferes"];
+  const side=`<aside class="cfg-side caja">${T.map(([id,t],j)=>`${id==="choferes"&&j?'<hr>':""}<button type="button" class="vc-t" data-cfgtab="${id}" aria-selected="${cfgTab===id}">${svg(CFG_IC[id]||"config")}<span>${t}</span></button>`).join("")}</aside>`;
+  return h.slice(0,i)+`<div class="cfg-lay">${side}<div class="cfg-main">${h.slice(i+k.length)}</div></div>`}}
+{const lc=L.config;L.config=function(){lc.apply(this,arguments);$$(".cfgp [data-cfgtab]").forEach(a=>a.onclick=e=>{e.preventDefault();cfgTab=a.dataset.cfgtab;cfgCh=null;pintarSistema()})}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -4817,6 +4869,53 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .bd-mini td:first-child{text-align:left;font-weight:600;color:var(--tx2,#344054)}
 .sis .bd-mini td.cero{color:#c7ccd6}
 .sis .bd-cam-p{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--mu)}
+
+/* ===== Configuraciones como ERP Local ===== */
+.sis .cfg-lay{display:grid;grid-template-columns:230px minmax(0,1fr);gap:20px;align-items:start}
+.sis .cfg-side{display:grid;gap:2px;padding:10px;position:sticky;top:70px}
+.sis .cfg-side hr{border:0;border-top:1px solid var(--line,#e7eaf0);margin:6px 4px}
+.sis .cfg-side .vc-t{font-weight:500;padding:9px 12px}
+.sis .cfg-side .vc-t[aria-selected="true"]{font-weight:600}
+.sis .cfg-main{min-width:0}
+.sis .cfgp{background:#fff;border:1px solid var(--line,#e7eaf0);border-radius:14px;padding:22px 26px;box-shadow:var(--sh1,none);display:block}
+.sis .cfgp h3{margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line,#e7eaf0);font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--tx,#0c1424)}
+.sis .cfgp h3.sub{margin-top:26px}
+.sis section.cfgp,.sis form.cfgp{padding:22px 26px!important;margin-top:0}
+.sis .cfgp-nota{text-align:center;color:var(--mu,#6b7488);font-size:13px;line-height:1.5;margin:0 0 14px}
+.sis .cfgp-nota.izq{text-align:left}
+.sis .cfgp-nota a{color:var(--b7);text-decoration:underline}
+.sis .cfgt{border:1px solid var(--line,#e7eaf0);border-radius:12px;margin-bottom:6px;box-shadow:none}
+.sis .cfgt table{width:100%}
+.sis .cfgt th{background:#f8f9fb;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mu,#6b7488);font-weight:600;padding:10px 12px}
+.sis .cfgt td{padding:10px 12px;font-size:14px;vertical-align:middle}
+.sis .cfgt th.c,.sis .cfgt td.c{text-align:center}
+.sis .cfgt.angosta{max-width:780px;margin-left:auto;margin-right:auto}
+.sis .cfgt tr.base td{background:#fafbfc}
+.sis .cfgt .azul{color:var(--b7,#1250b0);font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:500}
+.sis .cfgt td.azul{white-space:nowrap}
+.sis .gris{color:var(--mu,#6b7488);font-weight:400}.sis .mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.sis .cfgt td.pn{text-align:right;white-space:nowrap}
+.sis .cfgt td.pn.c{text-align:center}
+.sis .cfgt td.pn span{margin-right:6px;font-weight:500}
+.sis .cfgt td.pn input{width:150px;text-align:right;padding:9px 12px;font-size:15px;border-radius:9px}
+.sis .cfgt td.pn.c input{width:110px;text-align:center}
+.sis .cfgt td.pn input.azul,.sis .cfgt td.pn input{color:var(--b7,#1250b0);font-family:"JetBrains Mono",ui-monospace,monospace}
+.sis .cfgt td .dif{font-size:12px}
+.sis .cfgt td select{width:auto;min-width:240px;padding:8px 10px}
+.sis .cfgt .vacio{text-align:center;color:var(--mu);padding:26px}
+.sis .x-rojo{border:0;background:none;color:#d92d20;font-size:18px;cursor:pointer;padding:2px 8px;border-radius:6px}.sis .x-rojo:hover{background:#fef3f2}
+.sis .cfgp-btn{display:flex;justify-content:center;margin:16px 0 8px}
+.sis .cfgp-btn .btn{min-width:260px;padding:12px 26px;font-size:15px;border-radius:9px}
+.sis .cfgp-fila{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:0 0 14px}
+.sis .cfgp-fila label{display:grid;gap:4px;flex:1 1 150px;font-size:13.5px}
+.sis .cfgp-fila label small{color:var(--mu);font-weight:400}
+.sis .cfgp-fila label.g2{flex:2 1 260px}.sis .cfgp-fila label.g3{flex:3 1 320px}.sis .cfgp-fila label.g4{flex:5 1 360px}
+.sis .cfgp-fila input,.sis .cfgp-fila select{padding:10px 12px;font-size:14px}
+.sis .cfgp-fila .btn{padding:11px 20px;font-size:14.5px;white-space:nowrap}
+.sis .cfgp-opc{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;margin:12px 0 0;padding:12px;border:1px dashed var(--line2,#d0d7e2);border-radius:10px;background:#fafbfc}
+.sis .cfgp-opc label{display:grid;gap:4px;font-size:12.5px;max-width:180px}.sis .cfgp-opc label.g2{max-width:none;flex:1 1 240px}
+.sis .cfgp-opc input,.sis .cfgp-opc select{padding:7px 9px}
+@media (max-width:1100px){.sis .cfg-lay{grid-template-columns:minmax(0,1fr)}.sis .cfg-side{position:static;display:flex;flex-wrap:wrap}.sis .cfg-side hr{display:none}.sis .cfg-side .vc-t[aria-selected="true"]::before{display:none}}
 </style>
 </body>
 </html>
