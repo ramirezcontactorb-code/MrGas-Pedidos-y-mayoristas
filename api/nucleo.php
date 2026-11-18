@@ -10,7 +10,7 @@ const ESTADO_SOLO_ADMIN = ['precios','preciosMayor','preciosEnvase','preciosConv
 const ESTADO_PRECIOS = ['precios','preciosMayor','preciosEnvase','preciosConvenio','listas','historico','listasMay','comisionVale','descQR'];
 // Cuadro (permiso) que necesita un encargado para escribir en cada colección
 const PERMISO_COL = [
-    'rendiciones' => ['cuadratura'], 'cargas' => ['cuadratura'], 'cargasDist' => ['cuadratura'], 'anticipos' => ['cuadratura'], 'peonetas' => ['cuadratura'],
+    'rendiciones' => ['cuadratura','ventachofer','mayorista'], 'cargas' => ['cuadratura','ventachofer'], 'cargasDist' => ['cuadratura','mayorista'], 'anticipos' => ['cuadratura','ventachofer'], 'peonetas' => ['cuadratura','ventachofer'],
     'ventas' => ['caja','cuadratura'], 'gastos' => ['caja','cuadratura'], 'ventasAnuladas' => ['caja','cuadratura'],
     'movimientos' => ['compras','bodega'], 'recuentos' => ['bodega'],
     'pedidos' => ['pedidos','ruta','chofer','app.repartidores'], 'reparto' => ['mayorista','ruta','pedidos','app.repartidores','app.distribucion'], 'camiones' => ['mayorista','ruta','app.distribucion'], 'clientes' => ['pedidos','ruta'], 'petroleo' => ['petroleo','cuadratura'],

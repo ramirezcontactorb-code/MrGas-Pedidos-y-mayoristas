@@ -1241,6 +1241,8 @@ const IC={
   informes:'<path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6M20 16V5"/>',
   cuadratura:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2"/><path d="m9 13 2 2 4-4"/>',
   compras:'<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
+  ventachofer:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  factura:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
   choferes:'<circle cx="9" cy="8" r="3.2"/><path d="M3 19c.8-3.2 3.2-5 6-5s5.2 1.8 6 5"/><rect x="15" y="9" width="6" height="5" rx="1"/><path d="M16.5 9V7.5a1.5 1.5 0 0 1 3 0V9"/>',
   chofer:'<path d="M12 21s-7-6-7-12a7 7 0 0 1 14 0c0 6-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
   bodega:'<rect x="7" y="6" width="10" height="15" rx="4"/><path d="M10 6V3h4v3M7 13h10"/>',
@@ -1269,7 +1271,8 @@ const MODULOS=[
   {id:"sectorizar",t:"Sectorizar",s:"Mapa y despacho automático",r:[A,E]},
   {id:"informes",t:"Informes",s:"Pedidos y rendiciones",r:[A,E]},
   {id:"petroleo",t:"Petróleo",s:"Combustible de móviles",r:[A,E]},
-  {id:"cuadratura",t:"Venta de Repartidor",s:"Ingresar ventas y rendir el día",r:[A,E]},
+  {id:"cuadratura",t:"Cargas y liquidaciones",s:"Carga de móviles, rendiciones y liquidaciones",r:[A,E]},
+  {id:"ventachofer",t:"Venta Choferes",s:"Venta del chofer y rendición del día",r:[A,E]},
   {id:"mayorista",t:"Venta Mayorista",s:"Ventas a clientes y su cuenta",r:[A,E]},
   {id:"compras",t:"Compras y Devoluciones",s:"Entradas y salidas",r:[A,E]},
   {id:"chofer",t:"Pedidos Chofer",s:"Entregas en ruta",r:[A,E,C]},
@@ -1284,7 +1287,7 @@ const ACCIONES=[
   {id:"sucursal",t:"Cambio de<br>Sucursal",r:[A]},
   {id:"salir",t:"Salir del<br>Sistema",r:[A,E,C]}
 ];
-const MOD_PERM=["pedidos","ruta","choferes","sectorizar","mayorista","cuadratura","bodega","compras","informes"];
+const MOD_PERM=["pedidos","ruta","choferes","sectorizar","mayorista","ventachofer","cuadratura","bodega","compras","informes"];
 /* Permisos detallados (versión 2, marcada con "_v2"):
    "pedidos" = ver y trabajar · "pedidos:ver" = solo ver · acciones y apps aparte */
 const PERM_EXTRA=[["pedidos.anular","Anular pedidos"],["cfg.choferes","Configurar choferes y móviles"],["cfg.clientes","Configurar clientes mayoristas"],["cfg.precios","Cambiar precios (gas, mayoristas, vales y QR)"]];
@@ -1294,10 +1297,10 @@ const ESTADO_PRECIOS=["precios","preciosMayor","preciosEnvase","preciosConvenio"
 const PLANTILLAS=[
   ["Telefonista",["pedidos","ruta:ver","app.repartidores"]],
   ["Despachador",["pedidos","pedidos.anular","ruta","choferes","sectorizar","informes:ver","app.repartidores","app.distribucion"]],
-  ["Cajero / cuadratura",["pedidos:ver","ruta:ver","cuadratura","mayorista","informes"]],
+  ["Cajero / cuadratura",["pedidos:ver","ruta:ver","ventachofer","cuadratura","mayorista","informes"]],
   ["Vendedor mayorista",["mayorista","informes:ver","cfg.clientes","app.distribucion"]],
   ["Bodeguero",["ruta:ver","bodega","compras"]],
-  ["Supervisor",["pedidos","pedidos.anular","ruta","choferes","sectorizar","mayorista","cuadratura","bodega","compras","informes","cfg.choferes","cfg.clientes","app.repartidores","app.distribucion"]]];
+  ["Supervisor",["pedidos","pedidos.anular","ruta","choferes","sectorizar","mayorista","ventachofer","cuadratura","bodega","compras","informes","cfg.choferes","cfg.clientes","app.repartidores","app.distribucion"]]];
 const esV2=p=>Array.isArray(p)&&p.includes("_v2");
 // acciones especiales y apps: los usuarios antiguos (sin "_v2") conservan lo que podían hacer antes
 const tieneExtra=c=>{if(!yo)return false;if(esAdmin())return true;if(yo.rol!=="encargado")return false;
@@ -1308,6 +1311,8 @@ const puede=id=>{
   if(id==="sucursal")return D.locales.length>1&&(esAdmin()||misSucs().length>1);
   if(id==="sectorizar"&&(!yo||yo.rol!=="encargado"||!esV2(yo.permisos)))return !!yo&&esAdmin();
   if(id==="config")return !!yo&&(esAdmin()||cfgTabsLista().length>0);
+  if(id==="ventachofer"&&yo&&yo.rol==="encargado"&&Array.isArray(yo.permisos)&&!esV2(yo.permisos))return yo.permisos.includes("cuadratura");
+  if(id==="cuadratura"&&yo&&yo.rol==="encargado"&&Array.isArray(yo.permisos)&&(yo.permisos.includes("ventachofer")||yo.permisos.includes("mayorista")))return true;
   if(id==="precios"||id==="usuarios"||id==="admin")return esAdmin();
   if(id==="respaldos")return esAdmin()&&(yo.permisos==null||(Array.isArray(yo.permisos)&&yo.permisos.includes("respaldos")));
   if(id==="caja"||id==="petroleo")return false; // desactivados (los datos antiguos se conservan)
@@ -1699,7 +1704,7 @@ function hubCuad(fechaSel){
 
   </div><aside class="hub-lado caja"><h3>Liquidaciones</h3>${tile("liq-chofer","Liquidación chofer","Comisiones y anticipos","usuarios")}${tile("liq-peoneta","Liquidación peoneta","Comisiones de ayudantes","usuarios")}</aside></div>`;
 }
-const volverHub=`<button class="volver" type="button" data-ctab="menu" style="margin:-10px 0 16px">← Volver a Venta de Repartidor</button>`;
+const volverHub=`<button class="volver" type="button" data-ctab="menu" style="margin:-10px 0 16px">← Volver</button>`;
 const bloqueo=f=>puedeEditarFecha(f)?"":`<div class="banner">Este día ya pasó y está bloqueado. Para editarlo, el administrador debe darle acceso a históricos.</div>`;
 function vistaCarga(tipo,fechaSel){
   const chs=chOrden().filter(c=>c.local===suc&&c.activo!==false);
@@ -1903,7 +1908,7 @@ const V={
     const entHoy=ps.filter(p=>p.estado==="entregado"&&(p.entregado||"").startsWith(hoy)).length,nom=String(yo.nombre||"").split(" ")[0];
     const card=(attr,ico,t,d,go="Abrir")=>`<${attr.startsWith("href")?"a":"button"} class="modulo" ${attr}><span class="ico">${svg(ico)}</span><b>${t}</b><span class="sub">${d}</span><span class="mgo">${go}<span aria-hidden="true">→</span></span></${attr.startsWith("href")?"a":"button"}>`;
     return `<div class="phead-mr"><div class="eyebrow-mr">Sucursal ${esc(nomLocal(suc))}</div><h1>${saludo}, ${esc(nom)}</h1><p class="sub">${fechaLarga(hoy)}</p></div>
-      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","cuadratura","choferes","bodega","compras","informes","config"],FUERA=["sectorizar"];
+      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","ventachofer","choferes","bodega","compras","informes","config"],FUERA=["sectorizar","cuadratura"];
         const ids=[...ORDEN,...MODULOS.map(m=>m.id).filter(id=>!ORDEN.includes(id)&&!FUERA.includes(id))];
         return ids.map(id=>{if(id==="erp")return yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","ERP Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):"";
           const m=MODULOS.find(x=>x.id===id);return m&&puede(m.id)?card(`data-modulo="${m.id}" type="button"`,m.id,m.t,m.s):""}).join("")})()}</div>
@@ -2040,7 +2045,7 @@ const V={
     const lista=T==="movil"?chOrden().filter(c=>c.local===suc):T==="local"?D.locales.filter(l=>misSucs().includes(l.id)):(D.mayoristas||[]).filter(m=>(m.local??1)===suc);
     const rows=lista.map(x=>{const r=getRend(T,x.id,fechaCuad,false);return {x,r,c:r?calcRend(r):null,ent:T==="movil"?entregasDe(x.id,fechaCuad):T==="local"?ventasLocalDe(x.id,fechaCuad):null}});
     const tot=k=>rows.reduce((s,o)=>s+(o.c?o.c[k]:0),0);
-    const tabs=`<button class="volver" type="button" data-ctab="menu" style="margin:-10px 0 16px">← Volver a Venta de Repartidor</button>`;
+    const tabs=`<button class="volver" type="button" data-ctab="menu" style="margin:-10px 0 16px">← Volver</button>`;
     const estado=o=>!o.r?'<span class="pill pendiente">Sin cuadrar</span>':Math.round(o.c.saldo)===0?'<span class="pill entregado">Cuadrado</span>':o.c.saldo>0?`<span class="pill bajo">Debe ${clp(o.c.saldo)}</span>`:`<span class="pill ruta">A favor ${clp(-o.c.saldo)}</span>`;
     const col2=T==="movil"?"Entregas en sistema":T==="local"?"Ventas en Venta Local":"RUT";
     const sub=x=>T==="movil"?esc(x.patente||"Sin patente")+" · "+esc(nomLocal(x.local)):T==="local"?esc(x.comuna):esc(x.fono||"Sin teléfono");
@@ -3790,9 +3795,11 @@ function corregirEstado(id){
 
 /* ===================== VENTA DE REPARTIDOR: varias ventas al día que se suman, y «Rendir día» ===================== */
 let vrCh=null;
-const sumaVueltas=r=>{const v=st(),e=st();(r.vueltas||[]).forEach(x=>FORMATOS.forEach(f=>{v[f.id]+=+(x.ventas||{})[f.id]||0;e[f.id]+=+(x.env||{})[f.id]||0}));return {v,e}};
-function aplicarVueltas(r){const {v,e}=sumaVueltas(r);r.ventas=v;r.envases=e}
-const montoVuelta=(r,x)=>FORMATOS.reduce((s,f)=>s+(+(x.ventas||{})[f.id]||0)*(r.precios[f.id]||0)+(+(x.env||{})[f.id]||0)*((r.precioEnv||{})[f.id]||0),0);
+const sumaVueltas=r=>{const v=st(),e=st();(r.vueltas||[]).filter(x=>!x.anulada).forEach(x=>FORMATOS.forEach(f=>{v[f.id]+=+(x.ventas||{})[f.id]||0;e[f.id]+=+(x.env||{})[f.id]||0}));return {v,e}};
+function aplicarVueltas(r){const {v,e}=sumaVueltas(r);r.ventas=v;r.envases=e;
+  const d=(r.vueltas||[]).filter(x=>!x.anulada).reduce((s,x)=>s+(+x.dcto||0),0);r.pagos=r.pagos.filter(p=>p.auto!=="vc");
+  if(d>0)r.pagos.push({id:(r.pagos.reduce((m,p)=>Math.max(m,+p.id||0),0))+1,tipo:"descuento",monto:d,detalle:"Descuentos dados en Venta Choferes",hora:ahora(),auto:"vc"})}
+const montoVuelta=(r,x)=>FORMATOS.reduce((s,f)=>s+(+(x.ventas||{})[f.id]||0)*(r.precios[f.id]||0)+(+(x.env||{})[f.id]||0)*((r.precioEnv||{})[f.id]||0),0)-(+x.dcto||0);
 const resumenQ=o=>FORMATOS.filter(f=>+o[f.id]>0).map(f=>`${o[f.id]}×${f.tipo==="h"?"H15":f.kg+" kg"}`).join(", ");
 hubCuad=function(fechaSel){
   const H=D.historico,lista=NUBE.activo?NUBE.usuarios:D.usuarios,key=u=>NUBE.activo?u.uid:u.user;
@@ -3864,14 +3871,122 @@ function enlazarVR(){
 }
 // En la rendición: si el chofer tiene varias ventas, las cantidades son la suma (se cambian en Venta de Repartidor)
 {const v0=vistaRendERP;vistaRendERP=function(r,f){let h=v0(r,f);
-  if(r.tipo!=="movil"||!(r.vueltas&&r.vueltas.length))return h;
+  if(r.tipo!=="movil"||!(r.vueltas&&r.vueltas.some(x=>!x.anulada)))return h;
   h=h.replace(/ data-(rcant|renv)=/g,' disabled data-$1=');
   h=h.replace(/<button class="btn chico linea" id="rd-usar"[^>]*>[^<]*<\/button>/,"");
-  const lista=r.vueltas.map((x,i)=>`<span class="vr-v"><b>${i+1}</b> ${esc((x.hora||"").slice(11,16))} · ${esc(resumenQ(x.ventas||{}))} · ${clp(montoVuelta(r,x))}</span>`).join("");
-  return h.replace('<fieldset class="bloqueo"',`<div class="vr-sum"><span>Venta del día = suma de <b>${r.vueltas.length}</b> venta${r.vueltas.length>1?"s":""}:</span>${lista}<button type="button" class="btn chico linea" data-ctab="menu">Agregar o quitar ventas</button></div><fieldset class="bloqueo"`)}}
+  const lista=r.vueltas.filter(x=>!x.anulada).map((x,i)=>`<span class="vr-v"><b>${i+1}</b> ${esc((x.hora||"").slice(11,16))} · ${esc(resumenQ(x.ventas||{}))} · ${clp(montoVuelta(r,x))}</span>`).join("");
+  return h.replace('<fieldset class="bloqueo"',`<div class="vr-sum"><span>Venta del día = suma de <b>${r.vueltas.filter(x=>!x.anulada).length}</b> venta${r.vueltas.filter(x=>!x.anulada).length>1?"s":""}:</span>${lista}<button type="button" class="btn chico linea" data-ctab="menu">Agregar o quitar ventas</button></div><fieldset class="bloqueo"`)}}
 {const lc=L.cuadratura;L.cuadratura=function(){lc.call(this);if(cuadTab==="menu")enlazarVR();
-  if(cuadTab==="movil"&&cuadSel!=null){const b=$("#cu-lista");if(b){b.textContent="← Volver a Venta de Repartidor";b.onclick=()=>{cuadTab="menu";cuadSel=null;pintarSistema()}}
+  if(cuadTab==="movil"&&cuadSel!=null){const b=$("#cu-lista");if(b){b.textContent="← Volver a Venta Choferes";b.onclick=()=>{cuadTab="menu";cuadSel=null;pintarSistema()}}
     $$(".vr-sum [data-ctab]").forEach(x=>x.onclick=()=>{vrCh=cuadSel;cuadTab="menu";cuadSel=null;pintarSistema()})}}}
+
+/* ===================== VENTA CHOFERES (igual a Venta Local del ERP Local, pero por chofer) ===================== */
+let vcTab="venta",vcCh=null,vcUlt=null;
+const cilBlanco=f=>{const lab=f.tipo==="h"?"15":String(f.kg),alu=f.tipo==="h",h=f.kg>=45?96:f.kg>=15?86:f.kg>=11?78:68,w=f.kg>=45?58:f.kg>=15?52:f.kg>=11?48:42,x=(64-w)/2,y=112-h;
+  return `<svg viewBox="0 0 64 116" class="cilb" aria-hidden="true"><defs><linearGradient id="gb${f.id}" x1="0" x2="1"><stop offset="0" stop-color="#e9edf2"/><stop offset=".35" stop-color="#fff"/><stop offset="1" stop-color="#d5dbe3"/></linearGradient></defs>
+    <rect x="${32-w*.22}" y="${y-14}" width="${w*.44}" height="18" rx="3" fill="url(#gb${f.id})" stroke="#c3cad4"/><rect x="${32-4}" y="${y-11}" width="8" height="12" rx="2" fill="#2e9b4f"/>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${w*.32}" fill="url(#gb${f.id})" stroke="#c3cad4"/>
+    <text x="32" y="${y+h*.36}" text-anchor="middle" font-size="${f.kg>=45?17:14}" font-weight="800" fill="#0d3a85" font-family="Plus Jakarta Sans,sans-serif">${lab}<tspan font-size="7" dx="1">kg</tspan></text>
+    ${alu?`<text x="32" y="${y+h*.36+9}" text-anchor="middle" font-size="5.5" font-weight="700" fill="#0d3a85">ALUMINIO</text>`:""}
+    <rect x="${x+3}" y="${y+h-7}" width="${w-6}" height="7" rx="3" fill="#dfe4ea"/>${[0,1,2].map(i=>`<circle cx="${x+w*(.25+.25*i)}" cy="${y+h-3.5}" r="1.3" fill="#333"/>`).join("")}</svg>`};
+const fmtEnv=()=>FORMATOS.filter(f=>f.tipo!=="h"||((D.preciosEnvase||{})[f.id]||0)>0);
+function vcFilas(){return chOrden().filter(c=>c.local===suc&&(c.activo!==false||getRend("movil",c.id,fechaCuad,false)))}
+V.ventachofer=function(){
+  const chs=vcFilas();if(!chs.some(c=>c.id===vcCh))vcCh=(chs.find(c=>c.activo!==false)||chs[0]||{}).id??null;
+  const side=`<aside class="vc-side caja">${[["venta","Venta Chofer","factura"],["rend","Rendición","cuadratura"]].map(([k,t,ic])=>`<button type="button" class="vc-t" data-vctab="${k}" aria-selected="${vcTab===k}">${svg(ic)}<span>${t}</span></button>`).join("")}
+    <p class="vc-sep">Otros</p>${[["carga","Carga inicial"],["recarga","Recarga"],["liq-chofer","Liquidación chofer"],["liq-peoneta","Liquidación peoneta"]].map(([k,t])=>`<button type="button" class="vc-t chico" data-vctab="${k}" aria-selected="${vcTab===k}"><span>${t}</span></button>`).join("")}</aside>`;
+  const fechaSel=`<label>Fecha<input type="date" id="f-cuad" value="${fechaCuad}"></label>`;
+  let main="";
+  if(vcTab==="rend"){
+    if(vcCh==null)main=cabeza("Rendición")+'<div class="caja"><p>No hay choferes en esta sucursal.</p></div>';
+    else{cuadTab="movil";cuadSel=vcCh;main=vistaRend(getRend("movil",vcCh,fechaCuad,true),fechaSel)}}
+  else if(vcTab==="carga"||vcTab==="recarga"){cuadTab=vcTab;cuadSel=null;main=vistaCarga(vcTab==="carga"?"inicial":"recarga",fechaSel)}
+  else if(vcTab==="liq-chofer"||vcTab==="liq-peoneta"){cuadTab=vcTab;cuadSel=null;main=vistaLiq(vcTab==="liq-chofer"?"chofer":"peoneta")}
+  else main=vistaVentaChofer(chs,fechaSel);
+  return `<div class="vc-lay">${side}<div class="vc-main">${main}</div></div>`};
+function vistaVentaChofer(chs,fechaSel){
+  const ed=puedeEditarFecha(fechaCuad)&&!soloVer("ventachofer"),ch=D.choferes.find(c=>c.id===vcCh),r=vcCh!=null?getRend("movil",vcCh,fechaCuad,false):null;
+  const P=r?r.precios:D.precios,PE=r?r.precioEnv||{}:D.preciosEnvase||{},vs=(r&&r.vueltas)||[],act=vs.filter(x=>!x.anulada);
+  const ent=vcCh!=null?entregasDe(vcCh,fechaCuad):null,carga=ch?ch.carga||{}:{},FE=fmtEnv();
+  const k=r?calcRend(r):null,totDia=act.reduce((s,x)=>s+montoVuelta(r,x),0);
+  const sel=`<label>Chofer<select id="vc-ch" class="vc-chsel">${chs.map(c=>`<option value="${c.id}" ${c.id===vcCh?"selected":""}>${esc(c.nombre)}${c.patente?" · "+esc(c.patente):""}</option>`).join("")}</select></label>`;
+  return cabeza("Venta Chofer",`<div class="acc" style="align-items:end">${sel}${fechaSel}</div>`)+(ed?"":`<div class="banner">${soloVer("ventachofer")?"Solo puede ver este cuadro.":"Este día ya pasó y está bloqueado. Para editarlo, el administrador debe darle acceso a históricos."}</div>`)+`
+  <form class="caja vc-caja" id="f-vc" autocomplete="off"><div class="vc-card">
+   <div class="vc-g" style="--n:${FORMATOS.length}">
+    <div class="vc-izq"><span class="vc-plab">Precio chofer</span>
+      <div class="vc-tot"><span>TOTAL</span><b class="num" id="vc-total">${clp(0)}</b></div>
+      <label class="vc-dc"><span>DESCUENTO</span><span class="vc-pesos">$ <input id="vc-dcto" type="number" min="0" inputmode="numeric" placeholder="0" ${ed?"":"disabled"}></span></label></div>
+    ${FORMATOS.map(f=>`<div class="vc-col"><span class="vc-pr num">${clp(P[f.id]||0)}</span><div class="vc-img">${cilBlanco(f)}</div>
+      <span class="vc-et"><b>${f.tipo==="h"?"H15":f.kg}</b> ${f.tipo==="h"?"Aluminio":"kg"}</span>
+      <input class="vc-in" type="number" min="0" inputmode="numeric" data-vcq="${f.id}" placeholder="0" aria-label="Cantidad ${f.et}" ${ed?"":"disabled"}>
+      <span class="vc-stock ${(carga[f.id]||0)>0?"":"cero"}">En camión: ${carga[f.id]||0}</span></div>`).join("")}
+   </div>
+   <div class="vc-envh">VENTA DE ENVASES</div>
+   <div class="vc-g env" style="--n:${FORMATOS.length}"><div></div>
+    ${FORMATOS.map(f=>FE.includes(f)?`<div class="vc-col"><span class="vc-pr num">${clp(PE[f.id]||0)}</span><input class="vc-in" type="number" min="0" inputmode="numeric" data-vce="${f.id}" placeholder="0" aria-label="Envases ${f.et}" ${ed?"":"disabled"}></div>`:"<div></div>").join("")}
+   </div></div>
+   <div class="vc-acc"><button class="btn" type="submit" ${ed&&vcCh!=null?"":"disabled"}>Grabar venta</button><button class="btn linea" type="button" id="vc-pago" ${vcCh!=null?"":"disabled"}>Ingresar pago</button>
+     <button class="btn linea" type="button" id="vc-imp" ${act.length?"":"disabled"}>Imprimir</button><button class="btn linea rojo" type="button" id="vc-anular" ${ed&&act.length?"":"disabled"}>Anular</button>
+     <button class="btn linea" type="button" id="vc-volver">Volver</button><span style="flex:1"></span>${ent&&ent.tarros&&ed?'<button class="btn linea" type="button" id="vc-usar" title="Llena las cantidades con los pedidos del sistema que este chofer entregó hoy">Usar pedidos entregados</button>':""}<button class="btn linea" type="reset" id="vc-nueva">Nueva venta</button></div>
+   <p class="error" id="vc-err" hidden></p></form>
+  <h4 class="vc-h4">VENTAS DE HOY <span>· si hay un error, anula la venta y vuelve a ingresarla</span></h4>
+  <div class="tabla-wrap"><table class="vc-tab"><thead><tr><th>N°</th><th>Hora</th><th>Usuario</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15A":f.kg+"N"}</th>`).join("")}<th class="c">Envases</th><th class="der">Desc.</th><th class="der">Total</th><th></th></tr></thead><tbody>
+   ${vs.length?vs.map((x,i)=>`<tr class="${x.anulada?"anul":""}"><td class="num">${i+1}</td><td class="num">${esc((x.hora||"").slice(11,16))}</td><td>${esc(x.user||"")}</td>
+     ${FORMATOS.map(f=>`<td class="c num">${+(x.ventas||{})[f.id]||"–"}</td>`).join("")}<td class="c num">${FORMATOS.reduce((s,f)=>s+(+(x.env||{})[f.id]||0),0)||"–"}</td>
+     <td class="der num">${x.dcto?clp(x.dcto):"–"}</td><td class="der num"><b>${clp(montoVuelta(r,x))}</b></td>
+     <td>${x.anulada?'<span class="pill anulado">Anulada</span>':`<div class="acc"><button class="btn chico linea" type="button" data-vcimp="${x.id}" title="Imprimir">🖨</button>${ed?`<button class="btn chico linea rojo" type="button" data-vcanular="${x.id}">Anular</button>`:""}</div>`}</td></tr>`).join("")
+     :`<tr><td colspan="${FORMATOS.length+7}" class="vc-vacio">Aún no hay ventas hoy</td></tr>`}
+   ${act.length?`<tr class="fila-tot"><td colspan="3"><b>Total del día (${act.length} venta${act.length>1?"s":""})</b></td>${FORMATOS.map(f=>`<td class="c num"><b>${act.reduce((s,x)=>s+(+(x.ventas||{})[f.id]||0),0)||"–"}</b></td>`).join("")}<td class="c num">${act.reduce((s,x)=>s+FORMATOS.reduce((a,f)=>a+(+(x.env||{})[f.id]||0),0),0)||"–"}</td><td class="der num">${clp(act.reduce((s,x)=>s+(+x.dcto||0),0))}</td><td class="der num"><b>${clp(totDia)}</b></td>
+     <td>${r.guardada?(Math.round(k.saldo)===0?'<span class="pill entregado">Rendido</span>':`<span class="pill bajo">Debe ${clp(k.saldo)}</span>`):'<span class="pill ruta">Por rendir</span>'}</td></tr>`:""}
+  </tbody></table></div>
+  ${ent&&ent.tarros?`<p class="nota" style="margin:6px 0 0">Pedidos del sistema entregados hoy por este chofer: <b>${resumenVentas(ent.ventas)}</b>. Si los cobró, inclúyalos en una venta (botón «Usar pedidos entregados»).</p>`:""}`;
+}
+function imprimirVentaChofer(r,x){const ch=D.choferes.find(c=>c.id===r.ref),emp=D.empresa||{},w=window.open("","_blank","width=380,height=600");if(!w)return aviso("Imprimir","El navegador bloqueó la ventana. Permita ventanas emergentes.");
+  const filas=FORMATOS.filter(f=>+(x.ventas||{})[f.id]>0).map(f=>`<tr><td>${x.ventas[f.id]} × ${f.tipo==="h"?"H15 Alum.":f.kg+" kg"}</td><td style="text-align:right">${clp(x.ventas[f.id]*(r.precios[f.id]||0))}</td></tr>`).join("")
+    +FORMATOS.filter(f=>+(x.env||{})[f.id]>0).map(f=>`<tr><td>${x.env[f.id]} × envase ${f.kg} kg</td><td style="text-align:right">${clp(x.env[f.id]*((r.precioEnv||{})[f.id]||0))}</td></tr>`).join("");
+  w.document.write(`<!doctype html><meta charset="utf-8"><title>Venta chofer</title><body style="font:13px monospace;padding:10px;max-width:300px"><h3 style="margin:0">${esc(emp.nombre||"MR Gas")}</h3><p style="margin:4px 0">Venta chofer · ${esc(ch?ch.nombre:"")}<br>${esc(x.hora||"")} · venta N° ${(r.vueltas||[]).indexOf(x)+1}</p><hr><table style="width:100%">${filas}${x.dcto?`<tr><td>Descuento</td><td style="text-align:right">-${clp(x.dcto)}</td></tr>`:""}</table><hr><b style="font-size:15px">TOTAL ${clp(montoVuelta(r,x))}</b><p style="margin-top:8px">Atendido por: ${esc(x.user||"")}</p><script>print()<\/script></body>`);w.document.close()}
+L.ventachofer=function(){
+  $$("[data-vctab]").forEach(b=>b.onclick=()=>{vcTab=b.dataset.vctab;pintarSistema();window.scrollTo(0,0)});
+  const fc=$("#f-cuad");if(fc)fc.onchange=e=>{fechaCuad=e.target.value||hoyStr();pintarSistema()};
+  if(vcTab!=="venta"){L.cuadratura();
+    $$("[data-ctab]").forEach(b=>b.onclick=()=>{vcTab="venta";pintarSistema()});
+    const cl=$("#cu-lista");if(cl){cl.textContent="← Volver a Venta Chofer";cl.onclick=()=>{vcTab="venta";pintarSistema()}}
+    const rs=$("#rd-sel");if(rs)rs.onchange=()=>{vcCh=+rs.value;pintarSistema()};
+    $$(".vr-sum [data-ctab]").forEach(x=>x.onclick=()=>{vcTab="venta";pintarSistema()});
+    {const fc2=$("#f-cuad");if(fc2)fc2.onchange=e=>{fechaCuad=e.target.value||hoyStr();pintarSistema()}}
+    return}
+  const sel=$("#vc-ch");if(sel)sel.onchange=()=>{vcCh=+sel.value;pintarSistema()};
+  const r0=()=>vcCh!=null?getRend("movil",vcCh,fechaCuad,false):null;
+  const leer=a=>{const o=st();$$(`[data-${a}]`).forEach(i=>o[i.dataset[a]]=Math.max(0,Math.round(+i.value||0)));return o};
+  const calc=()=>{const r=r0(),P=r?r.precios:D.precios,PE=r?r.precioEnv||{}:D.preciosEnvase||{},q=leer("vcq"),e=leer("vce"),d=Math.max(0,+($("#vc-dcto")||{}).value||0);
+    $("#vc-total").textContent=clp(Math.max(0,FORMATOS.reduce((s,f)=>s+q[f.id]*(P[f.id]||0)+e[f.id]*(PE[f.id]||0),0)-d))};
+  $$("[data-vcq],[data-vce],#vc-dcto").forEach(i=>i.oninput=calc);
+  const f=$("#f-vc");if(!f)return;
+  f.onreset=()=>setTimeout(()=>{calc();$("#vc-err").hidden=true},0);
+  f.onsubmit=e=>{e.preventDefault();const er=$("#vc-err");er.hidden=true;
+    const q=leer("vcq"),en=leer("vce"),dcto=Math.max(0,Math.round(+$("#vc-dcto").value||0));
+    if(!FORMATOS.some(x=>q[x.id]||en[x.id])){er.textContent="Escriba al menos una cantidad.";er.hidden=false;return}
+    const existia=!!r0(),r=getRend("movil",vcCh,fechaCuad,true);r.vueltas=r.vueltas||[];
+    if(existia&&!r.vueltas.length&&FORMATOS.some(x=>(r.ventas[x.id]||0)||((r.envases||{})[x.id]||0)))r.vueltas.push({id:1,hora:r.creada||ahora(),ventas:{...r.ventas},env:{...(r.envases||st())},dcto:0,user:r.usuario||"",previa:true});
+    const bruto=FORMATOS.reduce((s,x)=>s+q[x.id]*(r.precios[x.id]||0)+en[x.id]*((r.precioEnv||{})[x.id]||0),0);
+    if(dcto>bruto){er.textContent="El descuento no puede ser mayor que la venta.";er.hidden=false;return}
+    const x={id:(r.vueltas.reduce((m,v)=>Math.max(m,v.id),0))+1,hora:ahora(),ventas:q,env:en,dcto,user:yo.nombre};r.vueltas.push(x);
+    r.guardada=null;aplicarVueltas(r);nubeGuardar("rendiciones",r);vcUlt=x.id;
+    log("cuadratura","Venta chofer",`${nomChofer(vcCh)} (${fechaCuad}) · venta N° ${r.vueltas.length}: ${resumenQ(q)}${dcto?" · desc. "+clp(dcto):""} · ${clp(montoVuelta(r,x))}`,{chofer:vcCh});
+    guardar();pintarSistema();aviso("Venta grabada",`${nomChofer(vcCh)}: ${clp(montoVuelta(r,x))}. Total del día: ${clp(r.vueltas.filter(v=>!v.anulada).reduce((s,v)=>s+montoVuelta(r,v),0))}.`)};
+  const anular=id=>{const r=r0();if(!r)return;const x=r.vueltas.find(v=>v.id===id);if(!x||x.anulada)return;x.anulada=ahora();x.anuladaPor=yo.nombre;r.guardada=null;aplicarVueltas(r);nubeGuardar("rendiciones",r);
+    log("cuadratura","Venta chofer anulada",`${nomChofer(vcCh)} (${fechaCuad}) · ${resumenQ(x.ventas||{})} · ${clp(montoVuelta(r,x))}`,{chofer:vcCh});guardar();pintarSistema()};
+  $$("[data-vcanular]").forEach(b=>b.onclick=()=>confirmar(b,()=>anular(+b.dataset.vcanular)));
+  const an=$("#vc-anular");if(an)an.onclick=()=>confirmar(an,()=>{const r=r0(),v=r&&r.vueltas.filter(x=>!x.anulada);if(v&&v.length)anular((v.find(x=>x.id===vcUlt)||v[v.length-1]).id)});
+  $$("[data-vcimp]").forEach(b=>b.onclick=()=>{const r=r0();imprimirVentaChofer(r,r.vueltas.find(x=>x.id===+b.dataset.vcimp))});
+  const im=$("#vc-imp");if(im)im.onclick=()=>{const r=r0(),v=r&&r.vueltas.filter(x=>!x.anulada);if(v&&v.length)imprimirVentaChofer(r,v.find(x=>x.id===vcUlt)||v[v.length-1])};
+  $("#vc-pago").onclick=()=>{vcTab="rend";pintarSistema();window.scrollTo(0,0)};
+  $("#vc-volver").onclick=()=>ir("menu");
+  const us=$("#vc-usar");if(us)us.onclick=()=>{const en=entregasDe(vcCh,fechaCuad);FORMATOS.forEach(x=>{const a=$(`[data-vcq="${x.id}"]`),b=$(`[data-vce="${x.id}"]`);if(a)a.value=en.ventas[x.id]||"";if(b)b.value=(en.env||{})[x.id]||""});calc()};
+};
+// «Cuadratura» ya no está en el menú: sus pantallas de inicio llevan a Venta Choferes (o a Venta Mayorista si venía de ahí)
+{const lc=L.cuadratura;L.cuadratura=function(){lc.call(this);if(mod!=="cuadratura")return;
+  $$("[data-ctab='menu']").forEach(b=>b.onclick=()=>{if(cuadTab==="mayorista"||cuadTab==="venta-dist")ir("mayorista");else{vcTab="venta";ir("ventachofer")}})}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -4467,6 +4582,43 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .vr-lista .pill{display:inline-flex;width:auto;white-space:nowrap}.sis .vr-lista .btn{white-space:nowrap}
 .sis .vr-otros{margin-top:12px}.sis .vr-otros summary{cursor:pointer;font-weight:600}
 @media (max-width:1000px){.sis .vr-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ===== Venta Choferes ===== */
+.sis .vc-lay{display:grid;grid-template-columns:190px minmax(0,1fr);gap:14px;align-items:start}
+.sis .vc-side{display:grid;gap:4px;padding:10px;position:sticky;top:70px}
+.sis .vc-t{display:flex;align-items:center;gap:10px;border:0;background:none;border-radius:9px;padding:10px 12px;font:600 14px var(--f-ui,inherit);color:var(--tx2,#344054);cursor:pointer;text-align:left;position:relative}
+.sis .vc-t svg{width:18px;height:18px;flex-shrink:0;stroke:currentColor}
+.sis .vc-t:hover{background:var(--b0)}
+.sis .vc-t[aria-selected="true"]{background:var(--b1);color:var(--b9)}
+.sis .vc-t[aria-selected="true"]::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--b7)}
+.sis .vc-t.chico{font-size:12.5px;font-weight:500;padding:6px 12px}
+.sis .vc-sep{margin:8px 12px 0;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mu)}
+.sis .vc-chsel{min-width:220px;font-weight:700}
+.sis .vc-caja{padding:14px}
+.sis .vc-card{border:1px solid var(--line,#e7eaf0);border-radius:12px;overflow:hidden}
+.sis .vc-g{display:grid;grid-template-columns:minmax(150px,1.3fr) repeat(var(--n),minmax(0,1fr));align-items:end}
+.sis .vc-izq{align-self:stretch;display:flex;flex-direction:column;gap:6px;padding:12px}
+.sis .vc-plab{font-size:16px;font-weight:600;margin-bottom:auto}
+.sis .vc-tot span,.sis .vc-dc>span:first-child{display:block;font-size:12px;letter-spacing:.06em;color:var(--mu);font-weight:600}
+.sis .vc-tot b{font:600 30px "JetBrains Mono",ui-monospace,monospace}
+.sis .vc-pesos{display:flex;align-items:center;gap:6px;font-weight:700}.sis .vc-pesos input{max-width:130px}
+.sis .vc-col{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px}
+.sis .vc-pr{font:500 15px "JetBrains Mono",ui-monospace,monospace;margin-bottom:auto}
+.sis .vc-img{height:118px;display:flex;align-items:flex-end}.sis .cilb{width:64px;height:116px}
+.sis .vc-et{font-size:13px;color:var(--mu)}.sis .vc-et b{color:var(--tx);font-size:14px}
+.sis .vc-in{width:84px;text-align:center;font:600 18px "JetBrains Mono",ui-monospace,monospace;padding:8px 4px;color:var(--b8);border-radius:10px}
+.sis .vc-stock{font-size:12px;color:#067647}.sis .vc-stock.cero{color:#d92d20}
+.sis .vc-envh{text-align:center;font-size:12.5px;font-weight:600;letter-spacing:.06em;color:var(--mu);background:var(--b0);border-top:1px solid var(--line,#e7eaf0);border-bottom:1px solid var(--line,#e7eaf0);padding:6px}
+.sis .vc-g.env .vc-col{padding:8px 6px 12px}
+.sis .vc-acc{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.sis .btn.rojo{color:#d92d20;border-color:#fda29b}
+.sis .vc-h4{margin:14px 0 6px;font-size:12.5px;letter-spacing:.1em;color:var(--mu);font-weight:600}.sis .vc-h4 span{letter-spacing:0;font-weight:400}
+.sis .vc-tab th.c,.sis .vc-tab td.c{text-align:center}
+.sis .vc-tab tr.anul td{color:var(--mu);text-decoration:line-through}.sis .vc-tab tr.anul td:last-child{text-decoration:none}
+.sis .vc-tab .pill{display:inline-flex;width:auto;white-space:nowrap}.sis .vc-tab .btn{white-space:nowrap}
+.sis .vc-vacio{text-align:center;color:var(--mu);padding:22px}
+@media (max-width:1180px){.sis .vc-lay{grid-template-columns:minmax(0,1fr)}.sis .vc-side{position:static;display:flex;flex-wrap:wrap}.sis .vc-sep{display:none}.sis .vc-t[aria-selected="true"]::before{display:none}}
+@media (max-width:760px){.sis .vc-g{grid-template-columns:repeat(3,minmax(0,1fr))}.sis .vc-izq{grid-column:1/-1}.sis .vc-g.env>div:first-child{display:none}.sis .vc-img{height:90px}.sis .cilb{height:88px}}
 </style>
 </body>
 </html>
