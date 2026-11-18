@@ -1,5 +1,5 @@
 // MR Gas Repartidores: guarda la app para abrirla rápido; los pedidos (api/) nunca se guardan
-const VERSION="mrgas-rep-v7";
+const VERSION="mrgas-rep-v8";
 self.addEventListener("install",e=>{e.waitUntil(caches.open(VERSION).then(c=>c.addAll(["./","./index.html"])).catch(()=>{}));self.skipWaiting()});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith("mrgas-rep")&&k!==VERSION).map(k=>caches.delete(k)))));self.clients.claim()});
 self.addEventListener("fetch",e=>{const u=new URL(e.request.url);

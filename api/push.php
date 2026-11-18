@@ -68,29 +68,42 @@ function cifrarPush(string $texto, string $p256dh, string $auth): string {
 }
 
 // Envía a varias suscripciones a la vez. $envios = [[sub, payloadArray], ...]
+// Registro de los últimos envíos (para el diagnóstico en Ajustes)
+function anotarPush(array $filas): void {
+    try {
+        $l = json_decode(ajuste('push_log') ?? '[]', true) ?: [];
+        foreach ($filas as $f) array_unshift($l, $f);
+        grabarAjuste('push_log', json_encode(array_slice($l, 0, 40), JSON_UNESCAPED_UNICODE));
+    } catch (Throwable $e) {}
+}
 function enviarPush(array $envios): array {
-    if (!$envios || !function_exists('curl_multi_init')) return [];
-    $v = vapid(); $jwts = []; $mh = curl_multi_init(); $hs = [];
+    if (!$envios) return [];
+    if (!function_exists('curl_multi_init')) { anotarPush([['t' => ahora(), 'uid' => 0, 'host' => '-', 'code' => 0, 'error' => 'El servidor no tiene cURL activado']]); return []; }
+    $v = vapid(); $jwts = []; $mh = curl_multi_init(); $hs = []; $log = []; $res = [];
     foreach ($envios as $i => [$sub, $datos]) {
         try {
             $u = parse_url($sub['endpoint']); $aud = $u['scheme'] . '://' . $u['host'] . (isset($u['port']) ? ':' . $u['port'] : '');
             $jwts[$aud] ??= jwtVapid($aud, $v['priv']);
             $cuerpo = cifrarPush(json_encode($datos, JSON_UNESCAPED_UNICODE), $sub['p256dh'], $sub['auth']);
-        } catch (Throwable $e) { error_log('MR Gas push: ' . $e->getMessage()); continue; }
+        } catch (Throwable $e) { error_log('MR Gas push: ' . $e->getMessage()); $res[$sub['id']] = 0;
+            $log[] = ['t' => ahora(), 'uid' => (int) $sub['uid'], 'host' => parse_url($sub['endpoint'], PHP_URL_HOST), 'code' => 0, 'error' => 'Cifrado: ' . $e->getMessage()]; continue; }
         $h = curl_init($sub['endpoint']);
         curl_setopt_array($h, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $cuerpo, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6, CURLOPT_CONNECTTIMEOUT => 4,
             CURLOPT_HTTPHEADER => ['Content-Type: application/octet-stream', 'Content-Encoding: aes128gcm', 'TTL: 86400', 'Urgency: high',
                 'Authorization: vapid t=' . $jwts[$aud] . ', k=' . $v['pub']]]);
-        curl_multi_add_handle($mh, $h); $hs[$i] = [$h, $sub['id']];
+        curl_multi_add_handle($mh, $h); $hs[$i] = [$h, $sub['id'], $sub];
     }
     do { $st = curl_multi_exec($mh, $activos); if ($activos) curl_multi_select($mh, 1.0); } while ($activos && $st === CURLM_OK);
-    $res = [];
-    foreach ($hs as [$h, $id]) {
+    $res = $res ?? [];
+    foreach ($hs as [$h, $id, $sub]) {
         $code = (int) curl_getinfo($h, CURLINFO_RESPONSE_CODE); $res[$id] = $code;
+        $err = $code >= 200 && $code < 300 ? '' : trim(curl_error($h) . ' ' . mb_substr((string) curl_multi_getcontent($h), 0, 160));
+        $log[] = ['t' => ahora(), 'uid' => (int) $sub['uid'], 'host' => parse_url($sub['endpoint'], PHP_URL_HOST), 'code' => $code, 'error' => $err];
         if ($code === 404 || $code === 410) db()->prepare('DELETE FROM push_subs WHERE id = ?')->execute([$id]); // el celular ya no existe
         curl_multi_remove_handle($mh, $h); curl_close($h);
     }
     curl_multi_close($mh);
+    anotarPush($log);
     return $res;
 }
 

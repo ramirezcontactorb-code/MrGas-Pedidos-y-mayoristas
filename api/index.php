@@ -171,10 +171,28 @@ try {
         salida(['ok' => true]);
     }
     case 'push_prueba': {
-        $u = requiereYo(); $subs = subsDe('s.uid = ?', [$u['uid']]);
-        if (!$subs) salida(['error' => 'Este usuario no tiene celulares con avisos activados.'], 400);
-        $r = enviarPush(array_map(fn($s) => [$s, ['titulo' => 'Prueba de aviso', 'cuerpo' => 'Así llegará cada pedido, aunque la app esté cerrada.', 'tag' => 'prueba']], $subs));
-        salida(['ok' => true, 'enviados' => count(array_filter($r, fn($c) => $c >= 200 && $c < 300)), 'total' => count($subs)]);
+        $u = requiereYo(); $b = cuerpo(); $ep = (string) ($b['endpoint'] ?? '');
+        $subs = $ep !== '' ? subsDe('s.uid = ? AND s.id = ?', [$u['uid'], hash('sha256', $ep)]) : subsDe('s.uid = ?', [$u['uid']]);
+        if (!$subs) salida(['error' => 'Este celular no está registrado para avisos en el servidor.'], 400);
+        $retraso = max(0, min(20, (int) ($b['espera'] ?? 0)));
+        $envio = array_map(fn($s) => [$s, ['titulo' => 'Prueba de aviso', 'cuerpo' => 'Así llegará cada pedido, aunque la pantalla esté bloqueada.', 'tag' => 'prueba']], $subs);
+        if ($retraso) responderYSeguir(['ok' => true, 'programado' => $retraso], function () use ($envio, $retraso) { sleep($retraso); enviarPush($envio); });
+        $r = enviarPush($envio);
+        $log = json_decode(ajuste('push_log') ?? '[]', true) ?: [];
+        salida(['ok' => true, 'enviados' => count(array_filter($r, fn($c) => $c >= 200 && $c < 300)), 'total' => count($subs), 'detalle' => array_slice($log, 0, count($subs))]);
+    }
+    case 'push_diag': {
+        $u = requiereYo(); $b = cuerpo(); asegurarPush();
+        $ec = false; $ecErr = '';
+        try { $k = nuevaClaveEC(); $k2 = nuevaClaveEC(); $ec = openssl_pkey_derive(openssl_pkey_get_public(pemPublico(puntoDe($k2))), $k, 32) !== false; } catch (Throwable $e) { $ecErr = $e->getMessage(); }
+        $ep = (string) ($b['endpoint'] ?? '');
+        $s1 = db()->prepare('SELECT COUNT(*) FROM push_subs WHERE uid = ?'); $s1->execute([$u['uid']]);
+        $s2 = db()->prepare('SELECT COUNT(*) FROM push_subs WHERE id = ? AND uid = ?'); $s2->execute([hash('sha256', $ep), $u['uid']]);
+        $log = json_decode(ajuste('push_log') ?? '[]', true) ?: [];
+        if ($u['rol'] !== 'admin') $log = array_values(array_filter($log, fn($x) => (int) ($x['uid'] ?? 0) === (int) $u['uid']));
+        salida(['clave' => vapid()['pub'], 'openssl' => $ec, 'openssl_error' => $ecErr, 'curl' => function_exists('curl_multi_init'),
+            'https' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https',
+            'mis_celulares' => (int) $s1->fetchColumn(), 'este_registrado' => (int) $s2->fetchColumn() > 0, 'ultimos' => array_slice($log, 0, 8)]);
     }
     case 'contador': {
         // Número correlativo de pedido, compartido por todos los PC

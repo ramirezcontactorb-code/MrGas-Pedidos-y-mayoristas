@@ -210,6 +210,11 @@ td select.pill{border:0;padding:3px 9px}
 /* aviso */
 .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translate(-50%,-160%);z-index:60;width:min(560px,calc(100% - 32px));background:var(--tx);color:#fff;border-radius:14px;padding:14px 16px;display:grid;gap:2px;box-shadow:0 12px 30px rgba(0,0,0,.3);transition:transform .35s cubic-bezier(.2,.9,.3,1.2);cursor:pointer}
 .toast.ver{transform:translate(-50%,0)}
+.diag{margin:6px 0 0;padding:0;list-style:none;display:grid;gap:6px;font-size:13.5px}
+.diag li{display:grid;grid-template-columns:22px 1fr;gap:2px 8px;padding:8px 10px;border-radius:10px;background:#f2f4f7}
+.diag li b{grid-row:span 2;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:12px;background:#667085}
+.diag li.ok b{background:#067647}.diag li.mal{background:#fef3f2}.diag li.mal b{background:#d92d20}.diag li.aviso{background:#fffaeb}.diag li.aviso b{background:#b54708}
+.diag li small{grid-column:2;color:var(--mu);font-size:12.5px;line-height:1.4}
 .alarma{position:fixed;inset:0;z-index:80;background:rgba(10,37,87,.92);display:grid;place-items:center;padding:20px;animation:alParpadeo 1s ease-in-out infinite alternate}
 .alarma[hidden]{display:none}
 @keyframes alParpadeo{from{background:rgba(10,37,87,.94)}to{background:rgba(180,35,24,.92)}}
@@ -387,7 +392,9 @@ article.resalta{outline:3px solid #f79009;outline-offset:2px;transition:outline-
         <div class="interr"><span>Vibrar</span><input type="checkbox" id="aj-vibrar" checked></div>
         <div class="interr"><span>Mantener la pantalla encendida (choferes)</span><input type="checkbox" id="aj-pantalla" checked></div>
         <button class="btn sec" type="button" id="aj-push">Activar avisos con la pantalla bloqueada</button>
-        <button class="btn sec" type="button" id="aj-push-prueba">Enviar aviso de prueba a este celular</button>
+        <button class="btn sec" type="button" id="aj-push-prueba">Aviso de prueba en 10 s (bloquee la pantalla)</button>
+        <button class="btn sec" type="button" id="aj-diag">Revisar avisos paso a paso</button>
+        <ol class="diag" id="aj-diag-out" hidden></ol>
         <p class="note" id="aj-push-msg">Con los avisos activos, el celular suena con cada pedido aunque la app esté cerrada o la pantalla bloqueada (no si está apagado).</p>
         <button class="btn sec" type="button" id="aj-probar">Probar aviso</button></div>
       <div class="bloque"><h2>Instalar en el celular</h2>
@@ -906,7 +913,9 @@ async function activarPush(pedir){
   if(Notification.permission==="denied")return "bloq";
   if(Notification.permission!=="granted"){if(!pedir)return "falta";if(await Notification.requestPermission()!=="granted")return "bloq"}
   try{const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();
-    if(!sub){const {clave}=await api("push_clave");sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytesDe(clave)})}
+    const {clave}=await api("push_clave"),kb=bytesDe(clave);
+    if(sub&&sub.options&&sub.options.applicationServerKey){const a=new Uint8Array(sub.options.applicationServerKey);if(a.length!==kb.length||a.some((x,i)=>x!==kb[i])){await sub.unsubscribe().catch(()=>{});sub=null}}
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:kb});
     await api("push_alta",{...sub.toJSON(),app:PUSH_APP});return "ok"}
   catch(e){return "error"}}
 async function bajaPush(){try{if(!pushSoportado())return;const reg=await navigator.serviceWorker.getRegistration();const sub=reg&&await reg.pushManager.getSubscription();
@@ -922,7 +931,39 @@ function pintarBannerPush(){const b=document.getElementById("push-banner");if(!b
   b.querySelector("button").hidden=!pushSoportado()}
 $("#aj-push").onclick=async()=>{desbloquear();const m=$("#aj-push-msg");m.textContent="Activando…";const r=await activarPush(true);m.textContent=PUSH_TXT[r]||"";pintarBannerPush()};
 $("#push-activar").onclick=async()=>{desbloquear();const r=await activarPush(true);pintarBannerPush();aviso(r==="ok"?"Avisos activados":"Avisos",PUSH_TXT[r]||"",false)};
-$("#aj-push-prueba").onclick=async()=>{const m=$("#aj-push-msg");try{const j=await api("push_prueba",{});m.textContent=j.enviados?"Aviso de prueba enviado. Bloquee la pantalla: debería sonar en unos segundos.":"No se pudo enviar el aviso de prueba."}catch(e){m.textContent=e.message}};
+$("#aj-push-prueba").onclick=async()=>{const m=$("#aj-push-msg");m.textContent="Activando…";const r=await activarPush(true);if(r!=="ok"){m.textContent=PUSH_TXT[r]||"No se pudo activar.";return}
+  try{const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();await api("push_prueba",{endpoint:sub?sub.endpoint:"",espera:10});
+    m.textContent="Listo. BLOQUEE LA PANTALLA AHORA: en 10 segundos debería llegar «Prueba de aviso» con sonido. Si no llega, toque «Revisar avisos paso a paso».";if(navigator.vibrate)navigator.vibrate(100)}catch(e){m.textContent=e.message}};
+async function diagnostico(){const out=$("#aj-diag-out");out.hidden=false;out.innerHTML="";
+  const paso=(ok,t,ayuda)=>{out.insertAdjacentHTML("beforeend",`<li class="${ok===true?"ok":ok===false?"mal":"aviso"}"><b>${ok===true?"✓":ok===false?"✗":"!"}</b> ${t}${ayuda?`<small>${ayuda}</small>`:""}</li>`);return ok};
+  const ua=navigator.userAgent,ios=esIOS(),and=/android/i.test(ua);
+  paso(true,`Celular: ${ios?"iPhone/iPad":and?"Android":"computador"} · ${/CriOS|Chrome/i.test(ua)?"Chrome":/Safari/i.test(ua)?"Safari":/Firefox/i.test(ua)?"Firefox":"otro navegador"}${instalada()?" · app instalada":" · abierta en el navegador"}`);
+  if(location.protocol!=="https:")return paso(false,"El sitio no está en https","Active el candado SSL en Hostinger (hPanel → Seguridad → SSL) y abra la app con https://.");
+  if(ios&&!instalada())return paso(false,"En iPhone la app debe estar instalada","Safari → Compartir → «Agregar a pantalla de inicio». Luego ábrala SOLO desde ese ícono y vuelva a revisar. Requiere iOS 16.4 o más nuevo.");
+  if(!pushSoportado())return paso(false,"Este navegador no recibe avisos con la app cerrada",and?"Use Google Chrome.":"Use Chrome en Android o Safari en iPhone (app instalada).");
+  paso(true,"El navegador permite avisos");
+  const perm=Notification.permission;
+  if(perm==="denied")return paso(false,"Las notificaciones están BLOQUEADAS para este sitio",and?"Mantenga presionado el ícono de la app (o en Chrome: ⋮ → Configuración → Configuración de sitios → Notificaciones) y permita las notificaciones de este sitio. Luego vuelva a revisar.":"Ajustes del iPhone → Notificaciones → MR Gas → Permitir notificaciones.");
+  if(perm!=="granted"){paso(null,"Falta dar permiso de notificaciones","Toque «Activar avisos con la pantalla bloqueada» y acepte.");return}
+  paso(true,"Permiso de notificaciones concedido");
+  let reg=null;try{reg=await Promise.race([navigator.serviceWorker.ready,new Promise(r=>setTimeout(()=>r(null),5000))])}catch(e){}
+  if(!reg)return paso(false,"El servicio de avisos de la app no está activo","Cierre la app por completo y ábrala de nuevo. Si sigue, borre los datos del sitio y vuelva a entrar.");
+  paso(true,"Servicio de avisos de la app activo");
+  const r=await activarPush(true);let sub=await reg.pushManager.getSubscription();
+  if(r!=="ok"||!sub)return paso(false,"No se pudo registrar este celular",PUSH_TXT[r]||"Intente otra vez con buena señal.");
+  paso(true,"Celular registrado para avisos",`Servicio: ${new URL(sub.endpoint).host}`);
+  let d=null;try{d=await api("push_diag",{endpoint:sub.endpoint})}catch(e){return paso(false,"No hay conexión con el servidor",e.message)}
+  paso(d.https?true:null,d.https?"Servidor con https":"El servidor no informa https","Revise que el candado SSL esté activo.");
+  if(!d.openssl)return paso(false,"El servidor no puede cifrar los avisos (OpenSSL)",(d.openssl_error||"")+" · En Hostinger: hPanel → Avanzado → Configuración de PHP → active las extensiones openssl y curl, PHP 8.1 o más nuevo.");
+  if(!d.curl)return paso(false,"El servidor no puede enviar avisos (cURL desactivado)","En Hostinger: hPanel → Avanzado → Configuración de PHP → active la extensión curl.");
+  paso(true,"El servidor puede cifrar y enviar avisos");
+  paso(d.este_registrado,d.este_registrado?"Este celular está guardado en el servidor":"Este celular NO quedó guardado en el servidor","Toque de nuevo «Activar avisos».");
+  try{const j=await api("push_prueba",{endpoint:sub.endpoint});const x=(j.detalle||[])[0]||{};
+    if(j.enviados)paso(true,`El servidor envió un aviso de prueba (respuesta ${x.code||"OK"})`,"Debió aparecer «Prueba de aviso». Si llegó con la app abierta pero NO con la pantalla bloqueada, revise abajo.");
+    else paso(false,`El servicio de avisos rechazó el envío (código ${x.code||"?"})`,(x.error||"")+(x.code===403||x.code===401?" · La llave cambió: toque «Activar avisos» otra vez.":x.code===0?" · Hostinger no pudo conectarse al servicio de avisos.":""))}
+  catch(e){paso(false,"Falló la prueba",e.message)}
+  paso(null,"Si con la pantalla bloqueada sigue sin sonar, revise el celular:",and?"1) Ajustes → Apps → Chrome (o MR Gas) → Notificaciones: activadas, con sonido y «Prioridad alta / Emergente». 2) Ajustes → Batería → Chrome/MR Gas: «Sin restricciones». 3) Que no esté en modo No molestar ni en silencio.":"1) Ajustes → Notificaciones → MR Gas: Permitir, Sonidos y Pantalla bloqueada activados. 2) Que no esté en modo Concentración/No molestar ni con el interruptor de silencio.")}
+$("#aj-diag").onclick=()=>{desbloquearTodo();diagnostico()};
 let instEv=null;addEventListener("beforeinstallprompt",e=>{e.preventDefault();instEv=e;$("#aj-instalar").hidden=false});
 $("#aj-instalar").onclick=async()=>{if(!instEv)return;instEv.prompt();await instEv.userChoice.catch(()=>{});instEv=null;$("#aj-instalar").hidden=true};
 try{if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
