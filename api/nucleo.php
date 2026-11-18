@@ -3,15 +3,15 @@
 declare(strict_types=1);
 
 const COLS_PERMITIDAS = ['pedidos','bitacora','ventas','gastos','rendiciones','cargas','cargasDist','anticipos','petroleo',
-    'peonetas','clientes','choferes','movimientos','recuentos','historialPrecios','ventasAnuladas','programados','estado'];
+    'peonetas','clientes','choferes','movimientos','recuentos','historialPrecios','ventasAnuladas','programados','estado','reparto','camiones'];
 // Documentos de "estado" que solo cambia el administrador
-const ESTADO_SOLO_ADMIN = ['precios','preciosMayor','preciosEnvase','preciosConvenio','listas','empresa','comisiones','historico','listasMay','comisionVale'];
+const ESTADO_SOLO_ADMIN = ['precios','preciosMayor','preciosEnvase','preciosConvenio','listas','empresa','comisiones','historico','listasMay','comisionVale','descQR'];
 // Cuadro (permiso) que necesita un encargado para escribir en cada colección
 const PERMISO_COL = [
     'rendiciones' => ['cuadratura'], 'cargas' => ['cuadratura'], 'cargasDist' => ['cuadratura'], 'anticipos' => ['cuadratura'], 'peonetas' => ['cuadratura'],
     'ventas' => ['caja','cuadratura'], 'gastos' => ['caja','cuadratura'], 'ventasAnuladas' => ['caja','cuadratura'],
     'movimientos' => ['compras','bodega'], 'recuentos' => ['bodega'],
-    'pedidos' => ['pedidos','ruta','chofer'], 'clientes' => ['pedidos','ruta'], 'petroleo' => ['petroleo','cuadratura'],
+    'pedidos' => ['pedidos','ruta','chofer'], 'reparto' => ['mayorista','ruta','pedidos'], 'camiones' => ['mayorista','ruta'], 'clientes' => ['pedidos','ruta'], 'petroleo' => ['petroleo','cuadratura'],
 ];
 
 // Dónde buscar la configuración. Lo recomendado es FUERA de public_html (un nivel arriba),
@@ -139,13 +139,16 @@ function meta(string $col, string $id, array $d): array {
     $chofer = isset($d['chofer']) && $d['chofer'] !== null && $d['chofer'] !== '' ? (int) $d['chofer'] : null;
     if ($col === 'estado' || $col === 'choferes' || $col === 'clientes' || $col === 'peonetas') { $local = null; $fecha = null; }
     if ($col === 'estado' && str_starts_with($id, 'stk-')) $chofer = (int) substr($id, 4);
-    $vivo = $col === 'pedidos' && in_array($d['estado'] ?? '', ['pendiente', 'ruta'], true) ? 1 : 0;
+    $vivo = ($col === 'pedidos' && in_array($d['estado'] ?? '', ['pendiente', 'ruta'], true))
+        || ($col === 'reparto' && !in_array($d['estado'] ?? '', ['Entregado', 'Cancelado'], true)) ? 1 : 0;
+    if ($col === 'camiones') $fecha = null;
     return ['local' => $local, 'fecha' => is_string($fecha) ? substr($fecha, 0, 19) : null, 'chofer' => $chofer, 'vivo' => $vivo];
 }
 function puedeLeer(array $u, array $fila): bool {
     if ($u['rol'] === 'admin') return true;
     if ($u['rol'] === 'chofer') {
-        if ($fila['col'] === 'pedidos') return (int) $fila['chofer'] === (int) $u['chofer'];
+        if ($fila['col'] === 'pedidos' || $fila['col'] === 'reparto') return (int) $fila['chofer'] === (int) $u['chofer'];
+        if ($fila['col'] === 'camiones') return true;
         return in_array($fila['col'], ['choferes', 'estado'], true);
     }
     if ($fila['local_id'] !== null && !in_array((int) $fila['local_id'], sucs($u), true)) return false;
@@ -157,6 +160,12 @@ function puedeEscribir(array $u, string $col, string $id, array $m, ?array $nuev
     if ($col === 'bitacora') return $antes === null; // solo agregar
     if ($u['rol'] === 'chofer') {
         if ($col === 'estado') return $id === 'stk-' . $u['chofer'];
+        if ($col === 'reparto') { // el repartidor solo avanza el estado y ordena sus entregas
+            if (!$antes || $nuevo === null || (int) ($antes['chofer'] ?? 0) !== (int) $u['chofer'] || (int) ($nuevo['chofer'] ?? 0) !== (int) $u['chofer']) return false;
+            foreach (array_unique(array_merge(array_keys($antes), array_keys($nuevo))) as $k)
+                if (!in_array($k, ['estado', 'actualizado', 'orden'], true) && json_encode($antes[$k] ?? null) !== json_encode($nuevo[$k] ?? null)) return false;
+            return true;
+        }
         if ($col !== 'pedidos' || !$antes || $nuevo === null) return false;
         if ((int) ($antes['chofer'] ?? 0) !== (int) $u['chofer']) return false;
         if (!in_array($nuevo['chofer'] ?? null, [null, $u['chofer']], false)) return false;

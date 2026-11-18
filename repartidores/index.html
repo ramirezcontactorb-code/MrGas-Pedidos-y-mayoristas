@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>MR Gas Repartidores</title>
+<meta name="description" content="App del equipo MR Gas: recibe y despacha pedidos a domicilio y el reparto a mayoristas.">
+<meta name="theme-color" content="#0a2557">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Una sola app: arriba la bandeja de pedidos (de "MR Gas Pedidos") y el reparto a mayoristas
+   (de "Reparto Gas Licuado"). Mismo estilo del ERP MR Gas: barra azul marino, tarjetas blancas. */
+:root{
+  --b9:#0a2557;--b8:#0d3a85;--b7:#1250b0;--b6:#1a66d6;--b3:#a9c3ec;--b2:#d6e4fa;--b1:#ecf3fd;--b0:#f5f8fd;--bd:#c3d4ef;--num:#1d4ed8;
+  --page:#f4f6f9;--card:#fff;--line:#e7eaf0;--line2:#d0d7e2;--tx:#0c1424;--tx2:#344054;--mu:#6b7488;
+  --red:#d92d20;--red1:#fef3f2;--ok:#067647;--ok1:#ecfdf3;--warn:#b54708;--warn1:#fffaeb;--may:#0e6e78;--may1:#ddf1f3;--idle:#667085;--idle1:#f2f4f7;
+  --sh1:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);--r:12px;
+  --f-ui:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--f-num:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;min-height:100%}
+body{font-family:var(--f-ui);background:var(--page);color:var(--tx);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:40;background:var(--b9)}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{border:1px solid var(--line2);border-radius:8px;padding:8px 10px;background:var(--card);color:var(--tx);width:100%;min-width:0}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--b6);box-shadow:0 0 0 3px var(--b1)}
+input[type=number]{-moz-appearance:textfield}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+:focus-visible{outline:2px solid var(--b6);outline-offset:2px}
+h1,h2,h3{margin:0;letter-spacing:-.015em;line-height:1.15}
+p{margin:0}
+label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:var(--tx2)}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.note{font-size:12.5px;color:var(--mu)}
+.err{color:var(--red);font-weight:600;font-size:13px}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--b8);background:var(--b8);color:#fff;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700;font-size:14px;white-space:nowrap;min-height:44px}
+.btn:hover{background:var(--b9)}
+.btn.sec{background:var(--card);color:var(--b8);border-color:var(--line2)}
+.btn.sec:hover{background:var(--page)}
+.btn.ok{background:var(--ok);border-color:var(--ok)}.btn.bad{background:var(--red);border-color:var(--red)}
+.btn.chico{min-height:32px;padding:4px 10px;font-size:12.5px;font-weight:600}
+.btn.full{width:100%}
+.btn:disabled{opacity:.5;cursor:default}
+.sq{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font:600 13px var(--f-num);background:#fff;color:var(--b9);flex-shrink:0}
+
+/* ---------- login ---------- */
+.login{min-height:100vh;display:grid;place-items:center;background:var(--b9);padding:32px max(16px,env(safe-area-inset-left,0px))}
+.login .in{width:100%;max-width:420px;display:grid;gap:24px;color:#fff}
+.lmarca{display:flex;align-items:center;gap:12px}
+.lmarca b{display:block;font-size:18px}.lmarca small{display:block;color:rgba(255,255,255,.6);letter-spacing:.06em;text-transform:uppercase;font-size:11px}
+.login h1{font-size:28px;font-weight:800;letter-spacing:-.03em}
+.login form{background:#fff;color:var(--tx);border-radius:16px;padding:22px;display:grid;gap:14px}
+.login .volver{color:#b9c8e4;font-size:13px;text-decoration:none}
+
+/* ---------- barra ---------- */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--b9);color:#fff}
+.top .in{max-width:1300px;margin:0 auto;display:flex;align-items:center;gap:10px;min-height:56px;padding:6px max(16px,env(safe-area-inset-left,0px))}
+.top .t{flex:1;min-width:0}.top .t b{display:block;font-size:15px}.top .t span{display:block;font-size:11.5px;color:rgba(255,255,255,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.con{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#d6e0f2;border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.con i{width:8px;height:8px;border-radius:50%;background:#5fcb8c}.con.off i{background:#f08a80}
+.top .salir{background:none;border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:10px;min-height:36px;padding:0 12px;font-weight:600;font-size:13px;cursor:pointer}
+.tabs{background:var(--b9);border-top:1px solid rgba(255,255,255,.08)}
+.tabs .in{max-width:1300px;margin:0 auto;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding:6px max(12px,env(safe-area-inset-left,0px))}
+.tab{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;padding:8px 12px;border-radius:9px;color:rgba(255,255,255,.75);font-weight:600;font-size:13.5px}
+.tab:hover{background:rgba(255,255,255,.08);color:#fff}
+.tab[aria-current="true"]{background:#fff;color:var(--b9)}
+.tab b{font:600 11px var(--f-num);background:#d92d20;color:#fff;border-radius:999px;padding:1px 6px}
+.wrap{max-width:1300px;margin:0 auto;padding:14px max(16px,env(safe-area-inset-left,0px)) calc(40px + env(safe-area-inset-bottom,0px))}
+
+/* ---------- bandeja (MR Gas Pedidos) ---------- */
+.estados{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.est{all:unset;cursor:pointer;display:grid;gap:2px;padding:10px 14px;border-radius:12px;background:var(--card);border:1px solid var(--line);box-shadow:var(--sh1);color:var(--mu)}
+.est b{font:600 26px/1 var(--f-num);color:var(--tx)}
+.est span{font-size:13px;font-weight:600}
+.est[aria-pressed="true"]{background:var(--b9);border-color:var(--b9);color:#b9c8e4}.est[aria-pressed="true"] b{color:#fff}
+.chips{display:flex;gap:6px;padding:12px 0 4px;overflow-x:auto;scrollbar-width:none}
+.chip{all:unset;cursor:pointer;white-space:nowrap;padding:6px 14px;border-radius:999px;border:1.5px solid var(--line2);background:var(--card);font-weight:600;font-size:13px;color:var(--tx2)}
+.chip[aria-pressed="true"]{border-color:var(--b6);color:var(--b8);background:var(--b1)}
+.lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;padding-top:10px}
+.ped{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:start;background:var(--card);border-radius:var(--r);padding:14px;box-shadow:var(--sh1);border:1px solid var(--line)}
+.ped:hover{border-color:var(--bd)}
+.ped.nuevo{animation:llega 1.6s ease-out}
+@keyframes llega{0%{box-shadow:0 0 0 0 rgba(26,102,214,.55)}100%{box-shadow:0 0 0 14px rgba(26,102,214,0)}}
+.reloj{position:relative;width:52px;height:52px}
+.reloj svg{width:52px;height:52px;transform:rotate(-90deg)}
+.reloj circle{fill:none;stroke-width:5}.reloj .base{stroke:var(--line)}.reloj .val{stroke-linecap:round}
+.reloj b{position:absolute;inset:0;display:grid;place-items:center;font:600 12px var(--f-num)}
+.reloj.v .val{stroke:var(--ok)}.reloj.a .val{stroke:var(--warn)}.reloj.r .val{stroke:var(--red)}.reloj.r b{color:var(--red)}
+.ped-cab{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.ped-cab h3{font-size:15px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ped-cab .num{font-size:12px;color:var(--mu);flex:none}
+.ped-dir{color:var(--mu);font-size:13.5px;margin-top:2px;overflow-wrap:anywhere}
+.ped-pie{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+.cil{display:inline-flex;align-items:baseline;gap:4px;padding:3px 9px;border-radius:8px;background:var(--b1);color:var(--b8);font-weight:700;font-size:12.5px}
+.cil b{font:600 14px var(--f-num)}
+.tag{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--page);color:var(--mu);border:1px solid var(--line)}
+.tag.may{background:var(--may1);color:var(--may);border-color:transparent}
+.tag.ruta{background:var(--b1);color:var(--b7);border-color:transparent}
+.ped-pie .total{margin-left:auto;font:600 14px var(--f-num)}
+.vacio{text-align:center;padding:40px 16px;color:var(--mu);border:1.5px dashed var(--line2);border-radius:var(--r);display:grid;gap:8px;justify-items:center;grid-column:1/-1;background:var(--card)}
+.vacio b{color:var(--tx);font-size:16px}
+
+/* hoja de detalle */
+dialog.hoja{border:0;padding:0;margin:auto auto 0;width:100%;max-width:560px;max-height:92vh;border-radius:20px 20px 0 0;background:var(--card);color:var(--tx);overflow:auto}
+dialog.hoja::backdrop{background:rgba(4,16,40,.55)}
+@media (min-width:700px){dialog.hoja{margin:auto;border-radius:20px}}
+.hoja-in{display:grid;gap:14px;padding:8px 18px calc(22px + env(safe-area-inset-bottom,0px))}
+.asa{width:44px;height:5px;border-radius:9px;background:var(--line);margin:8px auto 0}
+.hoja-cab{display:flex;justify-content:space-between;align-items:start;gap:12px}
+.hoja-cab h2{font-size:20px}
+.cerrar{all:unset;cursor:pointer;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--page);font-size:20px;flex:none}
+.datos{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.dato{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;padding:9px 14px;border-bottom:1px solid var(--line);font-size:14px}
+.dato:last-child{border-bottom:0}.dato span{color:var(--mu)}.dato b{font-weight:600;overflow-wrap:anywhere}
+.contacto{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.contacto a{display:grid;justify-items:center;gap:4px;padding:10px 6px;border-radius:12px;background:var(--b1);color:var(--b8);text-decoration:none;font-weight:700;font-size:13px}
+.acciones{display:grid;gap:8px}
+.fila2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.confirma{display:grid;gap:8px;padding:12px;border-radius:12px;background:var(--red1);color:var(--red);font-weight:600}
+
+/* ---------- reparto (Reparto Gas Licuado) ---------- */
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh1);overflow:hidden;margin-bottom:14px}
+.kpi{padding:12px 16px;border-left:1px solid var(--line)}.kpi:first-child{border-left:0}
+.kpi small{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--mu)}
+.kpi b{display:block;font:500 22px var(--f-num);margin-top:4px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh1);padding:18px;display:grid;gap:12px;min-width:0}
+.panel h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cyl{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.cyl label{border:1px solid var(--line);border-radius:10px;padding:8px 4px;text-align:center;align-items:center;gap:4px;color:var(--tx);font-weight:700;font-size:12.5px}
+.cyl input{text-align:center;font:600 16px var(--f-num);color:var(--num);padding:6px 2px}
+.cyl small{color:var(--mu);font-weight:500;font-size:11px}
+.suma{display:flex;justify-content:space-between;align-items:center;border-radius:10px;background:var(--b1);color:var(--b8);padding:10px 14px}
+.suma span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}.suma b{font:600 19px var(--f-num)}
+.tablebox{overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--sh1);max-height:calc(100vh - 230px)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:middle}
+th:last-child,td:last-child{border-right:0}tr:last-child td{border-bottom:0}
+th{background:var(--b0);color:var(--mu);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;position:sticky;top:0;z-index:1}
+td.q,th.q{text-align:center}td.q{font:500 13px var(--f-num);color:var(--num)}td.q.cero{color:#c7ccd6}
+td.tot{font:600 13.5px var(--f-num);text-align:center;background:var(--b0);color:var(--num);white-space:nowrap}
+td select{width:auto;padding:4px 6px;font-size:12.5px}
+.cli b{display:block;font-weight:700}.cli small{color:var(--mu)}
+.plate{display:inline-block;font:600 12.5px var(--f-num);letter-spacing:.08em;background:#fff;border:1.5px solid var(--tx);border-radius:4px;padding:1px 7px;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.s-Pendiente{color:var(--warn);background:var(--warn1)}.s-Enruta{color:var(--b7);background:var(--b1)}.s-Encliente{color:#fff;background:var(--b7)}
+.s-Entregado{color:var(--ok);background:var(--ok1)}.s-Cancelado{color:var(--red);background:var(--red1)}.s-Libre{color:var(--idle);background:var(--idle1)}
+td select.pill{border:0;padding:3px 9px}
+.trucks{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.truck{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:8px;box-shadow:var(--sh1)}
+.truck .tp{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin:0}.kv dt{color:var(--mu)}.kv dd{margin:0;overflow-wrap:anywhere}
+.empty{padding:24px;text-align:center;color:var(--mu)}
+.pcards{display:none;gap:10px}
+.pcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh1);padding:14px;display:grid;gap:10px}
+.pcard .h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.pcard .h small{display:block;color:var(--mu);font-size:12px}
+.pcard .sel{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pcard .pie{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.qchips{display:flex;flex-wrap:wrap;gap:6px}
+.qchip{display:inline-flex;align-items:baseline;gap:4px;border:1px solid var(--b2);background:var(--b0);border-radius:8px;padding:4px 9px;font-size:12px;color:var(--tx2);font-weight:600}
+.qchip b{font:600 15px var(--f-num);color:var(--num)}
+.kgtag{font:600 14px var(--f-num);color:var(--num)}
+
+/* ---------- vista del chofer ---------- */
+.cv{max-width:640px;margin:0 auto;padding:16px max(16px,env(safe-area-inset-left,0px)) calc(40px + env(safe-area-inset-bottom,0px));display:grid;gap:14px}
+.cv h1{font-size:24px;font-weight:800;letter-spacing:-.03em}
+.cv-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh1);overflow:hidden}
+.cv-stats div{padding:12px;border-left:1px solid var(--line)}.cv-stats div:first-child{border-left:0}
+.cv-stats small{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--mu)}
+.cv-stats b{display:block;font:600 21px var(--f-num);margin-top:4px}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:#e9edf3;border-radius:12px;padding:4px;gap:4px}
+.seg button{border:0;background:none;border-radius:9px;min-height:42px;font-weight:700;font-size:14px;color:var(--tx2);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--b9);box-shadow:var(--sh1)}
+.pc{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh1);overflow:hidden}
+.pc.sig{border:2px solid var(--b7)}
+.pc .tp{display:flex;align-items:center;gap:10px;padding:14px 14px 0}
+.pc .n{width:32px;height:32px;border-radius:50%;background:var(--b1);color:var(--b8);display:grid;place-items:center;font:600 14px var(--f-num);flex-shrink:0}
+.pc.sig .n{background:var(--b7);color:#fff}
+.pc .cl{flex:1;min-width:0}.pc .cl b{display:block;font-size:16px}.pc .cl small{display:block;color:var(--b7);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.pc .body{padding:12px 14px;display:grid;gap:10px}
+.pc .dir{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.pc .dir p{font-size:14px;color:var(--tx2);min-width:0;overflow-wrap:anywhere}.pc .dir p small{display:block;color:var(--mu);font-size:12.5px;margin-top:2px}
+.pc .maps{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--b2);background:var(--b0);color:var(--b8);border-radius:10px;min-height:40px;padding:0 12px;font-weight:700;font-size:13px;text-decoration:none}
+.pc .kgline{display:flex;justify-content:space-between;align-items:center;border-top:1px dashed var(--line);padding-top:10px;font-size:13px;color:var(--mu)}
+.pc .acts{display:grid;gap:8px;padding:0 14px 14px}
+.pc .go{width:100%;min-height:52px;font-size:16px;border-radius:12px}
+.pc .go.armed{background:var(--warn);border-color:var(--warn)}
+.pc .mini{display:flex;gap:8px}
+.pc .mini button,.pc .mini a{flex:1;min-height:42px;border-radius:10px;border:1px solid var(--line2);background:var(--card);color:var(--tx2);font-weight:600;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;cursor:pointer}
+.pc .mini button:disabled{opacity:.4}
+.pc.hecho{opacity:.8}
+
+/* ajustes */
+.ajustes{display:grid;gap:12px;max-width:640px}
+.bloque{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:10px}
+.bloque h2{font-size:15px}
+.interr{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.interr input{width:auto;accent-color:var(--b8);transform:scale(1.35)}
+
+/* aviso */
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translate(-50%,-160%);z-index:60;width:min(560px,calc(100% - 32px));background:var(--tx);color:#fff;border-radius:14px;padding:14px 16px;display:grid;gap:2px;box-shadow:0 12px 30px rgba(0,0,0,.3);transition:transform .35s cubic-bezier(.2,.9,.3,1.2);cursor:pointer}
+.toast.ver{transform:translate(-50%,0)}
+.toast b{font-size:15px}.toast span{font-size:13px;opacity:.85}
+
+@media (max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){
+  input,select{font-size:16px}
+  .row{grid-template-columns:1fr}
+  .cyl{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #v-reparto .tablebox{display:none}
+  .pcards{display:grid}
+  .kpi b{font-size:18px}
+  .top .t span{display:none}
+  .lista{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ====================== INGRESO ====================== -->
+<section class="login" id="v-login">
+  <div class="in">
+    <div class="lmarca"><span class="sq">MR</span><div><b>MR Gas</b><small>App repartidores</small></div></div>
+    <h1>Cada pedido a domicilio y de mayoristas, al instante en su celular.</h1>
+    <form id="f-login" autocomplete="on">
+      <label>Usuario<input id="lg-user" autocomplete="username" required placeholder="El mismo de MR Gas"></label>
+      <label>Clave<input id="lg-pass" type="password" autocomplete="current-password" required></label>
+      <p class="err" id="lg-err" hidden></p>
+      <button class="btn full" type="submit" id="lg-btn">Ingresar</button>
+    </form>
+    <a class="volver" href="../">← Volver al inicio</a>
+  </div>
+</section>
+
+<!-- ====================== APP ====================== -->
+<div id="v-app" hidden>
+  <header class="top"><div class="in">
+    <span class="sq">MR</span>
+    <div class="t"><b id="top-tit">Pedidos</b><span id="top-sub"></span></div>
+    <span class="con" id="con"><i></i><span>En línea</span></span>
+    <button class="salir" id="b-salir" type="button">Salir</button>
+  </div></header>
+  <nav class="tabs" id="tabs" aria-label="Secciones"><div class="in" id="tabs-in"></div></nav>
+
+  <!-- BANDEJA -->
+  <main class="wrap" id="v-bandeja" hidden>
+    <div class="estados" role="group" aria-label="Estado de los pedidos">
+      <button class="est" data-est="pendiente" aria-pressed="true"><b id="n-pendiente">0</b><span>Por despachar</span></button>
+      <button class="est" data-est="ruta" aria-pressed="false"><b id="n-ruta">0</b><span>En ruta</span></button>
+      <button class="est" data-est="entregado" aria-pressed="false"><b id="n-entregado">0</b><span>Entregados hoy</span></button>
+    </div>
+    <div class="chips" role="group" aria-label="Tipo de cliente">
+      <button class="chip" data-tipo="todos" aria-pressed="true">Todos</button>
+      <button class="chip" data-tipo="dom" aria-pressed="false">Domicilio</button>
+      <button class="chip" data-tipo="may" aria-pressed="false">Mayoristas</button>
+    </div>
+    <div class="lista" id="lista"></div>
+  </main>
+
+  <!-- REPARTO MAYORISTA -->
+  <main class="wrap" id="v-reparto" hidden>
+    <section class="kpis"><div class="kpi"><small>Pedidos pendientes</small><b id="k-pend">0</b></div><div class="kpi"><small>Camiones en ruta</small><b id="k-ruta">0</b></div><div class="kpi"><small>Entregados hoy</small><b id="k-ent">0</b></div></section>
+    <div class="grid">
+      <div style="display:grid;gap:10px;min-width:0">
+        <div class="toolbar" id="filtros"></div>
+        <div class="tablebox"><table>
+          <thead><tr><th rowspan="2">Cliente</th><th colspan="5" class="q">Cilindros por formato</th><th rowspan="2" class="q">Total kg</th><th rowspan="2">Camión</th><th rowspan="2">Chofer</th><th rowspan="2">Estado</th><th rowspan="2">Fecha</th><th rowspan="2"></th></tr>
+          <tr><th class="q">5 kg</th><th class="q">11 kg</th><th class="q">15 kg</th><th class="q">45 kg</th><th class="q" title="Aluminio, para grúa horquilla">15 kg Al</th></tr></thead>
+          <tbody id="tb-reparto"></tbody></table>
+          <div class="empty" id="empty-reparto" hidden></div></div>
+        <div class="pcards" id="cards-reparto"></div>
+      </div>
+      <form class="panel" id="f-pedido">
+        <h2>Nuevo pedido mayorista</h2>
+        <label>Cliente mayorista<select id="p-cliente"></select></label>
+        <p class="note" id="p-cli-info">Elige un cliente para ver su dirección.</p>
+        <div><label style="margin-bottom:6px">Cantidad de cilindros por formato</label>
+          <div class="cyl" id="p-cyl"></div></div>
+        <div class="suma" aria-live="polite"><span>Total kg del pedido</span><b id="sum-kg">0 kg</b></div>
+        <div class="row"><label>Camión (patente)<select id="p-camion"></select></label><label>Chofer<select id="p-chofer"></select></label></div>
+        <button class="btn" type="submit">Agregar pedido</button>
+        <p class="note" id="p-msg"></p>
+      </form>
+    </div>
+  </main>
+
+  <!-- CAMIONES -->
+  <main class="wrap" id="v-camiones" hidden>
+    <div class="grid">
+      <div style="min-width:0"><div class="trucks" id="trucks"></div><div class="empty panel" id="empty-camiones" hidden>Aún no hay camiones. Agrega uno con su patente.</div></div>
+      <form class="panel" id="f-camion"><h2>Nuevo camión</h2>
+        <label>Patente<input id="c-pat" required placeholder="ABCD-12" maxlength="8" style="text-transform:uppercase"></label>
+        <label>Marca<input id="c-marca" placeholder="Ej: Hyundai"></label>
+        <button class="btn" type="submit">Agregar camión</button><p class="note" id="c-msg"></p></form>
+    </div>
+  </main>
+
+  <!-- CHOFERES -->
+  <main class="wrap" id="v-choferes" hidden>
+    <div class="grid">
+      <div class="tablebox"><table><thead><tr><th>Chofer</th><th>RUT</th><th>Teléfono</th><th>Licencia</th><th>Ahora</th><th class="q">Entregas hoy</th></tr></thead><tbody id="tb-choferes"></tbody></table></div>
+      <form class="panel" id="f-chofer"><h2>Nuevo chofer</h2>
+        <label>Nombre y apellido<input id="ch-nombre" required placeholder="Ej: Juan Pérez"></label>
+        <div class="row"><label>RUT<input id="ch-rut" placeholder="12.345.678-9"></label><label>Licencia<select id="ch-lic"><option>A2</option><option>A3</option><option>A4</option><option>A5</option><option>B</option></select></label></div>
+        <label>Teléfono<input id="ch-tel" placeholder="+56 9 …"></label>
+        <button class="btn" type="submit">Registrar chofer</button>
+        <p class="note">Es el mismo chofer de MR Gas. Para que entre a esta app, créale un usuario de tipo Repartidor en MR Gas → Configuraciones → Usuarios.</p>
+        <p class="note" id="ch-msg"></p></form>
+    </div>
+  </main>
+
+  <!-- CLIENTES -->
+  <main class="wrap" id="v-clientes" hidden>
+    <div class="grid">
+      <div style="display:grid;gap:10px;min-width:0">
+        <input id="cl-buscar" type="search" placeholder="Buscar por nombre, RUT o comuna" style="max-width:340px" aria-label="Buscar cliente">
+        <div class="tablebox"><table><thead><tr><th>Cliente</th><th>RUT</th><th>Dirección</th><th>Contacto</th><th class="q">Pedidos</th></tr></thead><tbody id="tb-clientes"></tbody></table>
+          <div class="empty" id="empty-clientes" hidden></div></div>
+      </div>
+      <form class="panel" id="f-cliente"><h2>Nuevo cliente</h2>
+        <label>Nombre o razón social<input id="cl-nombre" required placeholder="Ej: Distribuidora Los Andes SpA"></label>
+        <label>RUT<input id="cl-rut" placeholder="76.123.456-7"></label>
+        <label>Dirección<input id="cl-dir" required placeholder="Calle y número"></label>
+        <div class="row"><label>Comuna<input id="cl-comuna" placeholder="Ej: Quilicura"></label><label>Teléfono<input id="cl-tel" placeholder="+56 9 …"></label></div>
+        <label>Persona de contacto<input id="cl-contacto" placeholder="Quién recibe"></label>
+        <button class="btn" type="submit">Registrar cliente</button>
+        <p class="note">Son los mismos clientes mayoristas de MR Gas (Venta Mayorista).</p>
+        <p class="note" id="cl-msg"></p></form>
+    </div>
+  </main>
+
+  <!-- INFORMES -->
+  <main class="wrap" id="v-informes" hidden>
+    <div class="panel" style="margin-bottom:12px">
+      <div class="toolbar" id="inf-periodos" role="group" aria-label="Periodo">
+        <button type="button" class="chip" data-p="dia" aria-pressed="true">Diario</button><button type="button" class="chip" data-p="semana" aria-pressed="false">Semanal</button>
+        <button type="button" class="chip" data-p="mes" aria-pressed="false">Mensual</button><button type="button" class="chip" data-p="anio" aria-pressed="false">Anual</button></div>
+      <div class="toolbar" style="justify-content:space-between"><label style="max-width:220px">Fecha de referencia<input id="inf-fecha" type="date"></label>
+        <button class="btn" type="button" id="inf-btn">Descargar informe Excel</button></div>
+      <p class="note" id="inf-rango"></p><p class="note" id="inf-msg"></p>
+    </div>
+    <div class="kpis" id="inf-kpis" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+      <div class="tablebox"><table><thead><tr><th>Cliente</th><th class="q">Pedidos</th><th class="q">Cilindros</th><th class="q">Kg</th></tr></thead><tbody id="inf-cli"></tbody></table></div>
+      <div class="tablebox"><table><thead><tr><th>Chofer</th><th class="q">Pedidos</th><th class="q">Entregados</th><th class="q">Kg</th></tr></thead><tbody id="inf-cho"></tbody></table></div>
+      <div class="tablebox"><table><thead><tr><th>Camión</th><th class="q">Pedidos</th><th class="q">Entregados</th><th class="q">Kg</th></tr></thead><tbody id="inf-cam"></tbody></table></div>
+      <div class="tablebox"><table><thead><tr><th>Formato</th><th class="q">Cilindros</th><th class="q">Kg</th></tr></thead><tbody id="inf-fmt"></tbody></table></div>
+    </div>
+    <p class="note" style="margin-top:10px">Informe del reparto a mayoristas. Cilindros y kg no cuentan pedidos cancelados.</p>
+  </main>
+
+  <!-- AJUSTES -->
+  <main class="wrap" id="v-ajustes" hidden>
+    <div class="ajustes">
+      <div class="bloque"><h2>Su cuenta</h2><p id="aj-yo"></p></div>
+      <div class="bloque"><h2>Avisos de pedidos nuevos</h2>
+        <div class="interr"><span>Sonido al llegar un pedido</span><input type="checkbox" id="aj-sonido" checked></div>
+        <div class="interr"><span>Vibrar</span><input type="checkbox" id="aj-vibrar" checked></div>
+        <button class="btn sec" type="button" id="aj-push">Activar notificaciones en este celular</button>
+        <p class="note" id="aj-push-msg">Deje la app abierta o en segundo plano para recibir el aviso de cada pedido nuevo.</p>
+        <button class="btn sec" type="button" id="aj-probar">Probar aviso</button></div>
+      <div class="bloque"><h2>Instalar en el celular</h2>
+        <p class="note"><b>iPhone:</b> abra la app en Safari, toque Compartir y luego «Agregar a pantalla de inicio».</p>
+        <p class="note"><b>Android:</b> abra la app en Chrome, toque el menú ⋮ y luego «Instalar aplicación».</p>
+        <button class="btn sec" type="button" id="aj-instalar" hidden>Instalar ahora</button></div>
+    </div>
+  </main>
+
+  <!-- VISTA DEL CHOFER -->
+  <main id="v-chofer" hidden>
+    <div class="cv">
+      <div><p class="note" id="cv-fecha"></p><h1 id="cv-hola">Hola</h1></div>
+      <div class="cv-stats"><div><small>Por entregar</small><b id="cv-k-pend">0</b></div><div><small>Cilindros</small><b id="cv-k-cil">0</b></div><div><small>Entregados hoy</small><b id="cv-k-ent">0</b></div></div>
+      <div class="seg" role="group" aria-label="Ver"><button type="button" id="cv-tab-pend" aria-pressed="true">Pendientes</button><button type="button" id="cv-tab-ent" aria-pressed="false">Entregados hoy</button></div>
+      <p class="note" id="cv-msg" style="text-align:center;min-height:1em" aria-live="polite"></p>
+      <div style="display:grid;gap:12px" id="cv-lista"></div>
+    </div>
+  </main>
+</div>
+
+<dialog class="hoja" id="h-detalle" aria-labelledby="det-titulo"><div class="asa"></div><div class="hoja-in" id="det-in"></div></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"><b></b><span></span></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script>
+/* ===================== Datos fijos ===================== */
+const API_URL="../api/index.php";
+const FORM_DOM={c5:"5 kg",c11:"11 kg",c15:"15 kg",c45:"45 kg",h15a:"H15"};
+const FORMATOS=[["c5","5 kg",5],["c11","11 kg",11],["c15","15 kg",15],["c45","45 kg",45],["c15a","15 kg Al",15]];
+const ETIQ=Object.fromEntries(FORMATOS.map(f=>[f[0],f[1]])),KG=Object.fromEntries(FORMATOS.map(f=>[f[0],f[2]]));
+const ESTADOS=["Pendiente","En ruta","En cliente","Entregado","Cancelado"];
+const MAY_EST={"Pendiente":"pendiente","En ruta":"ruta","En cliente":"ruta","Entregado":"entregado","Cancelado":"anulado"};
+const MEDIOS={efectivo:"Efectivo",debito:"Débito",credito:"Crédito",transferencia:"Transferencia"};
+const ORIGENES={fono:"Teléfono",telefono:"Teléfono",whatsapp:"WhatsApp",app:"App",web:"Sitio web",instagram:"Instagram",pedidosya:"Pedidos Ya",mercadolibre:"Mercado Libre"};
+const PROMESA_MIN=120;
+
+/* ===================== Utilidades ===================== */
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const dos=n=>String(n).padStart(2,"0");
+const ahora=()=>{const d=new Date();return `${d.getFullYear()}-${dos(d.getMonth()+1)}-${dos(d.getDate())} ${dos(d.getHours())}:${dos(d.getMinutes())}`};
+const isoLocal=d=>`${d.getFullYear()}-${dos(d.getMonth()+1)}-${dos(d.getDate())}`;
+const clp=n=>"$"+Math.round(n||0).toLocaleString("es-CL");
+const kgTxt=n=>(n||0).toLocaleString("es-CL")+" kg";
+const leer=(k,d)=>{try{const v=localStorage.getItem("mrr_"+k);return v===null?d:JSON.parse(v)}catch(e){return d}};
+const grabar=(k,v)=>{try{localStorage.setItem("mrr_"+k,JSON.stringify(v))}catch(e){}};
+const cls=e=>"s-"+String(e||"").replace(/\s/g,"");
+const fmtFecha=s=>{const d=new Date(String(s||"").replace(" ","T"));return isNaN(d)?"":d.toLocaleDateString("es-CL",{day:"2-digit",month:"short"})+" "+d.toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})};
+const fecha=s=>new Date(String(s||"").replace(" ","T"));
+const esHoy=s=>{const d=s instanceof Date?s:fecha(s);return !isNaN(d)&&d.toDateString()===new Date().toDateString()};
+
+/* ===================== Conexión con MR Gas (misma base de datos) ===================== */
+async function api(a,body,q=""){
+  const r=await fetch(`${API_URL}?a=${a}${q}`,{method:body?"POST":"GET",credentials:"same-origin",cache:"no-store",
+    headers:body?{"Content-Type":"application/json","X-MRGas":"1"}:{},body:body?JSON.stringify(body):undefined});
+  let j=null;try{j=await r.json()}catch(e){}
+  if(!r.ok||!j){const e=new Error((j&&j.error)||"No hay conexión con el servidor.");e.status=r.status;throw e}
+  return j}
+const S={yo:null,ver:0,col:{pedidos:new Map(),reparto:new Map(),camiones:new Map(),choferes:new Map()},est:{},vista:"bandeja",
+  estado:"pendiente",tipo:"todos",filtro:"Activos",abierto:null,confirmar:false,cvTab:"pend",periodo:"dia",listo:false,timer:null,mios:new Set()};
+const lista=c=>[...S.col[c].values()];
+const choferes=()=>lista("choferes").filter(c=>c&&c.nombre).sort((a,b)=>a.nombre.localeCompare(b.nombre,"es"));
+const camiones=()=>lista("camiones").sort((a,b)=>(a.patente||"").localeCompare(b.patente||""));
+const clientes=()=>(S.est.mayoristas||[]).slice().sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||"","es"));
+const reparto=()=>lista("reparto");
+const nomChofer=id=>{const c=S.col.choferes.get(String(id));return c?c.nombre:""};
+const esAdmin=()=>S.yo&&S.yo.rol==="admin";
+const puedeEditar=()=>S.yo&&S.yo.rol!=="chofer";
+
+function aplicar(docs,inicial){
+  let cambio=false;
+  docs.forEach(d=>{
+    if(d.col==="estado"){if(!d.borrado&&d.data)S.est[d.id]=d.data.v;cambio=true;return}
+    const m=S.col[d.col];if(!m)return;cambio=true;
+    if(d.borrado){m.delete(d.id);return}
+    const nuevo=!m.has(d.id);m.set(d.id,d.data);
+    if(nuevo&&!inicial&&S.listo&&!S.mios.has(d.col+"|"+d.id)){
+      if(d.col==="pedidos"&&d.data.estado==="pendiente")llego(vistaDe(d.data,"dom"));
+      if(d.col==="reparto"&&d.data.estado==="Pendiente")llego(vistaDe(d.data,"may"));
+      if(S.yo.rol==="chofer"&&((d.col==="pedidos"&&d.data.estado==="ruta")||(d.col==="reparto"&&MAY_EST[d.data.estado]!=="entregado")))aviso("Nuevo pedido asignado",resumenDoc(d.col,d.data),true);
+    }
+  });
+  if(cambio)render();
+}
+async function sondear(){
+  try{const j=await api("cambios",null,"&desde="+S.ver);if(j.docs.length)aplicar(j.docs,false);S.ver=j.ver;conexion(true)}
+  catch(e){if(e.status===401){salir("Su sesión venció. Vuelva a entrar.");return}conexion(false)}
+  clearTimeout(S.timer);S.timer=setTimeout(sondear,document.hidden?15000:4000);
+}
+async function guardarDoc(col,id,data){
+  id=String(id);const M=S.col[col]||new Map(),ant=col==="estado"?S.est[id]:M.get(id);
+  if(col==="estado")S.est[id]=data.v;else if(data===null)M.delete(id);else M.set(id,data);
+  S.mios.add(col+"|"+id);render();
+  try{const r=await api("lote",{docs:[{col,id,data}]});const x=r.res&&r.res[0];
+    if(!x||!x.ok){if(col==="estado")S.est[id]=ant;else if(ant)M.set(id,ant);else M.delete(id);render();
+      aviso("No se pudo guardar",x&&x.error==="sin permiso"?"Su usuario no tiene permiso para este cambio.":"Intente otra vez.",false);return false}
+    return true}
+  catch(e){if(col==="estado")S.est[id]=ant;else if(ant)M.set(id,ant);else M.delete(id);render();aviso("Sin conexión","El cambio no se guardó. Revise la señal e intente otra vez.",false);return false}
+}
+function conexion(ok){const c=$("#con");c.classList.toggle("off",!ok);c.querySelector("span").textContent=ok?"En línea":"Sin conexión"}
+addEventListener("online",()=>sondear());addEventListener("offline",()=>conexion(false));
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&S.yo){clearTimeout(S.timer);sondear()}});
+
+/* ===================== Stock: igual que MR Gas al entregar ===================== */
+const itemsDom=p=>p.items||[{formato:p.formato,cant:p.cant,precio:p.precio}];
+async function moverStock(p,signo){ // signo -1 al entregar, +1 al deshacer
+  const ch=signo<0?p.chofer:p.descCh;
+  if(ch!=null){const k="stk-"+ch,s=JSON.parse(JSON.stringify(S.est[k]||{carga:{},vacios:{}}));s.carga=s.carga||{};s.vacios=s.vacios||{};
+    itemsDom(p).forEach(i=>{s.carga[i.formato]=(s.carga[i.formato]||0)+signo*i.cant;s.vacios[i.formato]=(s.vacios[i.formato]||0)-signo*(i.cant-(i.env||0))});
+    await guardarDoc("estado",k,{v:s});return ch}
+  const lk="loc-"+(p.local||1),l=S.est[lk];
+  if(l&&l.stock){const n=JSON.parse(JSON.stringify(l));itemsDom(p).forEach(i=>n.stock[i.formato]=(n.stock[i.formato]||0)+signo*i.cant);await guardarDoc("estado",lk,{v:n})}
+  return null}
+async function cambiarDom(p,e,chofer){
+  const n=JSON.parse(JSON.stringify(p));
+  if(n.desc&&e!=="entregado"){await moverStock(n,1);n.desc=false;n.entregado=null;n.descCh=null}
+  if(e==="ruta"){n.chofer=chofer;if(!n.despacho)n.despacho=ahora()}
+  if(e==="entregado"&&!n.desc){n.descCh=await moverStock(n,-1);n.desc=true;n.entregado=ahora()}
+  if(e==="pendiente")n.chofer=null;
+  n.estado=e;
+  const ok=await guardarDoc("pedidos",n.id,n);
+  if(ok)guardarDoc("bitacora","r"+Date.now(),{id:Date.now()+Math.random(),fecha:ahora(),user:S.yo.nombre||S.yo.user,local:n.local||1,area:"pedidos",
+    accion:{ruta:"Pedido despachado",entregado:"Pedido entregado",pendiente:"Pedido devuelto a por despachar",anulado:"Pedido anulado"}[e]||"Pedido actualizado",
+    detalle:`Pedido N° ${n.id}${n.chofer?" · "+nomChofer(n.chofer):""} · desde App repartidores`,chofer:n.chofer||null,pedido:n.id});
+  return ok}
+async function cambiarRep(p,cambios){
+  const n={...p,...cambios,actualizado:new Date().toISOString()};
+  if(cambios.chofer!==undefined)n.chofer=cambios.chofer===""||cambios.chofer==null?null:+cambios.chofer;
+  return guardarDoc("reparto",n.id,n)}
+
+/* ===================== Modelo común de pedido (bandeja) ===================== */
+const totalDom=p=>Math.max(0,itemsDom(p).reduce((s,i)=>s+(i.precio||0)*(i.cant||0)+(i.env||0)*(i.precioEnv||0),0)-(p.dcto||0));
+const totalCil=p=>FORMATOS.reduce((a,[k])=>a+(+p[k]||0),0);
+const kgDe=p=>FORMATOS.reduce((a,[k])=>a+(+p[k]||0)*KG[k],0);
+function vistaDe(p,tipo){
+  if(tipo==="dom")return {key:"d"+p.id,tipo,p,num:"N° "+p.id,nombre:(p.nombre||"").replace(/^Ejemplo: /,"")||"Cliente "+(p.fono||""),fono:p.fono||"",
+    dir:p.dir||"",comuna:p.comuna||"",items:itemsDom(p).filter(i=>i.cant>0).map(i=>({et:FORM_DOM[i.formato]||i.formato,cant:i.cant})),
+    total:totalDom(p),estado:p.estado,fecha:fecha(p.fecha),origen:ORIGENES[p.origen]||"",chofer:p.chofer?nomChofer(p.chofer):"",hecho:p.entregado?fecha(p.entregado):null};
+  return {key:"m"+p.id,tipo,p,num:"",nombre:p.cliente||"Cliente mayorista",fono:p.telefono||"",dir:p.direccion||"",comuna:"",
+    items:FORMATOS.filter(([k])=>+p[k]>0).map(([k])=>({et:ETIQ[k],cant:+p[k]})),total:null,kg:kgDe(p),estado:MAY_EST[p.estado]||"pendiente",estadoTxt:p.estado,
+    fecha:new Date(p.creado),origen:"Reparto",chofer:p.chofer?nomChofer(p.chofer):"",hecho:p.estado==="Entregado"&&p.actualizado?new Date(p.actualizado):null};
+}
+const todas=()=>[...lista("pedidos").map(p=>vistaDe(p,"dom")),...reparto().map(p=>vistaDe(p,"may"))];
+const resumenDoc=(col,p)=>{const v=vistaDe(p,col==="pedidos"?"dom":"may");return `${v.items.map(i=>i.cant+"×"+i.et).join(", ")} · ${v.nombre} · ${v.dir}`};
+
+/* ===================== Navegación ===================== */
+const IC={bandeja:'<path d="M4 13l2.5-8h11L20 13v6H4z"/><path d="M4 13h5l1 2h4l1-2h5"/>',reparto:'<path d="M9 4h6l1 2h3v14H5V6h3z"/><path d="M9 11h6M9 15h4"/>',
+  camiones:'<path d="M3 6h11v10H3zM14 9h4l3 3v4h-7z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/>',choferes:'<circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4-6 7-6s6 2 7 6"/>',
+  clientes:'<path d="M4 20V9l8-5 8 5v11z"/><path d="M9 20v-6h6v6"/>',informes:'<path d="M4 20h16M7 16V10M12 16V5M17 16v-4"/>',
+  ajustes:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',chofer:'<path d="M3 6h11v10H3zM14 9h4l3 3v4h-7z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/>'};
+const TABS_EQUIPO=[["bandeja","Pedidos"],["reparto","Reparto mayorista"],["camiones","Camiones"],["choferes","Choferes"],["clientes","Clientes"],["informes","Informes"],["ajustes","Ajustes"]];
+const TABS_CHOFER=[["chofer","Mis entregas"],["ajustes","Ajustes"]];
+function pintarTabs(){
+  const T=S.yo.rol==="chofer"?TABS_CHOFER:TABS_EQUIPO,pend=todas().filter(v=>v.estado==="pendiente").length;
+  $("#tabs-in").innerHTML=T.map(([k,t])=>`<button class="tab" data-v="${k}" aria-current="${S.vista===k}"><svg class="i" viewBox="0 0 24 24">${IC[k]}</svg>${t}${k==="bandeja"&&pend?`<b>${pend}</b>`:""}</button>`).join("");
+  $$("#tabs-in .tab").forEach(b=>b.onclick=()=>ir(b.dataset.v));
+}
+function ir(v){S.vista=v;grabar("vista",v);["bandeja","reparto","camiones","choferes","clientes","informes","ajustes","chofer"].forEach(x=>$("#v-"+x).hidden=x!==v);
+  $("#top-tit").textContent={bandeja:"Pedidos",reparto:"Reparto mayorista",camiones:"Camiones",choferes:"Choferes",clientes:"Clientes",informes:"Informes",ajustes:"Ajustes",chofer:"Mis entregas"}[v];
+  render();scrollTo(0,0)}
+
+/* ===================== Render ===================== */
+function render(){
+  if(!S.yo)return;pintarTabs();
+  if(S.vista==="bandeja")renderBandeja();
+  else if(S.vista==="reparto")renderReparto();
+  else if(S.vista==="camiones")renderCamiones();
+  else if(S.vista==="choferes")renderChoferes();
+  else if(S.vista==="clientes")renderClientes();
+  else if(S.vista==="informes")renderInforme();
+  else if(S.vista==="chofer")renderChofer();
+  if($("#h-detalle").open)pintarDetalle();
+}
+
+/* ---------- Bandeja (MR Gas Pedidos) ---------- */
+function reloj(v){
+  const R=21,C=2*Math.PI*R;
+  if(v.estado==="entregado")return `<div class="reloj v"><svg viewBox="0 0 52 52"><circle class="base" cx="26" cy="26" r="${R}"/><circle class="val" cx="26" cy="26" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="0"/></svg><b>✓</b></div>`;
+  const min=Math.max(0,Math.round((Date.now()-v.fecha)/60000)),frac=Math.min(1,min/PROMESA_MIN),c=min>=100?"r":min>=60?"a":"v";
+  const txt=isNaN(min)?"–":min<60?min+"′":min<600?Math.floor(min/60)+"h"+dos(min%60):"+10h";
+  return `<div class="reloj ${c}" title="${isNaN(min)?"":min+" minutos esperando"}"><svg viewBox="0 0 52 52"><circle class="base" cx="26" cy="26" r="${R}"/><circle class="val" cx="26" cy="26" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-frac)}"/></svg><b>${txt}</b></div>`;
+}
+const recien=new Set();
+function renderBandeja(){
+  const all=todas(),pasa=v=>S.tipo==="todos"||v.tipo===S.tipo,cuenta={pendiente:0,ruta:0,entregado:0};
+  all.filter(pasa).forEach(v=>{if(v.estado==="pendiente")cuenta.pendiente++;else if(v.estado==="ruta")cuenta.ruta++;else if(v.estado==="entregado"&&esHoy(v.hecho||v.fecha))cuenta.entregado++});
+  Object.entries(cuenta).forEach(([k,n])=>$("#n-"+k).textContent=n);
+  const L=all.filter(v=>pasa(v)&&v.estado===S.estado&&(S.estado!=="entregado"||esHoy(v.hecho||v.fecha)))
+    .sort((a,b)=>S.estado==="entregado"?(b.hecho||b.fecha)-(a.hecho||a.fecha):a.fecha-b.fecha);
+  if(!L.length){const t={pendiente:["No hay pedidos por despachar","Los pedidos que se graben en MR Gas o en Reparto mayorista llegan aquí al instante, con sonido."],
+    ruta:["No hay pedidos en ruta","Despache un pedido desde «Por despachar» para verlo aquí."],entregado:["Aún no hay entregas hoy","Los pedidos entregados hoy aparecen aquí."]}[S.estado];
+    $("#lista").innerHTML=`<div class="vacio"><b>${t[0]}</b><span>${t[1]}</span></div>`;return}
+  $("#lista").innerHTML=L.map(v=>`<button class="ped${recien.has(v.key)?" nuevo":""}" data-key="${v.key}">${reloj(v)}
+    <div style="min-width:0"><div class="ped-cab"><h3>${esc(v.nombre)}</h3>${v.num?`<span class="num">${esc(v.num)}</span>`:""}</div>
+      <p class="ped-dir">${esc([v.dir,v.comuna].filter(Boolean).join(", "))||"Sin dirección"}</p>
+      <div class="ped-pie">${v.items.map(i=>`<span class="cil"><b>${i.cant}</b>× ${esc(i.et)}</span>`).join("")}
+        ${v.tipo==="may"?'<span class="tag may">Mayorista</span>':v.origen?`<span class="tag">${esc(v.origen)}</span>`:""}
+        ${v.estado==="ruta"&&v.chofer?`<span class="tag ruta">${esc(v.chofer)}</span>`:""}
+        <span class="total">${v.total!=null?clp(v.total):kgTxt(v.kg)}</span></div></div></button>`).join("");
+  recien.clear();
+}
+$$(".est").forEach(b=>b.onclick=()=>{S.estado=b.dataset.est;$$(".est").forEach(x=>x.setAttribute("aria-pressed",x===b));render()});
+$$(".chip[data-tipo]").forEach(b=>b.onclick=()=>{S.tipo=b.dataset.tipo;$$(".chip[data-tipo]").forEach(x=>x.setAttribute("aria-pressed",x===b));render()});
+$("#lista").addEventListener("click",e=>{const b=e.target.closest("[data-key]");if(b)abrir(b.dataset.key)});
+setInterval(()=>{if(S.yo&&S.vista==="bandeja")renderBandeja()},30000);
+
+const ICO={fono:'<svg class="i" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>',
+  wsp:'<svg class="i" viewBox="0 0 24 24"><path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.4z"/></svg>',mapa:'<svg class="i" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'};
+const buscar=k=>todas().find(v=>v.key===k);
+function abrir(k){S.abierto=k;S.confirmar=false;pintarDetalle();const d=$("#h-detalle");if(!d.open)d.showModal()}
+function pintarDetalle(){
+  const v=buscar(S.abierto),el=$("#det-in");if(!v){$("#h-detalle").close();return}
+  const f=String(v.fono||"").replace(/\D/g,"").slice(-9),wsp=f?(f.length===9?"56"+f:f):"";
+  const mapa="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent([v.dir,v.comuna,"Chile"].filter(Boolean).join(", "));
+  const estTxt=v.tipo==="may"?v.estadoTxt:{pendiente:"Por despachar",ruta:"En ruta",entregado:"Entregado",anulado:"Anulado"}[v.estado];
+  const hora=d=>isNaN(d)?"":d.toLocaleString("es-CL",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  const cam=v.tipo==="may"&&v.p.camionId?(S.col.camiones.get(String(v.p.camionId))||{}).patente:"";
+  const filas=[["Estado",estTxt],["Recibido",hora(v.fecha)],["Teléfono",v.fono],["Dirección",[v.dir,v.comuna].filter(Boolean).join(", ")],["Cilindros",v.items.map(i=>`${i.cant} × ${i.et}`).join(", ")],
+    v.tipo==="dom"?["Total",clp(v.total)+(v.p.medio?" · "+(MEDIOS[v.p.medio]||v.p.medio):"")]:["Kilos",kgTxt(v.kg)],cam?["Camión",cam]:null,
+    v.p.obs||v.p.ref?["Observación",[v.p.ref,v.p.obs].filter(Boolean).join(" · ")]:null,v.chofer?["Chofer",v.chofer]:null,v.p.usuario?["Grabado por",v.p.usuario]:null].filter(x=>x&&x[1]);
+  const ed=puedeEditar(),selCh=sel=>`<label>Chofer o móvil<select id="det-chofer"><option value="">Elija el chofer</option>${choferes().map(c=>`<option value="${c.id}" ${String(c.id)===String(sel)?"selected":""}>${esc(c.nombre)}${c.patente?" · "+esc(c.patente):""}</option>`).join("")}</select></label><p class="err" id="det-err" hidden>Elija el chofer antes de despachar.</p>`;
+  let acc="";
+  if(ed){
+    if(v.estado==="pendiente")acc=selCh(v.p.chofer)+`<button class="btn full" data-acc="despachar">Despachar pedido</button><button class="btn ok full" data-acc="entregar">Marcar entregado</button>`;
+    else if(v.estado==="ruta")acc=`<button class="btn ok full" data-acc="entregar">Marcar entregado</button><button class="btn sec full" data-acc="volver">Devolver a por despachar</button>`;
+    else if(v.estado==="entregado")acc=`<button class="btn sec full" data-acc="volver">Reabrir pedido</button>`;
+    if(v.estado!=="anulado"&&v.estado!=="entregado")acc+=S.confirmar?`<div class="confirma"><span>¿Anular este pedido? El cliente ya no recibirá el gas.</span><div class="fila2"><button class="btn sec" data-acc="no">No, volver</button><button class="btn bad" data-acc="anular">Sí, anular</button></div></div>`
+      :`<button class="btn sec full" data-acc="preguntar" style="color:var(--red)">Anular pedido</button>`;
+  }
+  el.innerHTML=`<div class="hoja-cab"><div><p class="note">${esc(v.tipo==="may"?"Pedido mayorista":v.num)}</p><h2 id="det-titulo">${esc(v.nombre)}</h2></div><button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button></div>
+    <div class="contacto"><a href="${f?"tel:+"+wsp:"#"}">${ICO.fono}Llamar</a><a href="${wsp?"https://wa.me/"+wsp:"#"}" target="_blank" rel="noopener">${ICO.wsp}WhatsApp</a><a href="${mapa}" target="_blank" rel="noopener">${ICO.mapa}Mapa</a></div>
+    <div class="datos">${filas.map(([k,x])=>`<div class="dato"><span>${k}</span><b>${esc(x)}</b></div>`).join("")}</div><div class="acciones">${acc}</div>`;
+}
+$("#h-detalle").addEventListener("click",async e=>{
+  if(e.target===e.currentTarget||e.target.closest("[data-cerrar]")){$("#h-detalle").close();return}
+  const b=e.target.closest("[data-acc]");if(!b)return;const v=buscar(S.abierto);if(!v)return;const a=b.dataset.acc;
+  if(a==="preguntar"){S.confirmar=true;pintarDetalle();return}if(a==="no"){S.confirmar=false;pintarDetalle();return}
+  const sel=$("#det-chofer"),ch=sel&&sel.value?+sel.value:null;
+  if(a==="despachar"&&!ch){$("#det-err").hidden=false;sel.focus();return}
+  b.disabled=true;let ok;
+  if(v.tipo==="dom")ok=await cambiarDom(v.p,{despachar:"ruta",entregar:"entregado",volver:"pendiente",anular:"anulado"}[a],ch);
+  else ok=await cambiarRep(v.p,{estado:{despachar:"En ruta",entregar:"Entregado",volver:"Pendiente",anular:"Cancelado"}[a],...(a==="despachar"?{chofer:ch}:{})});
+  if(ok){aviso({despachar:"Pedido despachado",entregar:"Pedido entregado",volver:"Pedido devuelto",anular:"Pedido anulado"}[a],v.nombre,false);$("#h-detalle").close()}else b.disabled=false;
+});
+
+/* ---------- Reparto mayorista (Reparto Gas Licuado) ---------- */
+const activo=p=>p.estado!=="Entregado"&&p.estado!=="Cancelado";
+const camOpts=sel=>`<option value="">Sin asignar</option>`+camiones().map(c=>`<option value="${esc(c.id)}"${String(c.id)===String(sel)?" selected":""}>${esc(c.patente)}</option>`).join("");
+const chOpts=sel=>`<option value="">Sin chofer</option>`+choferes().map(c=>`<option value="${c.id}"${String(c.id)===String(sel)?" selected":""}>${esc(c.nombre)}</option>`).join("");
+$("#p-cyl").innerHTML=FORMATOS.map(([k,t])=>`<label${k==="c15a"?' title="Aluminio, para grúa horquilla"':""}>${t}<input id="p-${k}" type="number" min="0" value="0" inputmode="numeric"><small id="s-${k}">0 kg</small></label>`).join("");
+function renderReparto(){
+  const P=reparto(),hoy=new Date().toDateString(),dis=puedeEditar()?"":" disabled";
+  $("#k-pend").textContent=P.filter(p=>p.estado==="Pendiente").length;
+  $("#k-ruta").textContent=new Set(P.filter(p=>(p.estado==="En ruta"||p.estado==="En cliente")&&p.camionId).map(p=>p.camionId)).size;
+  $("#k-ent").textContent=P.filter(p=>p.estado==="Entregado"&&p.actualizado&&new Date(p.actualizado).toDateString()===hoy).length;
+  $("#filtros").innerHTML=["Activos",...ESTADOS,"Todos"].map(o=>`<button type="button" class="chip" aria-pressed="${o===S.filtro}" data-f="${o}">${o}</button>`).join("");
+  $$("#filtros .chip").forEach(b=>b.onclick=()=>{S.filtro=b.dataset.f;render()});
+  let L=P.slice().sort((a,b)=>(b.creado||"").localeCompare(a.creado||""));
+  if(S.filtro==="Activos")L=L.filter(activo);else if(S.filtro!=="Todos")L=L.filter(p=>p.estado===S.filtro);
+  const selEst=p=>`<select data-id="${esc(p.id)}" data-k="estado" aria-label="Estado" class="pill ${cls(p.estado)}"${dis}>${ESTADOS.map(e=>`<option${e===p.estado?" selected":""}>${e}</option>`).join("")}</select>`;
+  $("#tb-reparto").innerHTML=L.map(p=>`<tr><td class="cli" title="${esc(p.direccion)}"><b>${esc(p.cliente)}</b><small>${esc(p.direccion)}</small></td>
+    ${FORMATOS.map(([k])=>{const n=+p[k]||0;return `<td class="q${n?"":" cero"}">${n||"–"}</td>`}).join("")}<td class="tot">${kgTxt(kgDe(p))}</td>
+    <td><select data-id="${esc(p.id)}" data-k="camionId" aria-label="Camión"${dis}>${camOpts(p.camionId)}</select></td>
+    <td><select data-id="${esc(p.id)}" data-k="chofer" aria-label="Chofer"${dis}>${chOpts(p.chofer)}</select></td><td>${selEst(p)}</td>
+    <td class="num note">${fmtFecha(p.creado)}</td><td>${esAdmin()?`<button class="btn sec chico" data-del="${esc(p.id)}" type="button">Borrar</button>`:""}</td></tr>`).join("");
+  const em=$("#empty-reparto");em.hidden=L.length>0;em.textContent=P.length?`No hay pedidos con el estado «${S.filtro}».`:"Aún no hay pedidos. Crea el primero en «Nuevo pedido mayorista».";
+  $("#cards-reparto").innerHTML=L.map(p=>`<article class="pcard"><div class="h"><div><b>${esc(p.cliente)}</b><small>${esc(p.direccion)}</small></div><span class="kgtag">${kgTxt(kgDe(p))}</span></div>
+    <div class="qchips">${FORMATOS.filter(([k])=>+p[k]>0).map(([k])=>`<span class="qchip"><b>${+p[k]}</b>× ${ETIQ[k]}</span>`).join("")}</div>
+    <div class="sel"><label>Camión<select data-id="${esc(p.id)}" data-k="camionId"${dis}>${camOpts(p.camionId)}</select></label><label>Chofer<select data-id="${esc(p.id)}" data-k="chofer"${dis}>${chOpts(p.chofer)}</select></label></div>
+    <div class="pie">${selEst(p)}<span class="note">${fmtFecha(p.creado)}</span>${esAdmin()?`<button class="btn sec chico" data-del="${esc(p.id)}" type="button">Borrar</button>`:""}</div></article>`).join("");
+  $$("#v-reparto select[data-id]").forEach(s=>s.onchange=()=>{const p=S.col.reparto.get(s.dataset.id);if(p)cambiarRep(p,{[s.dataset.k]:s.value})});
+  $$("#v-reparto [data-del]").forEach(b=>b.onclick=()=>dosClics(b,()=>guardarDoc("reparto",b.dataset.del,null)));
+  $("#f-pedido").hidden=!puedeEditar();
+  const cc=$("#p-camion").value;$("#p-camion").innerHTML=camOpts(cc);const ch=$("#p-chofer").value;$("#p-chofer").innerHTML=chOpts(ch);
+  const cl=$("#p-cliente").value,C=clientes();
+  $("#p-cliente").innerHTML=`<option value="">${C.length?"Selecciona un cliente":"Primero registra un cliente"}</option>`+C.map(c=>`<option value="${c.id}"${String(c.id)===cl?" selected":""}>${esc(c.nombre)}${c.comuna?" — "+esc(c.comuna):""}</option>`).join("");
+  infoCliente();
+}
+function dosClics(b,fn){if(b.dataset.armed!=="1"){const t=b.textContent;b.dataset.armed="1";b.textContent="¿Seguro?";setTimeout(()=>{if(b.isConnected){b.dataset.armed="";b.textContent=t}},3000);return}fn()}
+const dirCompleta=c=>[c.direccion,c.comuna].filter(Boolean).join(", ");
+function infoCliente(){const c=clientes().find(x=>String(x.id)===$("#p-cliente").value);
+  $("#p-cli-info").textContent=c?`${dirCompleta(c)||"Sin dirección"}${c.fono?" · "+c.fono:""}${c.contacto?" · Recibe: "+c.contacto:""}`:"Elige un cliente para ver su dirección."}
+$("#p-cliente").onchange=infoCliente;
+function suma(){const p={};FORMATOS.forEach(([k])=>p[k]=Math.max(0,parseInt($("#p-"+k).value)||0));FORMATOS.forEach(([k])=>$("#s-"+k).textContent=kgTxt(p[k]*KG[k]));$("#sum-kg").textContent=kgTxt(kgDe(p))}
+FORMATOS.forEach(([k])=>$("#p-"+k).addEventListener("input",suma));
+$("#f-pedido").addEventListener("submit",async e=>{e.preventDefault();
+  const c=clientes().find(x=>String(x.id)===$("#p-cliente").value);if(!c){$("#p-msg").textContent="Elige un cliente de la lista, o regístralo en Clientes.";return}
+  const iso=new Date().toISOString(),cam=$("#p-camion").value,ch=$("#p-chofer").value;
+  const p={id:"r"+Date.now()+Math.floor(Math.random()*100),clienteId:c.id,cliente:c.nombre,direccion:dirCompleta(c),telefono:c.fono||"",camionId:cam,chofer:ch?+ch:null,
+    estado:cam||ch?"En ruta":"Pendiente",creado:iso,actualizado:iso,fecha:ahora(),local:1,usuario:S.yo.nombre||S.yo.user};
+  FORMATOS.forEach(([k])=>p[k]=Math.max(0,parseInt($("#p-"+k).value)||0));
+  if(!totalCil(p)){$("#p-msg").textContent="Indica al menos un cilindro.";return}
+  if(await guardarDoc("reparto",p.id,p)){$("#f-pedido").reset();suma();$("#p-msg").textContent=`Pedido agregado: ${kgTxt(kgDe(p))}.`}});
+
+/* ---------- Camiones ---------- */
+function renderCamiones(){
+  const P=reparto(),dis=esAdmin();
+  $("#trucks").innerHTML=camiones().map(c=>{const suyos=P.filter(p=>String(p.camionId)===String(c.id)&&activo(p)),enCli=suyos.find(p=>p.estado==="En cliente"),enR=suyos.find(p=>p.estado==="En ruta");
+    const est=enCli?"En cliente":enR?"En ruta":suyos.length?"Pendiente":"Libre",ah=enCli||enR,p0=ah||suyos[0];
+    return `<article class="truck"><div class="tp"><span class="plate">${esc(c.patente)}</span><span class="pill ${cls(est)}">${est==="Pendiente"?"Con pedidos":est}</span></div>
+      <div style="font-weight:700;font-size:16px">${esc(c.marca)||'<span class="note">Sin marca</span>'}</div>
+      <dl class="kv"><dt>Chofer</dt><dd>${p0&&p0.chofer?"<b>"+esc(nomChofer(p0.chofer))+"</b>":'<span class="note">Sin chofer asignado</span>'}</dd>
+        <dt>${enCli?"En cliente":"Destino"}</dt><dd>${ah?esc(ah.cliente)+'<br><span class="note">'+esc(ah.direccion)+"</span>":'<span class="note">—</span>'}</dd><dt>Pedidos</dt><dd>${suyos.length} activos</dd></dl>
+      <div class="toolbar" style="justify-content:space-between"><span class="note">Carga asignada</span><b class="num">${kgTxt(suyos.reduce((a,p)=>a+kgDe(p),0))}</b></div>
+      ${dis?`<div><button class="btn sec chico" type="button" data-delc="${esc(c.id)}">Quitar camión</button></div>`:""}</article>`}).join("");
+  $("#empty-camiones").hidden=camiones().length>0;$("#f-camion").hidden=!puedeEditar();
+  $$("[data-delc]").forEach(b=>b.onclick=()=>dosClics(b,()=>guardarDoc("camiones",b.dataset.delc,null)));
+}
+$("#f-camion").addEventListener("submit",async e=>{e.preventDefault();const pat=$("#c-pat").value.trim().toUpperCase();
+  if(camiones().some(x=>x.patente===pat)){$("#c-msg").textContent="Ya existe un camión con esa patente.";return}
+  const c={id:"cam"+Date.now(),patente:pat,marca:$("#c-marca").value.trim()};
+  if(await guardarDoc("camiones",c.id,c)){$("#f-camion").reset();$("#c-msg").textContent="Camión agregado."}});
+
+/* ---------- Choferes ---------- */
+function renderChoferes(){
+  const P=reparto(),D=lista("pedidos"),hoy=new Date().toDateString();
+  $("#tb-choferes").innerHTML=choferes().map(ch=>{
+    const suyos=P.filter(p=>+p.chofer===+ch.id&&activo(p)),ah=suyos.find(p=>p.estado==="En cliente")||suyos.find(p=>p.estado==="En ruta"),dom=D.filter(p=>+p.chofer===+ch.id&&p.estado==="ruta");
+    const est=ah||dom.length?"En ruta":suyos.length?"Pendiente":"Libre";
+    const ent=P.filter(p=>+p.chofer===+ch.id&&p.estado==="Entregado"&&p.actualizado&&new Date(p.actualizado).toDateString()===hoy).length+D.filter(p=>+p.chofer===+ch.id&&p.estado==="entregado"&&esHoy(p.entregado)).length;
+    return `<tr><td class="cli"><b>${esc(ch.nombre)}</b>${ch.patente?`<small>${esc(ch.patente)}</small>`:""}</td><td class="num">${esc(ch.rut)||"—"}</td><td class="num">${esc(ch.fono||ch.telefono)||"—"}</td><td>${esc(ch.licencia)||"—"}</td>
+      <td><span class="pill ${cls(est)}">${est==="Pendiente"?"Con pedidos":est}</span>${ah?`<small class="note" style="display:block">${esc(ah.cliente)}</small>`:dom.length?`<small class="note" style="display:block">${dom.length} pedido(s) a domicilio</small>`:""}</td><td class="q">${ent}</td></tr>`}).join("")||'<tr><td colspan="6" class="empty">Aún no hay choferes.</td></tr>';
+  $("#f-chofer").hidden=!esAdmin();
+}
+$("#f-chofer").addEventListener("submit",async e=>{e.preventDefault();const nom=$("#ch-nombre").value.trim();if(!nom)return;
+  const ids=choferes().map(c=>+c.id||0),c={id:Math.max(0,...ids)+1,nombre:nom,rut:$("#ch-rut").value.trim(),licencia:$("#ch-lic").value,fono:$("#ch-tel").value.trim(),patente:"",local:1,activo:true};
+  if(await guardarDoc("choferes",c.id,c)){$("#f-chofer").reset();$("#ch-msg").textContent="Chofer registrado."}});
+
+/* ---------- Clientes ---------- */
+function renderClientes(){
+  const q=$("#cl-buscar").value.trim().toLowerCase(),C=clientes().filter(c=>!q||[c.nombre,c.rut,c.comuna,c.direccion].some(v=>String(v||"").toLowerCase().includes(q))),P=reparto();
+  $("#tb-clientes").innerHTML=C.map(c=>`<tr><td class="cli"><b>${esc(c.nombre)}</b></td><td class="num">${esc(c.rut)||"—"}</td><td class="cli">${esc(c.direccion)||"—"}<small>${esc(c.comuna)}</small></td>
+    <td class="cli">${esc(c.contacto)||"—"}<small>${esc(c.fono)}</small></td><td class="q">${P.filter(p=>String(p.clienteId)===String(c.id)&&activo(p)).length} activos</td></tr>`).join("");
+  const em=$("#empty-clientes");em.hidden=C.length>0;em.textContent=clientes().length?"Ningún cliente coincide con la búsqueda.":"Aún no hay clientes. Registra el primero.";
+  $("#f-cliente").hidden=!puedeEditar();
+}
+$("#cl-buscar").oninput=()=>renderClientes();
+$("#f-cliente").addEventListener("submit",async e=>{e.preventDefault();
+  const arr=JSON.parse(JSON.stringify(S.est.mayoristas||[])),nom=$("#cl-nombre").value.trim().replace(/\s+/g," "),rut=$("#cl-rut").value.trim();
+  if(arr.some(x=>String(x.nombre||"").toLowerCase()===nom.toLowerCase())){$("#cl-msg").textContent="Ya existe un cliente con ese nombre.";return}
+  if(rut&&arr.some(x=>String(x.rut||"").replace(/\W/g,"").toUpperCase()===rut.replace(/\W/g,"").toUpperCase())){$("#cl-msg").textContent="Ya existe un cliente con ese RUT.";return}
+  const c={id:Math.max(0,...arr.map(x=>+x.id||0))+1,nombre:nom,rut,direccion:$("#cl-dir").value.trim(),comuna:$("#cl-comuna").value.trim(),fono:$("#cl-tel").value.trim(),contacto:$("#cl-contacto").value.trim(),local:1,lista:null};
+  arr.push(c);if(await guardarDoc("estado","mayoristas",{v:arr})){$("#f-cliente").reset();$("#cl-msg").textContent="Cliente registrado. Ya puedes elegirlo en un pedido."}});
+
+/* ---------- Informes ---------- */
+$("#inf-fecha").value=isoLocal(new Date());
+function rango(){const [y,m,d]=($("#inf-fecha").value||isoLocal(new Date())).split("-").map(Number);let ini,fin,nombre;
+  if(S.periodo==="dia"){ini=new Date(y,m-1,d);fin=new Date(y,m-1,d+1);nombre="Diario "+isoLocal(ini)}
+  else if(S.periodo==="semana"){const b=new Date(y,m-1,d),w=(b.getDay()+6)%7;ini=new Date(y,m-1,d-w);fin=new Date(y,m-1,d-w+7);nombre="Semanal "+isoLocal(ini)}
+  else if(S.periodo==="mes"){ini=new Date(y,m-1,1);fin=new Date(y,m,1);nombre=`Mensual ${y}-${dos(m)}`}
+  else{ini=new Date(y,0,1);fin=new Date(y+1,0,1);nombre="Anual "+y}
+  return {ini,fin,nombre}}
+const fLarga=d=>d.toLocaleDateString("es-CL",{day:"numeric",month:"long",year:"numeric"});
+function datosInf(){const {ini,fin,nombre}=rango(),L=reparto().filter(p=>{const t=new Date(p.creado);return t>=ini&&t<fin}).sort((a,b)=>(a.creado||"").localeCompare(b.creado||"")),V=L.filter(p=>p.estado!=="Cancelado");
+  const cam=Object.fromEntries(camiones().map(c=>[c.id,c.patente]));
+  const ag=fn=>{const m={};L.forEach(p=>{const k=fn(p)||"Sin asignar",g=m[k]||(m[k]={nombre:k,pedidos:0,entregados:0,cancelados:0,cil:0,kg:0});g.pedidos++;if(p.estado==="Entregado")g.entregados++;if(p.estado==="Cancelado")g.cancelados++;else{g.cil+=totalCil(p);g.kg+=kgDe(p)}});return Object.values(m).sort((a,b)=>b.kg-a.kg)};
+  return {ini,fin,nombre,L,V,porEst:Object.fromEntries(ESTADOS.map(e=>[e,L.filter(p=>p.estado===e).length])),fmt:FORMATOS.map(([k,t])=>{const c=V.reduce((a,p)=>a+(+p[k]||0),0);return {formato:t,cil:c,kg:c*KG[k]}}),
+    porCli:ag(p=>p.cliente),porCho:ag(p=>nomChofer(p.chofer)),porCam:ag(p=>cam[p.camionId]),cam}}
+function renderInforme(){const r=datosInf();
+  $("#inf-rango").textContent=S.periodo==="dia"?"Periodo: "+fLarga(r.ini):`Periodo: ${fLarga(r.ini)} al ${fLarga(new Date(r.fin-1))}`;
+  $("#inf-kpis").innerHTML=[["Pedidos",r.L.length],["Entregados",r.porEst.Entregado],["Cancelados",r.porEst.Cancelado],["Cilindros",r.V.reduce((a,p)=>a+totalCil(p),0)],["Kg de gas",r.V.reduce((a,p)=>a+kgDe(p),0).toLocaleString("es-CL")]].map(([t,v])=>`<div class="kpi"><small>${t}</small><b>${v}</b></div>`).join("");
+  const vac=n=>`<tr><td colspan="${n}" class="note">Sin pedidos en este periodo.</td></tr>`;
+  $("#inf-cli").innerHTML=r.porCli.map(g=>`<tr><td>${esc(g.nombre)}</td><td class="q">${g.pedidos}</td><td class="q">${g.cil}</td><td class="q">${g.kg.toLocaleString("es-CL")}</td></tr>`).join("")||vac(4);
+  $("#inf-cho").innerHTML=r.porCho.map(g=>`<tr><td>${esc(g.nombre)}</td><td class="q">${g.pedidos}</td><td class="q">${g.entregados}</td><td class="q">${g.kg.toLocaleString("es-CL")}</td></tr>`).join("")||vac(4);
+  $("#inf-cam").innerHTML=r.porCam.map(g=>`<tr><td>${g.nombre==="Sin asignar"?esc(g.nombre):'<span class="plate">'+esc(g.nombre)+"</span>"}</td><td class="q">${g.pedidos}</td><td class="q">${g.entregados}</td><td class="q">${g.kg.toLocaleString("es-CL")}</td></tr>`).join("")||vac(4);
+  $("#inf-fmt").innerHTML=r.fmt.map(f=>`<tr><td>${f.formato}</td><td class="q">${f.cil}</td><td class="q">${f.kg.toLocaleString("es-CL")}</td></tr>`).join("")}
+$$("#inf-periodos .chip").forEach(b=>b.onclick=()=>{S.periodo=b.dataset.p;$$("#inf-periodos .chip").forEach(x=>x.setAttribute("aria-pressed",x===b));renderInforme()});
+$("#inf-fecha").onchange=renderInforme;
+$("#inf-btn").onclick=()=>{const msg=$("#inf-msg");if(!window.XLSX){msg.textContent="No se pudo cargar el generador de Excel. Recargue la página.";return}
+  const r=datosInf(),fF=s=>{const d=new Date(s);return isNaN(d)?"":d.toLocaleString("es-CL",{dateStyle:"short",timeStyle:"short"})};
+  const res=[["Informe de reparto a mayoristas — MR Gas"],["Periodo",r.nombre],["Desde",fLarga(r.ini)],["Hasta",fLarga(new Date(r.fin-1))],["Generado",new Date().toLocaleString("es-CL")],[],["Total pedidos",r.L.length],...ESTADOS.map(e=>[e,r.porEst[e]]),[],["Formato","Cilindros","Kg"],...r.fmt.map(f=>[f.formato,f.cil,f.kg])];
+  const det=r.L.map(p=>({"Fecha":fF(p.creado),"Cliente":p.cliente,"Dirección":p.direccion,"Teléfono":p.telefono||"","Camión":r.cam[p.camionId]||"","Chofer":nomChofer(p.chofer),"5 kg":+p.c5||0,"11 kg":+p.c11||0,"15 kg":+p.c15||0,"45 kg":+p.c45||0,"15 kg Al":+p.c15a||0,"Total cilindros":totalCil(p),"Kg":kgDe(p),"Estado":p.estado}));
+  const gr=(a,c)=>a.map(g=>({[c]:g.nombre,"Pedidos":g.pedidos,"Entregados":g.entregados,"Cancelados":g.cancelados,"Cilindros":g.cil,"Kg":g.kg}));
+  const wb=XLSX.utils.book_new(),add=(ws,n)=>XLSX.utils.book_append_sheet(wb,ws,n);
+  add(XLSX.utils.aoa_to_sheet(res),"Resumen");add(det.length?XLSX.utils.json_to_sheet(det):XLSX.utils.aoa_to_sheet([["Sin pedidos en este periodo"]]),"Pedidos");
+  add(XLSX.utils.json_to_sheet(gr(r.porCli,"Cliente")),"Por cliente");add(XLSX.utils.json_to_sheet(gr(r.porCho,"Chofer")),"Por chofer");add(XLSX.utils.json_to_sheet(gr(r.porCam,"Camión")),"Por camión");
+  XLSX.writeFile(wb,`Informe ${r.nombre}.xlsx`);msg.textContent="Informe descargado."};
+
+/* ---------- Vista del chofer: domicilio + mayoristas ---------- */
+const SIG={"Pendiente":["En ruta","Iniciar viaje"],"En ruta":["En cliente","Llegué al cliente"],"En cliente":["Entregado","Confirmar entrega"]};
+function misPedidos(){
+  const yo=S.yo.chofer,OD=leer("ordenDom",{}),dom=lista("pedidos").filter(p=>+p.chofer===+yo).map(p=>({t:"dom",p,orden:OD[p.id]??fecha(p.despacho||p.fecha).getTime(),pend:p.estado==="ruta",ent:p.estado==="entregado"&&esHoy(p.entregado)}));
+  const may=reparto().filter(p=>+p.chofer===+yo).map(p=>({t:"may",p,orden:typeof p.orden==="number"?p.orden:Date.parse(p.creado||0),pend:activo(p),ent:p.estado==="Entregado"&&esHoy(p.actualizado)}));
+  return [...dom,...may]}
+function renderChofer(){
+  const ch=S.col.choferes.get(String(S.yo.chofer)),nombre=(ch&&ch.nombre)||S.yo.nombre||S.yo.user;
+  $("#cv-hola").textContent="Hola, "+String(nombre).split(" ")[0];const f=new Date().toLocaleDateString("es-CL",{weekday:"long",day:"numeric",month:"long"});$("#cv-fecha").textContent=f.charAt(0).toUpperCase()+f.slice(1);
+  if(S.yo.chofer==null){$("#cv-lista").innerHTML='<div class="vacio"><b>Tu cuenta no tiene chofer asignado</b>Pide al administrador que la conecte con tu nombre en MR Gas.</div>';return}
+  const M=misPedidos(),pend=M.filter(x=>x.pend).sort((a,b)=>a.orden-b.orden),ent=M.filter(x=>x.ent);
+  const cil=x=>x.t==="dom"?itemsDom(x.p).reduce((a,i)=>a+(i.cant||0),0):totalCil(x.p);
+  $("#cv-k-pend").textContent=pend.length;$("#cv-k-cil").textContent=pend.reduce((a,x)=>a+cil(x),0);$("#cv-k-ent").textContent=ent.length;
+  $("#cv-tab-pend").setAttribute("aria-pressed",S.cvTab==="pend");$("#cv-tab-ent").setAttribute("aria-pressed",S.cvTab==="ent");
+  const L=S.cvTab==="pend"?pend:ent;
+  if(!L.length){$("#cv-lista").innerHTML=S.cvTab==="pend"?'<div class="vacio"><b>No tienes pedidos pendientes</b>Cuando te asignen uno, aparecerá aquí con sonido.</div>':'<div class="vacio"><b>Aún no entregas pedidos hoy</b>Los pedidos que entregues aparecerán aquí.</div>';return}
+  $("#cv-lista").innerHTML=L.map((x,i)=>{const p=x.p,v=vistaDe(p,x.t),sig=S.cvTab==="pend"&&i===0,tel=v.fono,maps="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((v.dir||"")+", Chile");
+    const accion=x.t==="may"?SIG[p.estado]:["entregado","Confirmar entrega"],key=x.t+"|"+p.id;
+    const cam=x.t==="may"&&p.camionId?(S.col.camiones.get(String(p.camionId))||{}).patente:"";
+    return `<article class="pc${sig?" sig":""}${S.cvTab==="ent"?" hecho":""}"><div class="tp"><span class="n">${S.cvTab==="pend"?i+1:"✓"}</span>
+      <div class="cl">${sig?"<small>Siguiente entrega</small>":""}<b>${esc(v.nombre)}</b></div><span class="tag ${x.t==="may"?"may":"ruta"}">${x.t==="may"?esc(p.estado):"Domicilio"}</span></div>
+      <div class="body"><div class="dir"><p>${esc(v.dir)||"Sin dirección"}${tel?`<small>Tel: ${esc(tel)}</small>`:""}${p.obs?`<small>${esc(p.obs)}</small>`:""}</p>${v.dir?`<a class="maps" href="${maps}" target="_blank" rel="noopener">${ICO.mapa}Mapa</a>`:""}</div>
+        <div class="qchips">${v.items.map(it=>`<span class="qchip"><b>${it.cant}</b>× ${esc(it.et)}</span>`).join("")}</div>
+        <div class="kgline"><span>${x.t==="may"?(cam?'Camión <span class="plate">'+esc(cam)+"</span>":"Sin camión"):(MEDIOS[p.medio]||"")}</span><span class="kgtag">${x.t==="may"?kgTxt(v.kg):clp(v.total)}</span></div></div>
+      <div class="acts">${S.cvTab==="pend"&&accion?`<button type="button" class="btn go${accion[0].toLowerCase()==="entregado"?" ok":""}" data-go="${key}" data-to="${accion[0]}">${accion[1]}</button>`:""}
+        ${S.cvTab==="pend"?`<div class="mini"><button type="button" data-mv="${key}" data-d="-1"${i===0?" disabled":""}>▲ Subir</button><button type="button" data-mv="${key}" data-d="1"${i===L.length-1?" disabled":""}>▼ Bajar</button>${tel?`<a href="tel:${esc(String(tel).replace(/[^\d+]/g,""))}">Llamar</a>`:""}</div>`
+          :`<div class="mini"><button type="button" data-undo="${key}">Deshacer entrega</button></div>`}</div></article>`}).join("");
+  const get=k=>{const [t,id]=k.split("|");return {t,p:S.col[t==="dom"?"pedidos":"reparto"].get(id)}};
+  $$("#cv-lista [data-go]").forEach(b=>b.onclick=async()=>{const fin=b.dataset.to.toLowerCase()==="entregado";
+    if(fin&&b.dataset.armed!=="1"){b.dataset.armed="1";b.classList.add("armed");b.textContent="Toca otra vez para confirmar";setTimeout(()=>{if(b.isConnected){b.dataset.armed="";b.classList.remove("armed");b.textContent="Confirmar entrega"}},4000);return}
+    b.disabled=true;const {t,p}=get(b.dataset.go);if(!p)return;const ok=t==="dom"?await cambiarDom(p,"entregado"):await cambiarRep(p,{estado:b.dataset.to});
+    $("#cv-msg").textContent=ok?(fin?"Entrega registrada.":"Estado actualizado: "+b.dataset.to+"."):"No se pudo guardar.";if(!ok)b.disabled=false});
+  $$("#cv-lista [data-mv]").forEach(b=>b.onclick=async()=>{const arr=pend.slice(),i=arr.findIndex(x=>x.t+"|"+x.p.id===b.dataset.mv),j=i+(+b.dataset.d);if(i<0||j<0||j>=arr.length)return;
+    [arr[i],arr[j]]=[arr[j],arr[i]];$("#cv-msg").textContent="Guardando orden…";
+    for(let k=0;k<arr.length;k++){const x=arr[k];if(x.t==="may")await cambiarRep(x.p,{orden:k});else{const OD=leer("ordenDom",{});OD[x.p.id]=k;grabar("ordenDom",OD)}}
+    $("#cv-msg").textContent="Orden guardado.";render()});
+  $$("#cv-lista [data-undo]").forEach(b=>b.onclick=async()=>{b.disabled=true;const {t,p}=get(b.dataset.undo);if(!p)return;const ok=t==="dom"?await cambiarDom(p,"ruta",p.chofer):await cambiarRep(p,{estado:"En cliente"});$("#cv-msg").textContent=ok?"Entrega deshecha.":"No se pudo guardar."});
+}
+$("#cv-tab-pend").onclick=()=>{S.cvTab="pend";renderChofer()};$("#cv-tab-ent").onclick=()=>{S.cvTab="ent";renderChofer()};
+
+/* ===================== Avisos: pantalla, sonido, vibración y notificación ===================== */
+let audio=null;
+function desbloquear(){try{if(!audio){const A=window.AudioContext||window.webkitAudioContext;if(A)audio=new A()}if(audio&&audio.state==="suspended")audio.resume()}catch(e){}}
+document.addEventListener("pointerdown",desbloquear,{passive:true});
+function sonar(){if(!leer("sonido",true)||!audio)return;try{const t=audio.currentTime;[[880,0],[1175,.18],[880,.36]].forEach(([f,d])=>{const o=audio.createOscillator(),g=audio.createGain();o.type="sine";o.frequency.value=f;
+  g.gain.setValueAtTime(0,t+d);g.gain.linearRampToValueAtTime(.35,t+d+.02);g.gain.exponentialRampToValueAtTime(.001,t+d+.16);o.connect(g).connect(audio.destination);o.start(t+d);o.stop(t+d+.18)})}catch(e){}}
+let toastT,toastKey=null;
+function aviso(t,c,alerta,key){const z=$("#toast");z.querySelector("b").textContent=t;z.querySelector("span").textContent=c||"";toastKey=key||null;z.classList.add("ver");clearTimeout(toastT);toastT=setTimeout(()=>z.classList.remove("ver"),alerta?8000:3500);
+  if(alerta){sonar();if(leer("vibrar",true)&&navigator.vibrate)try{navigator.vibrate([200,100,200])}catch(e){}
+    if(document.hidden&&window.Notification&&Notification.permission==="granted"&&navigator.serviceWorker)navigator.serviceWorker.ready.then(r=>r.showNotification(t,{body:c,icon:"../icons/icon-192.png",tag:key||"mrgas"})).catch(()=>{})}}
+$("#toast").onclick=()=>{$("#toast").classList.remove("ver");if(toastKey&&buscar(toastKey)&&S.yo.rol!=="chofer"){ir("bandeja");abrir(toastKey)}};
+function llego(v){recien.add(v.key);aviso(v.tipo==="dom"?`Nuevo pedido ${v.num}`:"Nuevo pedido mayorista",`${v.items.map(i=>i.cant+"×"+i.et).join(", ")} · ${v.nombre} · ${v.dir}`,true,v.key)}
+
+/* ===================== Sesión ===================== */
+async function entrar(perfil){
+  S.yo=perfil;$("#v-login").hidden=true;$("#v-app").hidden=false;
+  $("#top-sub").textContent=`${perfil.nombre||perfil.user} · ${perfil.rol==="chofer"?"Repartidor":perfil.rol==="admin"?"Administrador":"Encargado"}`;
+  $("#aj-yo").textContent=`${perfil.nombre||perfil.user} (${perfil.rol==="chofer"?"Repartidor":perfil.rol==="admin"?"Administrador":"Encargado"})`;
+  try{const j=await api("cambios",null,"&desde=0");aplicar(j.docs,true);S.ver=j.ver}catch(e){aviso("Sin conexión","No se pudieron cargar los pedidos. Reintentando…",false)}
+  S.listo=true;const v=leer("vista",null),ok=(perfil.rol==="chofer"?TABS_CHOFER:TABS_EQUIPO).some(t=>t[0]===v);
+  ir(ok?v:perfil.rol==="chofer"?"chofer":"bandeja");clearTimeout(S.timer);S.timer=setTimeout(sondear,4000);
+}
+function salir(msg){clearTimeout(S.timer);api("salir",{}).catch(()=>{});S.yo=null;S.listo=false;S.ver=0;Object.values(S.col).forEach(m=>m.clear());S.est={};
+  $("#v-app").hidden=true;$("#v-login").hidden=false;const e=$("#lg-err");e.textContent=msg||"";e.hidden=!msg}
+$("#b-salir").onclick=()=>salir();
+$("#f-login").addEventListener("submit",async e=>{e.preventDefault();desbloquear();const err=$("#lg-err"),btn=$("#lg-btn");err.hidden=true;btn.disabled=true;btn.textContent="Ingresando…";
+  try{const j=await api("login",{user:$("#lg-user").value.trim().toLowerCase(),pass:$("#lg-pass").value});$("#f-login").reset();await entrar(j.perfil)}
+  catch(x){err.textContent=x.status===401||x.status===403?x.message:"No hay conexión con el servidor. Revise la señal y vuelva a intentar.";err.hidden=false}
+  finally{btn.disabled=false;btn.textContent="Ingresar"}});
+
+/* ajustes */
+$("#aj-sonido").checked=leer("sonido",true);$("#aj-sonido").onchange=e=>grabar("sonido",e.target.checked);
+$("#aj-vibrar").checked=leer("vibrar",true);$("#aj-vibrar").onchange=e=>grabar("vibrar",e.target.checked);
+$("#aj-probar").onclick=()=>{desbloquear();aviso("Así suena un pedido nuevo","Este aviso aparece cada vez que llega un pedido.",true)};
+$("#aj-push").onclick=async()=>{const m=$("#aj-push-msg");if(!("Notification" in window)){m.textContent="Este navegador no permite notificaciones. En iPhone, primero instale la app en la pantalla de inicio.";return}
+  const p=await Notification.requestPermission();m.textContent=p==="granted"?"Listo. El celular avisará mientras la app esté abierta o en segundo plano.":"Las notificaciones quedaron bloqueadas. Actívelas en los ajustes del celular."};
+let instEv=null;addEventListener("beforeinstallprompt",e=>{e.preventDefault();instEv=e;$("#aj-instalar").hidden=false});
+$("#aj-instalar").onclick=async()=>{if(!instEv)return;instEv.prompt();await instEv.userChoice.catch(()=>{});instEv=null;$("#aj-instalar").hidden=true};
+try{if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
+
+/* inicio: si ya hay sesión de MR Gas en este navegador, entra solo */
+(async()=>{if(!location.protocol.startsWith("http"))return;try{const j=await api("yo");if(j.perfil)entrar(j.perfil)}catch(e){}})();
+</script>
+</body>
+</html>
