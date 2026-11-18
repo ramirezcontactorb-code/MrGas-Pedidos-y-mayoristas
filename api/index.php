@@ -3,6 +3,7 @@
 declare(strict_types=1);
 require __DIR__ . '/nucleo.php';
 require __DIR__ . '/push.php';
+require __DIR__ . '/diaria.php';
 date_default_timezone_set('America/Santiago');
 iniciarSesion();
 
@@ -21,10 +22,14 @@ try {
         $s = db()->prepare('SELECT * FROM usuarios WHERE usuario = ?');
         $s->execute([strtolower(trim((string) ($b['user'] ?? '')))]);
         $u = $s->fetch();
-        if (!$u || !password_verify((string) ($b['pass'] ?? ''), $u['hash'])) { anotarIntento('login'); salida(['error' => 'Usuario o clave incorrectos. Revise mayúsculas y vuelva a intentar.'], 401); }
+        $pass = (string) ($b['pass'] ?? '');
+        // choferes con clave diaria: la clave es el código de 5 dígitos de HOY
+        $okClave = $u && (esDiaria($u) ? hash_equals(codigoDiario((int) $u['uid']), trim($pass)) : password_verify($pass, $u['hash']));
+        if (!$okClave) { anotarIntento('login'); salida(['error' => $u && esDiaria($u) ? 'Clave del día incorrecta. Pídale la clave de hoy al encargado.' : 'Usuario o clave incorrectos. Revise mayúsculas y vuelva a intentar.'], 401); }
         if (!$u['activo']) salida(['error' => 'Este usuario está desactivado. Pida al administrador que lo active.'], 403);
         session_regenerate_id(true);
         $_SESSION['uid'] = (int) $u['uid'];
+        $_SESSION['dia'] = date('Y-m-d');
         salida(['ok' => true, 'perfil' => perfilDe($u)]);
     }
     case 'salir':
@@ -33,6 +38,7 @@ try {
         salida(['perfil' => yo()]);
     case 'clave': {
         $u = requiereYo(); $b = cuerpo();
+        if (esDiaria($u)) salida(['error' => 'Su clave cambia sola cada día. Pídale la clave de hoy al encargado.'], 400);
         $s = db()->prepare('SELECT hash FROM usuarios WHERE uid = ?'); $s->execute([$u['uid']]);
         if (!password_verify((string) ($b['actual'] ?? ''), (string) $s->fetchColumn())) salida(['error' => 'La clave actual no es correcta.'], 400);
         $n = (string) ($b['nueva'] ?? '');
@@ -105,6 +111,41 @@ try {
         if ($cambios) { try { $envios = avisosDe($cambios, (int) $u['uid']); } catch (Throwable $e) { error_log('MR Gas push: ' . $e->getMessage()); } }
         if (!$envios) salida(['res' => $res]);
         responderYSeguir(['res' => $res], fn() => enviarPush($envios)); // responde al tiro y después avisa a los celulares
+    }
+    // ---------- choferes: acceso a la App repartidores con clave diaria ----------
+    case 'choferes_acceso': {
+        $u = requiereYo(); if (!puedeChoferes($u)) salida(['error' => 'Su usuario no tiene el cuadro Choferes.'], 403);
+        $l = db()->query("SELECT * FROM usuarios WHERE rol = 'chofer' ORDER BY nombre")->fetchAll();
+        salida(['fecha' => date('Y-m-d'), 'usuarios' => array_map(fn($x) => perfilDe($x) + ['diaria' => esDiaria($x), 'codigo' => esDiaria($x) ? codigoDiario((int) $x['uid']) : null], $l)]);
+    }
+    case 'chofer_acceso': {
+        $u = requiereYo(); if (!puedeChoferes($u)) salida(['error' => 'Su usuario no tiene el cuadro Choferes.'], 403);
+        $b = cuerpo(); $permDiaria = json_encode(['_v2', 'app.repartidores', PERM_DIARIA]);
+        if (!empty($b['uid'])) { // activar / desactivar o pasar a clave diaria (solo usuarios repartidor)
+            $s1 = db()->prepare("SELECT * FROM usuarios WHERE uid = ? AND rol = 'chofer'"); $s1->execute([(int) $b['uid']]); $x = $s1->fetch();
+            if (!$x) salida(['error' => 'Ese usuario no es un repartidor.'], 400);
+            if (isset($b['activo'])) db()->prepare('UPDATE usuarios SET activo = ? WHERE uid = ?')->execute([$b['activo'] ? 1 : 0, $x['uid']]);
+            if (!empty($b['diaria'])) {
+                $pp = $x['permisos'] !== null ? (json_decode($x['permisos'], true) ?: []) : [];
+                if (!in_array('_v2', $pp, true)) $pp = ['_v2', 'app.repartidores'];
+                if (!in_array('app.repartidores', $pp, true)) $pp[] = 'app.repartidores';
+                if (!in_array(PERM_DIARIA, $pp, true)) $pp[] = PERM_DIARIA;
+                db()->prepare('UPDATE usuarios SET permisos = ?, hash = ? WHERE uid = ?')->execute([json_encode(array_values($pp)), password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT), $x['uid']]);
+            }
+            salida(['ok' => true]);
+        }
+        $ch = (int) ($b['chofer'] ?? 0); $user = strtolower(trim((string) ($b['user'] ?? '')));
+        if ($ch <= 0) salida(['error' => 'Elija el chofer.'], 400);
+        if (!preg_match('/^[a-z0-9._-]{3,30}$/', $user)) salida(['error' => 'El usuario debe tener entre 3 y 30 letras o números, sin espacios ni tildes.'], 400);
+        $s1 = db()->prepare('SELECT COUNT(*) FROM usuarios WHERE usuario = ?'); $s1->execute([$user]);
+        if ((int) $s1->fetchColumn() > 0) salida(['error' => 'Ese usuario ya existe. Elija otro.'], 400);
+        $s1 = db()->prepare("SELECT COUNT(*) FROM usuarios WHERE rol = 'chofer' AND chofer = ? AND activo = 1"); $s1->execute([$ch]);
+        if ((int) $s1->fetchColumn() > 0) salida(['error' => 'Ese chofer ya tiene acceso.'], 400);
+        $local = isset($b['local']) ? (int) $b['local'] : null; $nombre = mb_substr(trim((string) ($b['nombre'] ?? $user)), 0, 80);
+        // la clave guardada es aleatoria e inservible: el chofer entra solo con el código del día
+        db()->prepare('INSERT INTO usuarios (usuario, hash, nombre, rol, local_id, sucursales, permisos, chofer, activo, creado) VALUES (?,?,?,?,?,?,?,?,1,?)')
+            ->execute([$user, password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT), $nombre ?: $user, 'chofer', $local, json_encode($local ? [$local] : []), $permDiaria, $ch, ahora()]);
+        salida(['ok' => true]);
     }
     // ---------- avisos al celular (push) ----------
     case 'push_clave':
@@ -190,6 +231,12 @@ try {
                 if ($uid === $adm['uid'] && !$b['activo']) salida(['error' => 'No puede desactivar su propio usuario.'], 400);
                 db()->prepare('UPDATE usuarios SET activo = ? WHERE uid = ?')->execute([$b['activo'] ? 1 : 0, $uid]);
                 salida(['ok' => true]);
+            }
+            $s1 = db()->prepare('SELECT * FROM usuarios WHERE uid = ?'); $s1->execute([$uid]); $ant = $s1->fetch();
+            if ($ant && esDiaria($ant) && $rol === 'chofer' && $pass === '') {
+                $pp = $per !== null ? (json_decode($per, true) ?: []) : ['_v2', 'app.repartidores'];
+                if (!in_array(PERM_DIARIA, $pp, true)) $pp[] = PERM_DIARIA;
+                $per = json_encode(array_values($pp));
             }
             db()->prepare('UPDATE usuarios SET nombre = ?, rol = ?, local_id = ?, sucursales = ?, permisos = ?, chofer = ? WHERE uid = ?')
                 ->execute([$nombre, $rol, $local, json_encode($suc), $per, $chofer, $uid]);

@@ -239,6 +239,7 @@ td select.pill{border:0;padding:3px 9px}
     <form id="f-login" autocomplete="on">
       <label>Usuario<input id="lg-user" autocomplete="username" required placeholder="El mismo de MR Gas"></label>
       <label>Clave<input id="lg-pass" type="password" autocomplete="current-password" required></label>
+      <p class="note" style="margin:-4px 0 0">Choferes: usen la <b>clave del día</b> de 5 dígitos que les da el encargado.</p>
       <p class="err" id="lg-err" hidden></p>
       <button class="btn full" type="submit" id="lg-btn">Ingresar</button>
     </form>
@@ -435,7 +436,7 @@ async function api(a,body,q=""){
 const S={yo:null,ver:0,col:{pedidos:new Map(),reparto:new Map(),camiones:new Map(),choferes:new Map()},est:{},vista:"bandeja",
   estado:"pendiente",tipo:"todos",filtro:"Activos",abierto:null,confirmar:false,cvTab:"pend",periodo:"dia",listo:false,timer:null,mios:new Set()};
 const lista=c=>[...S.col[c].values()];
-const choferes=()=>lista("choferes").filter(c=>c&&c.nombre).sort((a,b)=>a.nombre.localeCompare(b.nombre,"es"));
+const choferes=()=>lista("choferes").filter(c=>c&&c.nombre&&c.activo!==false).sort((a,b)=>a.nombre.localeCompare(b.nombre,"es"));
 const camiones=()=>lista("camiones").sort((a,b)=>(a.patente||"").localeCompare(b.patente||""));
 const clientes=()=>(S.est.mayoristas||[]).slice().sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||"","es"));
 const reparto=()=>lista("reparto");

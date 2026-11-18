@@ -1241,6 +1241,7 @@ const IC={
   informes:'<path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6M20 16V5"/>',
   cuadratura:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2"/><path d="m9 13 2 2 4-4"/>',
   compras:'<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
+  choferes:'<circle cx="9" cy="8" r="3.2"/><path d="M3 19c.8-3.2 3.2-5 6-5s5.2 1.8 6 5"/><rect x="15" y="9" width="6" height="5" rx="1"/><path d="M16.5 9V7.5a1.5 1.5 0 0 1 3 0V9"/>',
   chofer:'<path d="M12 21s-7-6-7-12a7 7 0 0 1 14 0c0 6-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
   bodega:'<rect x="7" y="6" width="10" height="15" rx="4"/><path d="M10 6V3h4v3M7 13h10"/>',
   caja:'<rect x="3" y="11" width="18" height="9" rx="1"/><rect x="6" y="4" width="12" height="7"/><path d="M7 15h2M11 15h2M15 15h2"/>',
@@ -1264,6 +1265,7 @@ const A="admin",E="encargado",C="chofer";
 const MODULOS=[
   {id:"pedidos",t:"Pedidos de Gas",s:"Ingreso y estado",r:[A,E]},
   {id:"ruta",t:"Asigna Ruta",s:"Pedidos a choferes",r:[A,E]},
+  {id:"choferes",t:"Choferes",s:"Acceso a la app y clave del día",r:[A,E]},
   {id:"sectorizar",t:"Sectorizar",s:"Mapa y despacho automático",r:[A,E]},
   {id:"informes",t:"Informes",s:"Pedidos y rendiciones",r:[A,E]},
   {id:"petroleo",t:"Petróleo",s:"Combustible de móviles",r:[A,E]},
@@ -1282,7 +1284,7 @@ const ACCIONES=[
   {id:"sucursal",t:"Cambio de<br>Sucursal",r:[A]},
   {id:"salir",t:"Salir del<br>Sistema",r:[A,E,C]}
 ];
-const MOD_PERM=["pedidos","ruta","sectorizar","mayorista","cuadratura","bodega","compras","informes"];
+const MOD_PERM=["pedidos","ruta","choferes","sectorizar","mayorista","cuadratura","bodega","compras","informes"];
 /* Permisos detallados (versión 2, marcada con "_v2"):
    "pedidos" = ver y trabajar · "pedidos:ver" = solo ver · acciones y apps aparte */
 const PERM_EXTRA=[["pedidos.anular","Anular pedidos"],["cfg.choferes","Configurar choferes y móviles"],["cfg.clientes","Configurar clientes mayoristas"],["cfg.precios","Cambiar precios (gas, mayoristas, vales y QR)"]];
@@ -1291,11 +1293,11 @@ const CFG_PERM={choferes:"cfg.choferes",clientesMay:"cfg.clientes",precios:"cfg.
 const ESTADO_PRECIOS=["precios","preciosMayor","preciosEnvase","preciosConvenio","listas","historico","listasMay","comisionVale","descQR"];
 const PLANTILLAS=[
   ["Telefonista",["pedidos","ruta:ver","app.repartidores"]],
-  ["Despachador",["pedidos","pedidos.anular","ruta","sectorizar","informes:ver","app.repartidores","app.distribucion"]],
+  ["Despachador",["pedidos","pedidos.anular","ruta","choferes","sectorizar","informes:ver","app.repartidores","app.distribucion"]],
   ["Cajero / cuadratura",["pedidos:ver","ruta:ver","cuadratura","mayorista","informes"]],
   ["Vendedor mayorista",["mayorista","informes:ver","cfg.clientes","app.distribucion"]],
   ["Bodeguero",["ruta:ver","bodega","compras"]],
-  ["Supervisor",["pedidos","pedidos.anular","ruta","sectorizar","mayorista","cuadratura","bodega","compras","informes","cfg.choferes","cfg.clientes","app.repartidores","app.distribucion"]]];
+  ["Supervisor",["pedidos","pedidos.anular","ruta","choferes","sectorizar","mayorista","cuadratura","bodega","compras","informes","cfg.choferes","cfg.clientes","app.repartidores","app.distribucion"]]];
 const esV2=p=>Array.isArray(p)&&p.includes("_v2");
 // acciones especiales y apps: los usuarios antiguos (sin "_v2") conservan lo que podían hacer antes
 const tieneExtra=c=>{if(!yo)return false;if(esAdmin())return true;if(yo.rol!=="encargado")return false;
@@ -1901,7 +1903,7 @@ const V={
     const entHoy=ps.filter(p=>p.estado==="entregado"&&(p.entregado||"").startsWith(hoy)).length,nom=String(yo.nombre||"").split(" ")[0];
     const card=(attr,ico,t,d,go="Abrir")=>`<${attr.startsWith("href")?"a":"button"} class="modulo" ${attr}><span class="ico">${svg(ico)}</span><b>${t}</b><span class="sub">${d}</span><span class="mgo">${go}<span aria-hidden="true">→</span></span></${attr.startsWith("href")?"a":"button"}>`;
     return `<div class="phead-mr"><div class="eyebrow-mr">Sucursal ${esc(nomLocal(suc))}</div><h1>${saludo}, ${esc(nom)}</h1><p class="sub">${fechaLarga(hoy)}</p></div>
-      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","cuadratura","bodega","compras","erp","informes","config"],FUERA=["sectorizar"];
+      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","choferes","mayorista","cuadratura","bodega","compras","erp","informes","config"],FUERA=["sectorizar"];
         const ids=[...ORDEN,...MODULOS.map(m=>m.id).filter(id=>!ORDEN.includes(id)&&!FUERA.includes(id))];
         return ids.map(id=>{if(id==="erp")return yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","ERP Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):"";
           const m=MODULOS.find(x=>x.id===id);return m&&puede(m.id)?card(`data-modulo="${m.id}" type="button"`,m.id,m.t,m.s):""}).join("")})()}</div>
@@ -1947,7 +1949,7 @@ const V={
   ruta(){
     const ps=pedidosSuc(),hoy=hoyStr(),pend=ps.filter(p=>p.estado==="pendiente"),enRuta=ps.filter(p=>p.estado==="ruta");
     const entHoy=ps.filter(p=>p.estado==="entregado"&&(p.entregado||"").startsWith(hoy));
-    const chAll=chOrden(),ch=ocultarMovil?chAll.filter(c=>c.activo!==false):chAll,activos=chAll.filter(c=>c.activo!==false),SEC=D.sectores||[];
+    const chAll=chOrden(),activos=chAll.filter(c=>c.activo!==false),ch=activos,SEC=D.sectores||[];
     const carga=id=>D.pedidos.filter(p=>p.chofer===id&&p.estado==="ruta").length;
     const sugerido=(sec,p)=>{if(sec==null)return null;const r=elegirCamion(sec,p);return r?r.c.id:null};
     const opcSec=sel=>`<option value="">Sector…</option>`+SEC.map(x=>`<option value="${x.id}" ${x.id===sel?"selected":""}>${esc(x.nombre)}</option>`).join("");
@@ -1959,6 +1961,7 @@ const V={
       ${p.factura?`<dt>Factura</dt><dd>${esc(p.factura.razon||"")} · RUT ${esc(p.factura.rut||"")}</dd>`:""}
       <dt>Ingresó</dt><dd>${esc(p.usuario||(p.origen==="web"?"Sitio web":"—"))}</dd>
       ${p.reclamado?`<dt>Reclamo</dt><dd>${esc(p.reclamado)}</dd>`:""}${p.cierreFalso?`<dt>Cierre falso</dt><dd>${esc(p.cierreFalso)}</dd>`:""}</dl></details>`;
+    const lapiz=p=>soloVer("ruta")?"":`<button class="btn chico linea marca-btn lapiz" data-editest="${p.id}" type="button" title="Corregir estado del pedido N° ${p.id}" aria-label="Corregir estado del pedido N° ${p.id}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>`;
     const base=p=>{const min=minutos(p.fecha),tarde=min>30&&["pendiente","ruta"].includes(p.estado);
       return `<td class="num">${p.id}${marcasP(p)}</td><td class="num">${esc(p.fecha.slice(11))}${tarde?`<br><span class="pill bajo">${min>=120?Math.floor(min/60)+" h":min+" min"}</span>`:""}</td>
       <td>${p.nombre?esc(p.nombre)+"<br>":""}<span class="num" ${p.nombre?'style="color:var(--muted)"':""}>${esc(p.fono)}</span></td><td class="num">${resumenP(p)}</td>
@@ -1966,26 +1969,26 @@ const V={
       <td>${MEDIOS[p.medio]||""}<br><span style="color:var(--muted)">${FUENTES[p.origen]||""}</span></td><td>${esc(p.dir)}</td>`};
     const filaPend=p=>{const sec=sectorDe(p);return `<tr class="${minutos(p.fecha)>30?"tarde":""}">${base(p)}
       <td><div class="acc asignar"><select data-sec="${p.id}" aria-label="Sector del pedido ${p.id}">${opcSec(sec)}</select><select id="ch-${p.id}" aria-label="Móvil para pedido ${p.id}">${opcCh(sugerido(sec,p))}</select>
-        <button class="btn chico" data-asignar="${p.id}" type="button">Despachar</button><button class="btn chico linea marca-btn" data-anular="${p.id}" type="button" title="Anular pedido">A</button></div></td><td>${det(p)}</td></tr>`};
+        <button class="btn chico" data-asignar="${p.id}" type="button">Despachar</button><button class="btn chico linea marca-btn" data-anular="${p.id}" type="button" title="Anular pedido">A</button>${lapiz(p)}</div></td><td>${det(p)}</td></tr>`};
     const filaRuta=p=>`<tr class="${minutos(p.fecha)>30?"tarde":""}">${base(p)}<td>${esc(nomChofer(p.chofer))}<br><span style="color:var(--muted)">${esc(nomSector(sectorDe(p)))}</span></td>
       <td><div class="acc"><button class="btn chico" data-entregar="${p.id}" type="button">Entregado</button><button class="btn chico linea" data-devolver="${p.id}" type="button">Reasignar</button>
-        <button class="btn chico linea marca-btn ${p.reclamado?"on":""}" data-reclamo="${p.id}" type="button" title="Reclamado por cliente">R</button><button class="btn chico linea marca-btn" data-anular="${p.id}" type="button" title="Anular pedido">A</button></div></td><td>${det(p)}</td></tr>`;
+        <button class="btn chico linea marca-btn ${p.reclamado?"on":""}" data-reclamo="${p.id}" type="button" title="Reclamado por cliente">R</button><button class="btn chico linea marca-btn" data-anular="${p.id}" type="button" title="Anular pedido">A</button>${lapiz(p)}</div></td><td>${det(p)}</td></tr>`;
     const filaEnt=p=>`<tr>${base(p)}<td>${esc(nomChofer(p.chofer))}<br><span class="num" style="color:var(--muted)">${esc((p.entregado||"").slice(11))}</span></td>
-      <td><div class="acc"><button class="btn chico linea marca-btn" data-cf="${p.id}" type="button" title="Cierre falso: el móvil lo cerró sin entregar">CF</button><button class="btn chico linea marca-btn ${p.reclamado?"on":""}" data-reclamo="${p.id}" type="button" title="Reclamado por cliente">R</button></div></td><td>${det(p)}</td></tr>`;
+      <td><div class="acc"><button class="btn chico linea marca-btn" data-cf="${p.id}" type="button" title="Cierre falso: el móvil lo cerró sin entregar">CF</button><button class="btn chico linea marca-btn ${p.reclamado?"on":""}" data-reclamo="${p.id}" type="button" title="Reclamado por cliente">R</button>${lapiz(p)}</div></td><td>${det(p)}</td></tr>`;
     const cab=x=>`<thead><tr><th>N°</th><th>Hora</th><th>Teléfono / cliente</th><th>Cilindros</th><th class="der">Total</th><th>Forma / canal</th><th>Dirección</th>${x}<th></th></tr></thead>`;
     return cabeza("Asigna Ruta")+`<div class="rt-top">`+contadores(ps)+`<div class="ruta-barra">
-        <label class="radio"><input type="checkbox" id="rt-ocultar" ${ocultarMovil?"checked":""}> Ocultar móviles inactivos</label>
+
         <label class="radio"><input type="checkbox" id="rt-auto" ${autoRefresco?"checked":""}> Actualización automática</label>
         <button class="btn chico linea" id="rt-recargar" type="button">Recargar</button>
         <button class="btn chico" id="rt-sectorizar" type="button">Sectorizar pedidos</button>
         <span class="leyenda"><b class="marca m-r">R</b> Reclamado <b class="marca m-a">A</b> Anular <b class="marca m-cf">CF</b> Cierre falso</span></div></div>
       <div class="ruta">
       <aside class="caja moviles" style="padding:18px"><h3>Móviles</h3>
-        <table><thead><tr><th>Móvil</th><th class="der" title="Pedidos despachados hoy">Hoy</th><th>Sector</th><th class="der">Activo</th></tr></thead><tbody>
-        ${ch.map(c=>{const n=D.pedidos.filter(p=>p.chofer===c.id&&(p.despacho||"").startsWith(hoy)).length;return `<tr class="${rutaChofer===c.id?"rt-on":""}"><td><button type="button" class="rt-ch" data-vch="${c.id}" title="Ver pedidos de ${esc(c.nombre)}"><span class="punto ${c.activo!==false?"on":""}"></span>${esc(c.nombre)}</button><br><span style="color:var(--muted);font-size:.82rem">${esc(c.patente||"Sin patente")}${c.local!==suc?" · "+esc(nomLocal(c.local)):""}</span></td><td class="der num">${n}</td>
+        <table><thead><tr><th>Móvil</th><th class="der" title="Pedidos despachados hoy">Hoy</th><th>Sector</th></tr></thead><tbody>
+        ${ch.map(c=>{const n=D.pedidos.filter(p=>p.chofer===c.id&&(p.despacho||"").startsWith(hoy)).length;return `<tr class="${rutaChofer===c.id?"rt-on":""}"><td><button type="button" class="rt-ch" data-vch="${c.id}" title="Ver pedidos de ${esc(c.nombre)}"><span class="punto on"></span>${esc(c.nombre)}</button><br><span style="color:var(--muted);font-size:.82rem">${esc(c.patente||"Sin patente")}${c.local!==suc?" · "+esc(nomLocal(c.local)):""}</span></td><td class="der num">${n}</td>
           <td><select data-chsec="${c.id}" aria-label="Sector de ${esc(c.nombre)}" class="sel-mini">${opcSec(c.sector??null).replace("Sector…","—")}</select></td>
-          <td class="der"><input type="checkbox" data-activo="${c.id}" ${c.activo!==false?"checked":""} aria-label="Móvil ${esc(c.nombre)} activo" style="width:auto"></td></tr>`}).join("")||'<tr><td colspan="4">Sin móviles. Agregue uno abajo.</td></tr>'}
-        </tbody></table><p class="nota">Suma de pedidos despachados el ${new Date().toLocaleDateString("es-CL")}. El sector del móvil sirve para sugerirlo al despachar.</p>
+          </tr>`}).join("")||'<tr><td colspan="3">No hay móviles activos. Actívelos en el cuadro Choferes.</td></tr>'}
+        </tbody></table><p class="nota">Suma de pedidos despachados el ${new Date().toLocaleDateString("es-CL")}. El sector del móvil sirve para sugerirlo al despachar. Los móviles se activan o desactivan en <b>Choferes</b>.</p>
         ${esAdmin()?'<button type="button" class="btn chico linea" id="rt-ir-choferes">Agregar o editar choferes</button>':'<p class="nota" style="margin:0">Los choferes los agrega el administrador en Configuraciones.</p>'}</aside>
       <div style="min-width:0">
         ${(()=>{const fch=rutaChofer!=null&&D.choferes.some(c=>c.id===rutaChofer)?rutaChofer:null,deCh=a=>fch==null?a:a.filter(p=>p.chofer===fch);
@@ -2513,7 +2516,7 @@ const L={
       log("pedidos","Cierre falso",`Pedido N° ${p.id} · ${nomChofer(p.chofer)} lo marcó entregado sin entregar`,{chofer:p.chofer,pedido:p.id});setEstado(p,"ruta");guardar();pintarSistema()}));
     $$("[data-activo]").forEach(i=>i.onchange=()=>{{const c=D.choferes.find(c=>c.id===+i.dataset.activo);c.activo=i.checked;nubeChofer(c)}guardar();pintarSistema()});
     $$("[data-chsec]").forEach(s=>s.onchange=()=>{const c=D.choferes.find(x=>x.id===+s.dataset.chsec);c.sector=s.value?+s.value:null;nubeChofer(c);guardar();pintarSistema()});
-    $("#rt-ocultar").onchange=e=>{ocultarMovil=e.target.checked;pintarSistema()};
+    {const o=$("#rt-ocultar");if(o)o.onchange=e=>{ocultarMovil=e.target.checked;pintarSistema()}}
     $("#rt-auto").onchange=e=>{autoRefresco=e.target.checked;if(autoRefresco)pintarSistema()};
     $("#rt-recargar").onclick=()=>{pintarSistema();aviso("Lista actualizada",new Date().toLocaleTimeString("es-CL"))};
     if(!CALLES)cargarCalles().then(()=>{if(mod==="ruta")pintarSistema()}).catch(()=>{});
@@ -3696,6 +3699,94 @@ function enlazarPlantillas(){
     $$('input[name="us-perm"],input[name="us-app"]').forEach(c=>c.checked=p.includes(c.value));
     $$("[data-plantilla]").forEach(x=>x.classList.toggle("activo",x===b))})}
 {const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{aplicarPermisosUI();enlazarPlantillas()}catch(e){}return r}}
+
+/* ===================== CHOFERES: acceso a la App repartidores con clave del día ===================== */
+const CHA={datos:null,cargando:false,error:"",msg:""};
+async function cargarCHA(){if(CHA.cargando)return;CHA.cargando=true;
+  try{CHA.datos=await api("choferes_acceso");CHA.error=""}catch(e){CHA.error=e.message;CHA.datos=null}
+  CHA.cargando=false;if(mod==="choferes")pintarSistema()}
+const usuarioSugerido=n=>String(n||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim().split(/\s+/).slice(0,2).join(".").replace(/[^a-z0-9._-]/g,"");
+const urlRep=()=>location.origin+location.pathname.replace(/[^/]*$/,"")+"repartidores/";
+function textoClave(u,c){const ch=D.choferes.find(x=>x.id===u.chofer),nom=(ch&&ch.nombre||u.nombre||"").split(" ")[0];
+  return `Hola ${nom}, tu clave de hoy (${fF(CHA.datos.fecha).slice(0,5)}) para la App repartidores MR Gas es: ${c}\nUsuario: ${u.user}\nEntra en: ${urlRep()}`}
+V.choferes=function(){
+  const top=cabeza("Choferes");
+  if(!NUBE.activo)return top+'<div class="caja"><p>Este cuadro funciona con el sistema conectado al servidor (Hostinger).</p></div>';
+  if(CHA.error)return top+`<div class="caja"><p class="error">${esc(CHA.error)}</p><button class="btn" id="cha-recargar" type="button">Reintentar</button></div>`;
+  if(!CHA.datos)return top+'<div class="caja"><p class="nota">Cargando choferes…</p></div>';
+  const ver=soloVer("choferes"),hoy=CHA.datos.fecha,U=CHA.datos.usuarios,con=new Set(U.filter(u=>u.activo).map(u=>u.chofer));
+  const libres=D.choferes.filter(c=>c.activo!==false&&!con.has(c.id)).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const accDe=c=>U.filter(u=>u.chofer===c.id).sort((a,b)=>b.activo-a.activo)[0]||null;
+  const fila=c=>{const u=accDe(c),fono=String(c.fono||"").replace(/\D/g,""),on=c.activo!==false;
+    const wa=u&&fono?`https://wa.me/${fono.length===9?"56"+fono:fono}?text=${encodeURIComponent(textoClave(u,u.codigo||""))}`:"";
+    return `<tr class="${on?"":"cha-off"}"><td><b>${esc(c.nombre)}</b><small class="nota" style="display:block;margin:0">${esc(c.patente||"Sin patente")}${D.locales.length>1?" · "+esc(nomLocal(c.local)):""}</small></td>
+      <td><label class="cha-sw" title="${on?"Recibe pedidos en Asigna Ruta":"No aparece en Asigna Ruta"}"><input type="checkbox" data-chon="${c.id}" ${on?"checked":""} ${ver?"disabled":""}><span></span><b>${on?"Activo":"No activo"}</b></label></td>
+      <td class="num">${u?esc(u.user):'<span class="nota" style="margin:0">Sin acceso</span>'}</td>
+      <td>${!u?"":!u.activo?'<span class="pill anulado">Acceso quitado</span>':u.diaria?`<span class="cha-cod num">${u.codigo}</span>`:'<span class="nota" style="margin:0">Clave propia</span>'}</td>
+      <td><div class="acc">${u&&u.activo&&u.diaria?(wa?`<a class="btn chico" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`:"")+`<button class="btn chico linea" type="button" data-chacopiar="${u.uid}">Copiar mensaje</button>`:""}
+        ${ver||!u?"":u.activo&&!u.diaria?`<button class="btn chico linea" type="button" data-chadiaria="${u.uid}">Usar clave del día</button>`:""}
+        ${ver||!u?"":`<button class="btn chico linea" type="button" data-chaact="${u.uid}" data-v="${u.activo?0:1}">${u.activo?"Quitar acceso":"Dar acceso"}</button>`}</div></td></tr>`};
+  const lista=chOrden(),nAct=lista.filter(c=>c.activo!==false).length;
+  return top+`<p class="nota" style="margin:-8px 0 12px">Cada chofer entra a la <b>App repartidores</b> con su usuario y una <b>clave de 5 dígitos que cambia sola todos los días</b> a las 00:00. La clave no se guarda en ninguna parte: se calcula. Entréguesela cada mañana por WhatsApp o en persona.</p>
+  <div class="cha-grid"><div>
+    <div class="cha-hoy"><span>Claves del</span><b>${fechaLarga(hoy)}</b><button class="btn chico linea" id="cha-recargar" type="button">Actualizar</button></div>
+    <div class="tabla-wrap"><table><thead><tr><th>Chofer</th><th>Activo <span class="nota" style="margin:0;text-transform:none;letter-spacing:0">(${nAct} de ${lista.length})</span></th><th>Usuario</th><th>Clave de hoy</th><th></th></tr></thead><tbody>
+    ${lista.length?lista.slice().sort((a,b)=>((b.activo!==false)-(a.activo!==false))||a.nombre.localeCompare(b.nombre)).map(fila).join(""):'<tr><td colspan="5" class="nota">No hay choferes. Agréguelos en Configuraciones → Choferes.</td></tr>'}
+    </tbody></table></div>
+    <p class="nota" style="margin:6px 0 0"><b>Activo</b>: el móvil aparece en Asigna Ruta y en las apps para recibir pedidos. <b>No activo</b>: no aparece (por ejemplo, si hoy no trabaja). Sus pedidos y cuadraturas anteriores se conservan.</p><p class="nota" id="cha-msg" style="min-height:1em">${esc(CHA.msg)}</p></div>
+    ${ver?'<div class="caja"><p class="nota">Solo puede ver este cuadro.</p></div>':`<form class="caja" id="f-cha"><h3>Dar acceso a un chofer</h3>
+      <label>Chofer<select id="cha-ch">${libres.length?libres.map(c=>`<option value="${c.id}" data-nom="${esc(c.nombre)}" data-local="${c.local||""}">${esc(c.nombre)}${c.patente?" · "+esc(c.patente):""}</option>`).join(""):'<option value="">Todos los choferes ya tienen acceso</option>'}</select></label>
+      <label>Usuario para entrar<input id="cha-user" autocomplete="off" placeholder="ej: cristian" value="${libres[0]?esc(usuarioSugerido(libres[0].nombre)):""}"></label>
+      <p class="nota" style="margin:0">No necesita clave: el sistema le da una nueva cada día. Entra solo a la App repartidores y ve sus propios pedidos.</p>
+      <button class="btn" type="submit" ${libres.length?"":"disabled"}>Crear acceso</button><p class="error" id="cha-err" hidden></p></form>`}
+  </div>`};
+L.choferes=function(){
+  if(NUBE.activo&&!CHA.cargando&&(!CHA.datos||CHA.datos.fecha!==hoyStr())&&!CHA.error)cargarCHA();
+  const r=$("#cha-recargar");if(r)r.onclick=()=>{CHA.error="";CHA.msg="";cargarCHA()};
+  const sel=$("#cha-ch");if(sel)sel.onchange=()=>{const o=sel.selectedOptions[0];$("#cha-user").value=usuarioSugerido(o&&o.dataset.nom)};
+  const f=$("#f-cha");if(f)f.onsubmit=async e=>{e.preventDefault();const o=sel.selectedOptions[0],er=$("#cha-err");er.hidden=true;
+    try{await api("chofer_acceso",{chofer:+sel.value,user:$("#cha-user").value.trim().toLowerCase(),nombre:o.dataset.nom,local:+o.dataset.local||null});
+      CHA.msg=`Listo: ${o.dataset.nom} ya puede entrar a la App repartidores con la clave de hoy.`;log("sistema","Acceso de chofer creado",o.dataset.nom);guardar();await cargarCHA()}
+    catch(x){er.textContent=x.message;er.hidden=false}};
+  $$("[data-chaact]").forEach(b=>b.onclick=()=>confirmar(b,async()=>{try{await api("chofer_acceso",{uid:+b.dataset.chaact,activo:b.dataset.v==="1"});CHA.msg=b.dataset.v==="1"?"Acceso activado.":"Acceso quitado: ese chofer ya no puede entrar.";await cargarCHA()}catch(x){CHA.msg=x.message;pintarSistema()}}));
+  $$("[data-chadiaria]").forEach(b=>b.onclick=()=>confirmar(b,async()=>{try{await api("chofer_acceso",{uid:+b.dataset.chadiaria,diaria:true});CHA.msg="Ahora entra con la clave del día. Su clave anterior ya no sirve.";await cargarCHA()}catch(x){CHA.msg=x.message;pintarSistema()}}));
+  $$("[data-chon]").forEach(i=>i.onchange=()=>{const c=D.choferes.find(x=>x.id===+i.dataset.chon);if(!c)return;c.activo=i.checked;nubeChofer(c);
+    log("sistema",i.checked?"Móvil activado":"Móvil desactivado",c.nombre);CHA.msg=`${c.nombre}: ${i.checked?"activo, ya aparece en Asigna Ruta":"no activo, ya no aparece en Asigna Ruta"}.`;guardar();pintarSistema()});
+  $$("[data-chacopiar]").forEach(b=>b.onclick=async()=>{const u=CHA.datos.usuarios.find(x=>x.uid===+b.dataset.chacopiar);
+    try{await navigator.clipboard.writeText(textoClave(u,u.codigo));b.textContent="Copiado ✓"}catch(e){prompt("Copie el mensaje:",textoClave(u,u.codigo))}});
+};
+// a medianoche la lista se actualiza sola si está abierta
+setInterval(()=>{if(mod==="choferes"&&CHA.datos&&CHA.datos.fecha!==hoyStr()){CHA.datos=null;pintarSistema()}},60000);
+
+/* ===================== ASIGNA RUTA: corregir estado con el lápiz ===================== */
+const EST_EDIT=[["pendiente","Por despachar","Vuelve a la lista para despachar (sin móvil)."],["ruta","En ruta","Lo lleva el móvil elegido."],["entregado","Entregado","Se descuenta de la carga del móvil elegido."],["anulado","Anulado","No se entrega. Si estaba entregado, vuelve el stock."]];
+function corregirEstado(id){
+  const p=D.pedidos.find(x=>x.id===+id);if(!p)return;
+  let dl=document.getElementById("dl-estado");if(!dl){dl=document.createElement("dialog");dl.id="dl-estado";dl.className="dl-estado";document.body.appendChild(dl)}
+  const chs=chOrden().filter(c=>c.activo!==false||c.id===p.chofer);
+  dl.innerHTML=`<form method="dialog" id="f-est"><h3>Corregir estado · Pedido N° ${p.id}</h3>
+    <p class="nota" style="margin:0 0 10px">${esc(resumenP(p))} · ${esc(p.dir||"")}<br>Estado actual: <b>${esc(ESTADOS[p.estado]||p.estado)}</b>${p.chofer?" · "+esc(nomChofer(p.chofer)):""}</p>
+    <div class="est-ops">${EST_EDIT.map(([k,t,d])=>`<label class="est-op"><input type="radio" name="est-n" value="${k}" ${k===p.estado?"checked":""}><span><b>${t}</b><small>${d}</small></span></label>`).join("")}</div>
+    <label id="est-ch-l">Móvil<select id="est-ch"><option value="">Elija el móvil…</option>${chs.map(c=>`<option value="${c.id}" ${c.id===p.chofer?"selected":""}>${esc(c.nombre)}${c.activo===false?" (no activo)":""}</option>`).join("")}</select></label>
+    <label>Motivo (opcional)<input id="est-mot" maxlength="120" placeholder="Ej: el chofer lo marcó entregado por error"></label>
+    <p class="error" id="est-err" hidden></p>
+    <div class="acc" style="justify-content:flex-end;margin-top:6px"><button class="btn linea" value="cancel" type="button" id="est-cancel">Cancelar</button><button class="btn" type="submit" id="est-ok">Guardar cambio</button></div></form>`;
+  const sel=()=>(dl.querySelector('input[name="est-n"]:checked')||{}).value;
+  const upd=()=>{const v=sel();dl.querySelector("#est-ch-l").hidden=!(v==="ruta"||v==="entregado")};
+  dl.querySelectorAll('input[name="est-n"]').forEach(r=>r.onchange=upd);upd();
+  dl.querySelector("#est-cancel").onclick=()=>dl.close();
+  dl.querySelector("#f-est").onsubmit=e=>{e.preventDefault();const v=sel(),chv=+dl.querySelector("#est-ch").value||null,er=dl.querySelector("#est-err"),mot=dl.querySelector("#est-mot").value.trim();
+    if((v==="ruta"||v==="entregado")&&!chv){er.textContent="Elija el móvil.";er.hidden=false;return}
+    if(v===p.estado&&(chv==null||chv===p.chofer)){dl.close();return}
+    const antes=`${ESTADOS[p.estado]||p.estado}${p.chofer?" ("+nomChofer(p.chofer)+")":""}`;
+    if(p.desc)setEstado(p,"ruta");            // primero devuelve el stock si estaba entregado
+    if(v==="ruta"||v==="entregado")p.chofer=chv;
+    if(v==="ruta"&&p.estado==="ruta"){nubePedido(p)}else setEstado(p,v);
+    log("pedidos","Estado corregido",`Pedido N° ${p.id} · ${antes} → ${ESTADOS[v]||v}${p.chofer&&(v==="ruta"||v==="entregado")?" ("+nomChofer(p.chofer)+")":""}${mot?" · Motivo: "+mot:""}`,{local:p.local,chofer:p.chofer||null,pedido:p.id});
+    guardar();dl.close();pintarSistema();aviso("Estado corregido",`Pedido N° ${p.id}: ${antes} → ${ESTADOS[v]||v}.`)};
+  dl.showModal();
+}
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{if(mod==="ruta")$$("[data-editest]").forEach(b=>b.onclick=()=>corregirEstado(b.dataset.editest))}catch(e){}return r}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -4235,6 +4326,38 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .perm-tit~.perm-tit{margin-top:8px}
 .sis .aviso-ver{grid-column:1/-1;margin:0 0 8px;padding:6px 12px;border-radius:8px;border:1px solid #fedf89;background:#fffaeb;color:#93370d;font-size:12.5px}
 @media (max-width:760px){.sis .perm-cols{grid-template-columns:minmax(0,1fr)}}
+
+/* Choferes: clave del día */
+.sis .cha-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.sis .cha-hoy{display:flex;align-items:center;gap:10px;margin:0 0 8px;font-size:13px;color:var(--mu)}
+.sis .cha-hoy b{color:var(--tx);font-size:15px;margin-right:auto}
+.sis .cha-cod{display:inline-block;font:700 22px "JetBrains Mono",ui-monospace,monospace;letter-spacing:.18em;color:var(--b8);background:var(--b1);border:1px solid var(--b2);border-radius:8px;padding:2px 10px}
+.sis #f-cha{display:grid;gap:10px}
+@media (max-width:900px){.sis .cha-grid{grid-template-columns:minmax(0,1fr)}}
+
+.sis .cha-sw{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;margin:0}
+.sis .cha-sw input{position:absolute;opacity:0;width:1px;height:1px}
+.sis .cha-sw span{width:38px;height:22px;border-radius:999px;background:#d0d5dd;position:relative;transition:background .15s;flex-shrink:0}
+.sis .cha-sw span::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .15s}
+.sis .cha-sw input:checked+span{background:#12b76a}.sis .cha-sw input:checked+span::after{transform:translateX(16px)}
+.sis .cha-sw input:focus-visible+span{outline:2px solid var(--b6);outline-offset:2px}
+.sis .cha-sw input:disabled+span{opacity:.5}
+.sis .cha-sw b{font-weight:600;color:var(--tx)}
+.sis tr.cha-off td:not(:nth-child(2)){opacity:.55}.sis tr.cha-off td{opacity:1}
+
+/* lápiz para corregir estado */
+.sis .lapiz{display:inline-grid;place-items:center;padding:0 7px}
+.sis .lapiz svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.dl-estado{border:0;border-radius:14px;padding:22px;width:min(460px,calc(100% - 32px));box-shadow:0 30px 60px -20px rgba(12,20,36,.45);font-family:inherit;color:var(--tx,#0c1424)}
+.dl-estado::backdrop{background:rgba(10,37,87,.35)}
+.dl-estado h3{margin:0 0 4px;font-size:17px}
+.dl-estado form{display:grid;gap:10px}
+.dl-estado label{display:grid;gap:4px;font-size:13px;font-weight:600}
+.dl-estado .est-ops{display:grid;gap:6px}
+.dl-estado .est-op{display:flex;gap:10px;align-items:flex-start;border:1px solid #e7eaf0;border-radius:10px;padding:8px 10px;cursor:pointer;font-weight:400}
+.dl-estado .est-op:has(input:checked){border-color:#1a66d6;background:#ecf3fd}
+.dl-estado .est-op input{margin-top:3px;width:auto}
+.dl-estado .est-op b{display:block;font-size:13.5px}.dl-estado .est-op small{display:block;color:#6b7488;font-size:12px}
 </style>
 </body>
 </html>

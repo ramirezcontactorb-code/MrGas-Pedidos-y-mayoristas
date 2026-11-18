@@ -120,6 +120,8 @@ function yo(): ?array {
     $s->execute([$_SESSION['uid']]);
     $u = $s->fetch();
     if (!$u || !$u['activo']) { $_SESSION = []; return null; }
+    // chofer con clave diaria: la sesión dura solo el día en que entró
+    if (function_exists('esDiaria') && esDiaria($u) && ($_SESSION['dia'] ?? '') !== date('Y-m-d')) { $_SESSION = []; return null; }
     return perfilDe($u);
 }
 function requiereYo(): array { $u = yo(); if (!$u) salida(['error' => 'Sesión vencida. Vuelva a entrar.'], 401); return $u; }
