@@ -1903,7 +1903,7 @@ const V={
     const entHoy=ps.filter(p=>p.estado==="entregado"&&(p.entregado||"").startsWith(hoy)).length,nom=String(yo.nombre||"").split(" ")[0];
     const card=(attr,ico,t,d,go="Abrir")=>`<${attr.startsWith("href")?"a":"button"} class="modulo" ${attr}><span class="ico">${svg(ico)}</span><b>${t}</b><span class="sub">${d}</span><span class="mgo">${go}<span aria-hidden="true">→</span></span></${attr.startsWith("href")?"a":"button"}>`;
     return `<div class="phead-mr"><div class="eyebrow-mr">Sucursal ${esc(nomLocal(suc))}</div><h1>${saludo}, ${esc(nom)}</h1><p class="sub">${fechaLarga(hoy)}</p></div>
-      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","choferes","mayorista","cuadratura","bodega","compras","erp","informes","config"],FUERA=["sectorizar"];
+      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","cuadratura","choferes","bodega","compras","informes","config"],FUERA=["sectorizar"];
         const ids=[...ORDEN,...MODULOS.map(m=>m.id).filter(id=>!ORDEN.includes(id)&&!FUERA.includes(id))];
         return ids.map(id=>{if(id==="erp")return yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","ERP Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):"";
           const m=MODULOS.find(x=>x.id===id);return m&&puede(m.id)?card(`data-modulo="${m.id}" type="button"`,m.id,m.t,m.s):""}).join("")})()}</div>

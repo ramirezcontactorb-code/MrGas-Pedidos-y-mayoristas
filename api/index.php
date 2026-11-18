@@ -70,7 +70,12 @@ try {
         $docs = [];
         foreach ($s as $f) {
             $ver = max($ver, (int) $f['ver']);
-            if (!puedeLeer($u, $f)) continue;
+            if (!puedeLeer($u, $f)) {
+                // al chofer se le avisa que un pedido ya no es suyo (se lo quitaron o lo reasignaron): lo saca de su lista
+                if ($desde > 0 && $u['rol'] === 'chofer' && in_array($f['col'], ['pedidos', 'reparto'], true))
+                    $docs[] = ['col' => $f['col'], 'id' => $f['id'], 'data' => null, 'borrado' => 1];
+                continue;
+            }
             $docs[] = ['col' => $f['col'], 'id' => $f['id'], 'data' => json_decode($f['data']), 'borrado' => (int) ($f['borrado'] ?? 0)];
         }
         salida(['ver' => $ver, 'docs' => $docs, 'vacio' => $vacio, 'perfil' => $u]);

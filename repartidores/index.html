@@ -210,6 +210,19 @@ td select.pill{border:0;padding:3px 9px}
 /* aviso */
 .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translate(-50%,-160%);z-index:60;width:min(560px,calc(100% - 32px));background:var(--tx);color:#fff;border-radius:14px;padding:14px 16px;display:grid;gap:2px;box-shadow:0 12px 30px rgba(0,0,0,.3);transition:transform .35s cubic-bezier(.2,.9,.3,1.2);cursor:pointer}
 .toast.ver{transform:translate(-50%,0)}
+.alarma{position:fixed;inset:0;z-index:80;background:rgba(10,37,87,.92);display:grid;place-items:center;padding:20px;animation:alParpadeo 1s ease-in-out infinite alternate}
+.alarma[hidden]{display:none}
+@keyframes alParpadeo{from{background:rgba(10,37,87,.94)}to{background:rgba(180,35,24,.92)}}
+.al-in{background:#fff;border-radius:20px;padding:24px 20px;width:min(440px,100%);text-align:center;display:grid;gap:8px;box-shadow:0 30px 60px -10px rgba(0,0,0,.5)}
+.al-campana{font-size:46px;line-height:1;animation:alCampana .5s ease-in-out infinite alternate;transform-origin:50% 10%}
+@keyframes alCampana{from{transform:rotate(-14deg)}to{transform:rotate(14deg)}}
+.al-tit{margin:0;font-weight:800;letter-spacing:.06em;color:#b42318;font-size:15px}.al-num{margin:0;color:var(--mu);font-size:13px}
+.al-cli{margin:4px 0 0;font-size:21px;font-weight:800}.al-dir{margin:0;font-size:16px;color:var(--tx2)}
+.al-items{justify-content:center;margin:6px 0 8px}
+.al-ok{min-height:58px;font-size:18px;border-radius:14px;background:#067647;border-color:#067647}
+.sonido-bloq{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:translateX(-50%);z-index:70;width:min(520px,calc(100% - 24px));min-height:48px;border:0;border-radius:14px;background:#b42318;color:#fff;font:700 15px var(--f-ui,system-ui);box-shadow:0 12px 30px -8px rgba(0,0,0,.4);cursor:pointer}
+.sonido-bloq[hidden]{display:none}
+article.resalta{outline:3px solid #f79009;outline-offset:2px;transition:outline-color .3s}
 #push-banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:10px auto 0;max-width:1100px;width:calc(100% - 32px);padding:10px 14px;border-radius:12px;background:#fffaeb;border:1px solid #fedf89;color:#93370d;font-size:13.5px}
 #push-banner[hidden]{display:none}#push-banner button{min-height:38px}
 
@@ -372,6 +385,7 @@ td select.pill{border:0;padding:3px 9px}
       <div class="bloque"><h2>Avisos de pedidos nuevos</h2>
         <div class="interr"><span>Sonido al llegar un pedido</span><input type="checkbox" id="aj-sonido" checked></div>
         <div class="interr"><span>Vibrar</span><input type="checkbox" id="aj-vibrar" checked></div>
+        <div class="interr"><span>Mantener la pantalla encendida (choferes)</span><input type="checkbox" id="aj-pantalla" checked></div>
         <button class="btn sec" type="button" id="aj-push">Activar avisos con la pantalla bloqueada</button>
         <button class="btn sec" type="button" id="aj-push-prueba">Enviar aviso de prueba a este celular</button>
         <p class="note" id="aj-push-msg">Con los avisos activos, el celular suena con cada pedido aunque la app esté cerrada o la pantalla bloqueada (no si está apagado).</p>
@@ -397,6 +411,11 @@ td select.pill{border:0;padding:3px 9px}
 
 <dialog class="hoja" id="h-detalle" aria-labelledby="det-titulo"><div class="asa"></div><div class="hoja-in" id="det-in"></div></dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"><b></b><span></span></div>
+<div class="alarma" id="alarma" hidden role="alertdialog" aria-labelledby="al-tit" aria-describedby="al-cli"><div class="al-in">
+  <div class="al-campana" aria-hidden="true">🔔</div><p class="al-tit" id="al-tit">NUEVO PEDIDO ASIGNADO</p><p class="al-num" id="al-num"></p>
+  <p class="al-cli" id="al-cli"></p><p class="al-dir" id="al-dir"></p><div class="qchips al-items" id="al-items"></div>
+  <button type="button" class="btn al-ok" id="al-ok">Ver pedido</button></div></div>
+<button type="button" class="sonido-bloq" id="sonido-bloq" hidden>🔇 Toque aquí para activar el sonido de los pedidos</button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
 <script>
@@ -450,11 +469,12 @@ function aplicar(docs,inicial){
     if(d.col==="estado"){if(!d.borrado&&d.data)S.est[d.id]=d.data.v;cambio=true;return}
     const m=S.col[d.col];if(!m)return;cambio=true;
     if(d.borrado){m.delete(d.id);return}
-    const nuevo=!m.has(d.id);m.set(d.id,d.data);
-    if(nuevo&&!inicial&&S.listo&&!S.mios.has(d.col+"|"+d.id)){
-      if(d.col==="pedidos"&&d.data.estado==="pendiente")llego(vistaDe(d.data,"dom"));
-      if(d.col==="reparto"&&d.data.estado==="Pendiente")llego(vistaDe(d.data,"may"));
-      if(S.yo.rol==="chofer"&&((d.col==="pedidos"&&d.data.estado==="ruta")||(d.col==="reparto"&&MAY_EST[d.data.estado]!=="entregado")))aviso("Nuevo pedido asignado",resumenDoc(d.col,d.data),true);
+    const prev=m.get(d.id),nuevo=!prev;m.set(d.id,d.data);
+    if(!inicial&&S.listo&&!S.mios.has(d.col+"|"+d.id)){
+      if(nuevo&&S.yo.rol!=="chofer"){
+        if(d.col==="pedidos"&&d.data.estado==="pendiente")llego(vistaDe(d.data,"dom"));
+        if(d.col==="reparto"&&d.data.estado==="Pendiente")llego(vistaDe(d.data,"may"));}
+      if(S.yo.rol==="chofer"&&esMio(d.col,d.data)&&!(prev&&esMio(d.col,prev)))alarma(d.col,d.data);
     }
   });
   if(cambio)render();
@@ -797,12 +817,55 @@ $("#cv-tab-pend").onclick=()=>{S.cvTab="pend";renderChofer()};$("#cv-tab-ent").o
 let audio=null;
 function desbloquear(){try{if(!audio){const A=window.AudioContext||window.webkitAudioContext;if(A)audio=new A()}if(audio&&audio.state==="suspended")audio.resume()}catch(e){}}
 document.addEventListener("pointerdown",desbloquear,{passive:true});
-function sonar(){if(!leer("sonido",true)||!audio)return;try{const t=audio.currentTime;[[880,0],[1175,.18],[880,.36]].forEach(([f,d])=>{const o=audio.createOscillator(),g=audio.createGain();o.type="sine";o.frequency.value=f;
+function sonarSuave(){if(!leer("sonido",true)||!audio)return;try{const t=audio.currentTime;[[880,0],[1175,.18],[880,.36]].forEach(([f,d])=>{const o=audio.createOscillator(),g=audio.createGain();o.type="sine";o.frequency.value=f;
   g.gain.setValueAtTime(0,t+d);g.gain.linearRampToValueAtTime(.35,t+d+.02);g.gain.exponentialRampToValueAtTime(.001,t+d+.16);o.connect(g).connect(audio.destination);o.start(t+d);o.stop(t+d+.18)})}catch(e){}}
+/* ---------- Alarma de pedido asignado: suena pedido a pedido hasta que el chofer toca «Ver pedido» ---------- */
+const esMio=(col,x)=>S.yo&&S.yo.chofer!=null&&+x.chofer===+S.yo.chofer&&(col==="pedidos"?x.estado==="ruta":!["entregado","anulado"].includes(MAY_EST[x.estado]||""));
+// timbre generado (WAV) para el respaldo con <audio>, que algunos celulares reproducen mejor
+const TIMBRE=(()=>{const sr=22050,dur=1.3,n=Math.floor(sr*dur),b=new DataView(new ArrayBuffer(44+n*2)),w=(o,t)=>[...t].forEach((c,i)=>b.setUint8(o+i,c.charCodeAt(0)));
+  w(0,"RIFF");b.setUint32(4,36+n*2,true);w(8,"WAVEfmt ");b.setUint32(16,16,true);b.setUint16(20,1,true);b.setUint16(22,1,true);b.setUint32(24,sr,true);b.setUint32(28,sr*2,true);b.setUint16(32,2,true);b.setUint16(34,16,true);w(36,"data");b.setUint32(40,n*2,true);
+  const notas=[[988,0,.22],[1319,.25,.22],[988,.5,.22],[1319,.75,.45]];
+  for(let i=0;i<n;i++){const t=i/sr;let v=0;for(const [f,a,d] of notas)if(t>=a&&t<a+d){const e=Math.min(1,(t-a)/.01,(a+d-t)/.03);v+=Math.sin(2*Math.PI*f*t)*e*.9+Math.sin(4*Math.PI*f*t)*e*.15}
+    b.setInt16(44+i*2,Math.max(-1,Math.min(1,v))*32000,true)}
+  return URL.createObjectURL(new Blob([b],{type:"audio/wav"}))})();
+const audioEl=new Audio(TIMBRE);audioEl.preload="auto";
+let audioListo=false;
+function desbloquearTodo(){desbloquear();if(!audioListo){audioEl.muted=true;audioEl.play().then(()=>{audioEl.pause();audioEl.currentTime=0;audioEl.muted=false;audioListo=true;pintarSonido()}).catch(()=>{})}pintarSonido()}
+document.addEventListener("pointerdown",desbloquearTodo,{passive:true});document.addEventListener("keydown",desbloquearTodo);
+function sonidoBloqueado(){return !(audioListo||(audio&&audio.state==="running"))}
+function pintarSonido(){const b=document.getElementById("sonido-bloq");if(b)b.hidden=!(S.yo&&leer("sonido",true)&&sonidoBloqueado())}
+function sonar(){if(!leer("sonido",true))return;
+  if(audioListo){try{audioEl.currentTime=0;audioEl.volume=1;audioEl.play().catch(()=>sonarSuave())}catch(e){sonarSuave()}}else sonarSuave()}
+const ALARMA={cola:[],timer:null,hasta:0};
+function alarma(col,x){const key=(col==="pedidos"?"d":"m")+x.id;if(ALARMA.cola.some(a=>a.key===key))return;
+  ALARMA.cola.push({key,col,x});
+  if(document.hidden&&window.Notification&&Notification.permission==="granted"&&navigator.serviceWorker)navigator.serviceWorker.ready.then(r=>r.showNotification("Nuevo pedido asignado",{body:resumenDoc(col,x),icon:"../icons/icon-192.png",tag:col+"-"+x.id,renotify:true,requireInteraction:true,vibrate:[400,150,400,150,800]})).catch(()=>{});
+  pintarAlarma()}
+function pintarAlarma(){const dl=$("#alarma");const a=ALARMA.cola[0];
+  if(!a){dl.hidden=true;clearInterval(ALARMA.timer);ALARMA.timer=null;document.title="MR Gas Repartidores";return}
+  const v=vistaDe(a.x,a.col==="pedidos"?"dom":"may");
+  $("#al-num").textContent=ALARMA.cola.length>1?`Pedido 1 de ${ALARMA.cola.length}`:(v.num||"Pedido mayorista");
+  $("#al-cli").textContent=v.nombre;$("#al-dir").textContent=[v.dir,v.comuna].filter(Boolean).join(", ")||"Sin dirección";
+  $("#al-items").innerHTML=v.items.map(i=>`<span class="qchip"><b>${i.cant}</b>× ${esc(i.et)}</span>`).join("");
+  $("#al-ok").textContent=ALARMA.cola.length>1?"Ver pedido · siguiente →":"Ver pedido";
+  dl.hidden=false;document.title="🔔 Nuevo pedido · MR Gas";
+  if(!ALARMA.timer){ALARMA.hasta=Date.now()+3*60000;const tic=()=>{if(Date.now()>ALARMA.hasta){clearInterval(ALARMA.timer);ALARMA.timer=null;return}
+      sonar();if(leer("vibrar",true)&&navigator.vibrate)try{navigator.vibrate([400,150,400,150,800])}catch(e){}};
+    tic();ALARMA.timer=setInterval(tic,3000)}}
+function verAlarma(){desbloquearTodo();const a=ALARMA.cola.shift();if(navigator.vibrate)try{navigator.vibrate(0)}catch(e){}
+  clearInterval(ALARMA.timer);ALARMA.timer=null;
+  if(a){S.cvTab="pend";if(S.vista!=="chofer")ir("chofer");else renderChofer();
+    setTimeout(()=>{const el=document.querySelector(`[data-go="${a.col==="pedidos"?"dom":"may"}|${a.x.id}"]`);const art=el&&el.closest("article");if(art){art.scrollIntoView({block:"center",behavior:"smooth"});art.classList.add("resalta");setTimeout(()=>art.classList.remove("resalta"),2500)}},150)}
+  pintarAlarma()}
+let ultSon=0;function sonarEnCola(){const t=Math.max(Date.now(),ultSon+2200);ultSon=t;setTimeout(sonar,t-Date.now())} // varios pedidos juntos: un sonido por pedido
 let toastT,toastKey=null;
 function aviso(t,c,alerta,key){const z=$("#toast");z.querySelector("b").textContent=t;z.querySelector("span").textContent=c||"";toastKey=key||null;z.classList.add("ver");clearTimeout(toastT);toastT=setTimeout(()=>z.classList.remove("ver"),alerta?8000:3500);
-  if(alerta){sonar();if(leer("vibrar",true)&&navigator.vibrate)try{navigator.vibrate([200,100,200])}catch(e){}
+  if(alerta){sonarEnCola();if(leer("vibrar",true)&&navigator.vibrate)try{navigator.vibrate([200,100,200])}catch(e){}
     if(document.hidden&&window.Notification&&Notification.permission==="granted"&&navigator.serviceWorker)navigator.serviceWorker.ready.then(r=>r.showNotification(t,{body:c,icon:"../icons/icon-192.png",tag:key||"mrgas"})).catch(()=>{})}}
+$("#al-ok").onclick=verAlarma;$("#sonido-bloq").onclick=()=>{desbloquearTodo();sonar()};
+// mantener la pantalla encendida mientras el chofer tiene la app abierta (si el celular lo permite)
+let wakeLock=null;async function pedirPantalla(){try{if(S.yo&&S.yo.rol==="chofer"&&leer("pantalla",true)&&"wakeLock" in navigator&&!document.hidden&&!wakeLock){wakeLock=await navigator.wakeLock.request("screen");wakeLock.addEventListener("release",()=>wakeLock=null)}}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){pedirPantalla();pintarSonido();if(ALARMA.cola.length)pintarAlarma()}});
 $("#toast").onclick=()=>{$("#toast").classList.remove("ver");if(toastKey&&buscar(toastKey)&&S.yo.rol!=="chofer"){ir("bandeja");abrir(toastKey)}};
 function llego(v){recien.add(v.key);aviso(v.tipo==="dom"?`Nuevo pedido ${v.num}`:"Nuevo pedido mayorista",`${v.items.map(i=>i.cant+"×"+i.et).join(", ")} · ${v.nombre} · ${v.dir}`,true,v.key)}
 
@@ -814,11 +877,11 @@ async function entrar(perfil){
   $("#top-sub").textContent=`${perfil.nombre||perfil.user} · ${perfil.rol==="chofer"?"Repartidor":perfil.rol==="admin"?"Administrador":"Encargado"}`;
   $("#aj-yo").textContent=`${perfil.nombre||perfil.user} (${perfil.rol==="chofer"?"Repartidor":perfil.rol==="admin"?"Administrador":"Encargado"})`;
   try{const j=await api("cambios",null,"&desde=0");aplicar(j.docs,true);S.ver=j.ver}catch(e){aviso("Sin conexión","No se pudieron cargar los pedidos. Reintentando…",false)}
-  activarPush(false).then(pintarBannerPush);
+  activarPush(false).then(pintarBannerPush);pintarSonido();pedirPantalla();
   S.listo=true;const v=leer("vista",null),ok=(perfil.rol==="chofer"?TABS_CHOFER:TABS_EQUIPO).some(t=>t[0]===v);
   ir(ok?v:perfil.rol==="chofer"?"chofer":"bandeja");clearTimeout(S.timer);S.timer=setTimeout(sondear,4000);
 }
-function salir(msg){clearTimeout(S.timer);bajaPush().finally(()=>api("salir",{}).catch(()=>{}));S.yo=null;S.listo=false;S.ver=0;Object.values(S.col).forEach(m=>m.clear());S.est={};
+function salir(msg){clearTimeout(S.timer);ALARMA.cola=[];clearInterval(ALARMA.timer);ALARMA.timer=null;$("#alarma").hidden=true;bajaPush().finally(()=>api("salir",{}).catch(()=>{}));S.yo=null;S.listo=false;S.ver=0;Object.values(S.col).forEach(m=>m.clear());S.est={};
   $("#v-app").hidden=true;$("#v-login").hidden=false;const e=$("#lg-err");e.textContent=msg||"";e.hidden=!msg}
 $("#b-salir").onclick=()=>salir();
 $("#f-login").addEventListener("submit",async e=>{e.preventDefault();desbloquear();const err=$("#lg-err"),btn=$("#lg-btn");err.hidden=true;btn.disabled=true;btn.textContent="Ingresando…";
@@ -829,7 +892,8 @@ $("#f-login").addEventListener("submit",async e=>{e.preventDefault();desbloquear
 /* ajustes */
 $("#aj-sonido").checked=leer("sonido",true);$("#aj-sonido").onchange=e=>grabar("sonido",e.target.checked);
 $("#aj-vibrar").checked=leer("vibrar",true);$("#aj-vibrar").onchange=e=>grabar("vibrar",e.target.checked);
-$("#aj-probar").onclick=()=>{desbloquear();aviso("Así suena un pedido nuevo","Este aviso aparece cada vez que llega un pedido.",true)};
+$("#aj-pantalla").checked=leer("pantalla",true);$("#aj-pantalla").onchange=e=>{grabar("pantalla",e.target.checked);if(!e.target.checked&&wakeLock){wakeLock.release();wakeLock=null}else pedirPantalla()};
+$("#aj-probar").onclick=()=>{desbloquearTodo();if(S.yo&&S.yo.rol==="chofer")alarma("pedidos",{id:"prueba",num:"Prueba",nombre:"Pedido de prueba",dir:"Así suena un pedido asignado",items:[{formato:"c15",cant:1}],estado:"ruta",chofer:S.yo.chofer});else aviso("Así suena un pedido nuevo","Este aviso aparece cada vez que llega un pedido.",true)};
 
 /* ===================== Avisos con la app cerrada o la pantalla bloqueada (push) ===================== */
 const PUSH_APP="repartidores";
