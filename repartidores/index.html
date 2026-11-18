@@ -892,7 +892,7 @@ function salir(msg){clearTimeout(S.timer);ALARMA.cola=[];clearInterval(ALARMA.ti
   $("#v-app").hidden=true;$("#v-login").hidden=false;const e=$("#lg-err");e.textContent=msg||"";e.hidden=!msg}
 $("#b-salir").onclick=()=>salir();
 $("#f-login").addEventListener("submit",async e=>{e.preventDefault();desbloquear();const err=$("#lg-err"),btn=$("#lg-btn");err.hidden=true;btn.disabled=true;btn.textContent="Ingresando…";
-  try{const j=await api("login",{user:$("#lg-user").value.trim().toLowerCase(),pass:$("#lg-pass").value});$("#f-login").reset();await entrar(j.perfil)}
+  try{const u=$("#lg-user").value.trim().toLowerCase(),j=await api("login",{user:u,pass:$("#lg-pass").value});grabar("usuario",u);$("#f-login").reset();$("#lg-user").value=u;await entrar(j.perfil)}
   catch(x){err.textContent=x.status===401||x.status===403?x.message:"No hay conexión con el servidor. Revise la señal y vuelva a intentar.";err.hidden=false}
   finally{btn.disabled=false;btn.textContent="Ingresar"}});
 
@@ -968,6 +968,8 @@ let instEv=null;addEventListener("beforeinstallprompt",e=>{e.preventDefault();in
 $("#aj-instalar").onclick=async()=>{if(!instEv)return;instEv.prompt();await instEv.userChoice.catch(()=>{});instEv=null;$("#aj-instalar").hidden=true};
 try{if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
 
+/* recuerda el usuario: el chofer solo escribe la clave del día */
+{const u=leer("usuario","");if(u&&$("#lg-user")){$("#lg-user").value=u}}
 /* inicio: si ya hay sesión de MR Gas en este navegador, entra solo */
 (async()=>{if(!location.protocol.startsWith("http"))return;try{const j=await api("yo");if(j.perfil)entrar(j.perfil)}catch(e){}})();
 </script>

@@ -101,11 +101,22 @@ function limitar(string $tipo, int $max, int $segundos): void {
 function anotarIntento(string $tipo): void { db()->prepare('INSERT INTO intentos (ip, tipo, t) VALUES (?, ?, ?)')->execute([ip(), $tipo, time()]); }
 
 // ---------- sesión ----------
+// La sesión dura hasta el final del día (00:00), aunque se cierre la app o el navegador
+// y aunque pase mucho rato sin usarla (así el chofer no tiene que volver a poner la clave mientras conduce).
 function iniciarSesion(): void {
     session_name('mrgas');
-    session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax',
+    $hasta = max(300, strtotime('tomorrow') - time());
+    ini_set('session.gc_maxlifetime', '86400');
+    // carpeta propia para las sesiones, fuera de public_html, para que el hosting no las borre antes
+    $dir = dirname(dirname(__DIR__)) . '/mrgas-sesiones';
+    if ((is_dir($dir) || @mkdir($dir, 0700, true)) && is_writable($dir)) session_save_path($dir);
+    session_set_cookie_params(['lifetime' => $hasta, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax',
         'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')]);
     session_start();
+    // renueva la cookie para que siempre venza a medianoche
+    if (!empty($_SESSION['uid']) && !headers_sent())
+        setcookie(session_name(), session_id(), ['expires' => time() + $hasta, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax',
+            'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')]);
 }
 function perfilDe(array $u): array {
     return ['uid' => (int) $u['uid'], 'user' => $u['usuario'], 'nombre' => $u['nombre'], 'rol' => $u['rol'],

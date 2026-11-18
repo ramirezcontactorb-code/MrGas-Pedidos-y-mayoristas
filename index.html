@@ -1525,6 +1525,14 @@ const filaRend=r=>{const k=calcRend(r),ef=sumP(r,"efectivo"),tb=sumP(r,"transban
   return [fF(r.fecha),nomRef(r),k.venta,ef,tb,tr,chq,va,k.pagado-ef-tb-tr-chq-va,k.saldo]};
 const COLS_REND=[["Fecha","t"],["Nombre","t"],["Vendido","$"],["Efectivo","$"],["Transbank","$"],["Transferencia","$"],["Cheque","$"],["Vales","$"],["Otros","$"],["Saldo","$"]];
 const REPORTES=[
+ {g:"r",id:"r-cuentamay",t:"Cuenta clientes mayoristas",ic:"tabla",fn:c=>{const M=(D.mayoristas||[]).filter(m=>c.ids.includes(m.local??1)).map(cuentaMay).sort((a,b)=>b.saldo-a.saldo);
+   return {cols:[["Cliente","t"],["RUT","t"],["Lista","t"],["Comprado","$"],["Pagado","$"],["Comisión vales","$"],["Saldo","$"],["Última compra","t"]],
+     filas:M.map(x=>[x.m.nombre,x.m.rut||"",nomListaMay(x.m),x.comp,x.pag-x.com,x.com,x.saldo,x.ult?fF(x.ult):""]),nota:"Saldo de toda la historia de cada cliente (no depende de las fechas). Saldo positivo = el cliente debe; negativo = tiene saldo a favor."}}},
+ {g:"r",id:"r-movmay",t:"Movimientos clientes mayoristas",ic:"tabla",fn:c=>{const en=f=>f>=c.desde&&f<=c.hasta,F=[];
+   (D.cargasDist||[]).filter(x=>c.ids.includes(x.local)&&en(x.fecha)).forEach(x=>F.push([fF(x.fecha),String(x.hora||"").slice(0,5),x.anulada?"Venta (anulada)":"Venta",(cliMay(x.mayorista)||{}).nombre||"",cilTxt(x.venta)+(x.guia?" · "+x.guia:""),x.anulada?0:valorDist(x),0,x.user||"",x.fecha+String(x.hora||"")]));
+   (D.rendiciones||[]).filter(r=>r.tipo==="mayorista"&&c.ids.includes(r.local)&&en(r.fecha)).forEach(r=>r.pagos.filter(p=>!p.auto).forEach(p=>F.push([fF(r.fecha),String(p.hora||"").slice(11,16),(p.abono?"Abono · ":"Pago · ")+(TIPOS_PAGO[p.tipo]||p.tipo),nomRef(r),p.detalle||"",0,p.monto+(+p.com||0),r.usuario||"",r.fecha+String(p.hora||"").slice(11)])));
+   F.sort((a,b)=>b[8].localeCompare(a[8]));
+   return {cols:[["Fecha","t"],["Hora","t"],["Tipo","t"],["Cliente","t"],["Detalle","t"],["Cargo","$"],["Abono","$"],["Usuario","t"]],filas:F.map(f=>f.slice(0,8))}}},
  {g:"p",id:"p-detalle",t:"Historial de pedidos",ic:"tabla",fn:c=>({cols:[["N°","t"],["Fecha","t"],["Hora","t"],["Teléfono","t"],["Cliente","t"],["Dirección","t"],["Comuna","t"],["Cilindros","t"],["Total","$"],["Pago","t"],["Fuente","t"],["Sector","t"],["Móvil","t"],["Estado","t"],["Entregado","t"],["Ingresó","t"]],
    filas:c.peds.map(p=>[p.id,fF(p.fecha),p.fecha.slice(11),p.fono,p.nombre,p.dir,p.comuna||"",resumenP(p),totalP(p),MEDIOS[p.medio]||"",FUENTES[p.origen]||"",nomSector(sectorDe(p)),p.chofer?nomChofer(p.chofer):"",ESTADOS[p.estado],(p.entregado||"").slice(11,16),p.usuario||""])})},
  {g:"p",id:"p-simple",t:"Informe pedidos simplificado",ic:"tabla",fn:c=>({cols:[["N°","t"],["Fecha","t"],["Cliente","t"],["Cilindros","t"],["Total","$"],["Estado","t"]],filas:c.peds.map(p=>[p.id,fF(p.fecha)+" "+p.fecha.slice(11),p.nombre,resumenP(p),totalP(p),ESTADOS[p.estado]])})},
@@ -1923,13 +1931,14 @@ const V={
     return cabeza("Pedidos de Gas")+contadores(ps)+tabs+`<form id="f-ped" class="ped">
       <div class="ped-main caja">
         <div class="buscar"><label>Buscar por teléfono<input id="np-buscar" type="tel" placeholder="9 1234 5678"></label><label>o por dirección<input id="np-bdir" placeholder="Calle y número"></label><button class="btn linea" type="button" id="np-btn-buscar">Buscar</button><span id="np-encontrado" class="nota" style="margin:0"></span></div>
-        <div class="fuente"><span class="eyebrow">Fuente</span>${radios("np-fuente",FUENTES,"fono")}</div>
+        <div class="fuente"><span class="eyebrow">Fuente</span>${radios("np-fuente",{fono:FUENTES.fono,whatsapp:FUENTES.whatsapp},"fono")}</div>
         <div class="fila"><label>Teléfono<span class="tel-sn"><input id="np-fono" type="tel" required list="lista-fonos" autocomplete="off" placeholder="Escriba el número"><button class="btn chico linea" type="button" id="np-sinnum">Sin número</button></span></label></div>
         <div id="np-cliente" class="cli-card" hidden></div>
         <div><div class="barra" style="margin:0 0 6px"><span class="eyebrow">Cilindros</span><span class="nota" style="margin:0">H15 = grúa aluminio</span></div>
-          <div class="cilindros">${FORMATOS.map(f=>`<div class="cil cil-p" title="${esc(f.nom||f.et)}">${cilSVG(f)}<b>${f.et}</b><span class="num" data-pr="${f.id}">${clp(precioLista("base",f.id))}</span>
-            <label class="mini">Cantidad<input type="number" min="0" class="num" data-cant="${f.id}" value="0" aria-label="Cantidad ${f.et}"></label>
-            ${PE[f.id]?`<label class="mini">Venta envase <span class="num">+${clp(PE[f.id])}</span><input type="number" min="0" class="num" data-env="${f.id}" value="0" aria-label="Envases ${f.et}"></label>`:""}</div>`).join("")}</div></div>
+          <div class="np-cils" style="--n:${FORMATOS.length}">${FORMATOS.map(f=>`<div class="np-cil" title="${esc(f.nom||f.et)}"><span class="np-pr num" data-pr="${f.id}">${clp(precioLista("base",f.id))}</span>
+            <div class="np-img">${cilBlanco(f)}</div><b class="np-et">${f.tipo==="h"?"H15":f.kg+" kg"}</b>
+            <input type="number" min="0" inputmode="numeric" class="np-q" data-cant="${f.id}" value="0" aria-label="Cantidad ${f.et}">
+            ${PE[f.id]?`<label class="np-env">Con envase<input type="number" min="0" inputmode="numeric" data-env="${f.id}" value="0" aria-label="Envases ${f.et}"></label><span class="np-envp">(${clp(PE[f.id])})</span>`:`<span class="np-envp">Sin venta de envase</span>`}</div>`).join("")}</div></div>
         <div class="dir6"><label class="con-sug">Calle<input id="np-calle" required autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="np-sug" aria-expanded="false" placeholder="Empiece a escribir…"><div class="sug" id="np-sug" role="listbox" hidden></div></label><label>Número<input id="np-num"></label><label>Block<input id="np-block"></label>
         <label>Depto<input id="np-depto"></label><label>Comuna<input id="np-comuna" list="lista-comunas" value="${esc(loc(suc).comuna)}"></label><label>Ciudad<input id="np-ciudad" value="Santiago"></label></div>
         <datalist id="lista-fonos">${(D.clientes||[]).slice().sort((a,b)=>(b.ultimo||"").localeCompare(a.ultimo||"")).slice(0,500).map(c=>`<option value="${esc(c.fonoTxt)}">${esc(c.calle)} ${esc(c.num)}${c.comuna?", "+esc(c.comuna):""}</option>`).join("")}</datalist>
@@ -3894,10 +3903,10 @@ const cilBlanco=f=>{const lab=f.tipo==="h"?"15":String(f.kg),alu=f.tipo==="h",h=
 const fmtEnv=()=>FORMATOS.filter(f=>f.tipo!=="h"||((D.preciosEnvase||{})[f.id]||0)>0);
 function vcFilas(){return chOrden().filter(c=>c.local===suc&&(c.activo!==false||getRend("movil",c.id,fechaCuad,false)))}
 V.ventachofer=function(){
-  if(!["venta","rend","carga"].includes(vcTab))vcTab="venta";
+  if(!["venta","rend"].includes(vcTab))vcTab="venta";
   const chs=vcFilas();if(!chs.some(c=>c.id===vcCh))vcCh=(chs.find(c=>c.activo!==false)||chs[0]||{}).id??null;
   const side=`<aside class="vc-side caja">${[["venta","Venta Chofer","factura"],["rend","Rendición","cuadratura"]].map(([k,t,ic])=>`<button type="button" class="vc-t" data-vctab="${k}" aria-selected="${vcTab===k}">${svg(ic)}<span>${t}</span></button>`).join("")}
-    <p class="vc-sep">Otros</p>${[["carga","Carga inicial"]].map(([k,t])=>`<button type="button" class="vc-t chico" data-vctab="${k}" aria-selected="${vcTab===k}"><span>${t}</span></button>`).join("")}</aside>`;
+</aside>`;
   const fechaSel=`<label>Fecha<input type="date" id="f-cuad" value="${fechaCuad}"></label>`;
   let main="";
   if(vcTab==="rend"){
@@ -3994,11 +4003,11 @@ L.ventachofer=function(){
 /* ===================== VENTA MAYORISTA con la misma interfaz que Venta Choferes ===================== */
 {const v0=V.mayorista,l0=L.mayorista;
 V.mayorista=function(){
-  asegMay();if(!["venta","rend","cuenta"].includes(mayTab))mayTab="venta";
+  asegMay();if(!["venta","rend"].includes(mayTab))mayTab="venta";
   const mays=(D.mayoristas||[]).filter(m=>(m.local??1)===suc).sort((a,b)=>a.nombre.localeCompare(b.nombre));
   if(!mays.some(m=>m.id===mayCli))mayCli=(mays[0]||{}).id??null;mayFecha=fechaCuad;
   const side=`<aside class="vc-side caja">${[["venta","Venta Mayorista","factura"],["rend","Rendición","cuadratura"]].map(([k,t,ic])=>`<button type="button" class="vc-t" data-mytab="${k}" aria-selected="${mayTab===k}">${svg(ic)}<span>${t}</span></button>`).join("")}
-    <p class="vc-sep">Otros</p><button type="button" class="vc-t chico" data-mytab="cuenta" aria-selected="${mayTab==="cuenta"}"><span>Cuenta clientes</span></button></aside>`;
+</aside>`;
   const fechaSel=`<label>Fecha<input type="date" id="f-cuad" value="${fechaCuad}"></label>`;
   let main;
   if(!mays.length&&mayTab!=="cuenta")main=v0().replace(/<div class="tabs" role="tablist">[\s\S]*?<\/div>/,"");
@@ -4916,6 +4925,20 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .cfgp-opc label{display:grid;gap:4px;font-size:12.5px;max-width:180px}.sis .cfgp-opc label.g2{max-width:none;flex:1 1 240px}
 .sis .cfgp-opc input,.sis .cfgp-opc select{padding:7px 9px}
 @media (max-width:1100px){.sis .cfg-lay{grid-template-columns:minmax(0,1fr)}.sis .cfg-side{position:static;display:flex;flex-wrap:wrap}.sis .cfg-side hr{display:none}.sis .cfg-side .vc-t[aria-selected="true"]::before{display:none}}
+
+/* Ingreso de pedido: cilindros como Venta Choferes (opción A) */
+.sis .np-cils{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));border:1px solid var(--line,#e7eaf0);border-radius:12px;overflow:hidden;background:#fff;margin-top:6px}
+.sis .np-cil{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px 12px;border-left:1px solid var(--line,#e7eaf0)}
+.sis .np-cil:first-child{border-left:0}
+.sis .np-pr{font:500 15px "JetBrains Mono",ui-monospace,monospace;color:var(--tx)}
+.sis .np-img{height:92px;display:flex;align-items:flex-end}.sis .np-img .cilb{width:54px;height:92px}
+.sis .np-et{font-size:14px}
+.sis input.np-q{width:84px;max-width:84px;text-align:center;font:600 19px "JetBrains Mono",ui-monospace,monospace;color:var(--b8);padding:7px 4px;border-radius:10px}
+.sis .np-cil:has(input.np-q:not([value="0"]):valid) {}
+.sis .np-env{display:flex!important;flex-direction:row!important;align-items:center;gap:6px;font-size:12px;color:var(--mu);font-weight:500}
+.sis .np-env input{width:56px;text-align:center;padding:4px 2px;font:600 14px "JetBrains Mono",ui-monospace,monospace;color:var(--b8);border-radius:8px}
+.sis .np-envp{font-size:11.5px;color:var(--mu)}
+@media (max-width:760px){.sis .np-cils{grid-template-columns:repeat(3,minmax(0,1fr))}.sis .np-cil:nth-child(4){border-left:0}.sis .np-cil{border-top:1px solid var(--line,#e7eaf0)}}
 </style>
 </body>
 </html>
