@@ -67,6 +67,7 @@ function crearTablas(): void {
         "CREATE TABLE IF NOT EXISTS contadores (nombre VARCHAR(24) NOT NULL PRIMARY KEY, valor BIGINT NOT NULL)$motor",
         "CREATE TABLE IF NOT EXISTS intentos (ip VARCHAR(45) NOT NULL, tipo VARCHAR(12) NOT NULL, t INT NOT NULL)$motor",
         "CREATE INDEX idx_intentos ON intentos (ip, tipo, t)",
+        "CREATE TABLE IF NOT EXISTS presencia (uid INT NOT NULL PRIMARY KEY, t INT NOT NULL, app VARCHAR(14) NOT NULL DEFAULT '', ip VARCHAR(45) NOT NULL DEFAULT '')$motor",
     ];
     foreach ($q as $s) { try { db()->exec($s); } catch (PDOException $e) { if (!str_contains($e->getMessage(), 'exist') && !str_contains($e->getMessage(), 'Duplicate')) throw $e; } }
     db()->exec(esSqlite() ? "INSERT OR IGNORE INTO contadores (nombre, valor) VALUES ('ver', 0), ('pedidos', 1000)"
@@ -77,10 +78,16 @@ function instalado(): bool {
 }
 
 // ---------- respuesta y entrada ----------
+function cabecerasSeguras(): void {
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Referrer-Policy: same-origin');
+}
 function salida($datos, int $codigo = 200): never {
     http_response_code($codigo);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
+    cabecerasSeguras();
     echo json_encode($datos, JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -99,24 +106,41 @@ function limitar(string $tipo, int $max, int $segundos): void {
     if ((int) $s->fetchColumn() >= $max) salida(['error' => 'Demasiados intentos. Espere unos minutos y vuelva a intentar.'], 429);
 }
 function anotarIntento(string $tipo): void { db()->prepare('INSERT INTO intentos (ip, tipo, t) VALUES (?, ?, ?)')->execute([ip(), $tipo, time()]); }
+// Límite por usuario (aunque el intruso cambie de IP): se guarda el nombre de usuario en lugar de la IP
+function limitarUsuario(string $user, int $max, int $segundos): void {
+    $s = db()->prepare('SELECT COUNT(*) FROM intentos WHERE ip = ? AND tipo = ? AND t > ?');
+    $s->execute([substr('u:' . $user, 0, 45), 'login-u', time() - $segundos]);
+    if ((int) $s->fetchColumn() >= $max) salida(['error' => 'Este usuario quedó bloqueado por muchos intentos fallidos. Espere 30 minutos o pida ayuda al administrador.'], 429);
+}
+function anotarIntentoUsuario(string $user): void { db()->prepare('INSERT INTO intentos (ip, tipo, t) VALUES (?, ?, ?)')->execute([substr('u:' . $user, 0, 45), 'login-u', time()]); }
 
 // ---------- sesión ----------
-// La sesión dura hasta el final del día (00:00), aunque se cierre la app o el navegador
-// y aunque pase mucho rato sin usarla (así el chofer no tiene que volver a poner la clave mientras conduce).
+// Igual que el ERP Local: en la oficina la sesión se cierra al cerrar el navegador
+// (y también tras 10 horas sin uso). En las apps de los choferes dura hasta las 00:00,
+// para que no tengan que volver a poner la clave mientras conducen.
+function cookieSesion(int $expira): void {
+    if (headers_sent()) return;
+    $o = ['path' => '/', 'httponly' => true, 'samesite' => 'Lax', 'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')];
+    if ($expira > 0) $o['expires'] = $expira;
+    setcookie(session_name(), session_id(), $o);
+}
+function finDelDia(): int { return max(time() + 300, strtotime('tomorrow')); }
+const OFICINA_INACTIVA = 36000; // 10 horas
 function iniciarSesion(): void {
     session_name('mrgas');
-    $hasta = max(300, strtotime('tomorrow') - time());
     ini_set('session.gc_maxlifetime', '86400');
     // carpeta propia para las sesiones, fuera de public_html, para que el hosting no las borre antes
     $dir = dirname(dirname(__DIR__)) . '/mrgas-sesiones';
     if ((is_dir($dir) || @mkdir($dir, 0700, true)) && is_writable($dir)) session_save_path($dir);
-    session_set_cookie_params(['lifetime' => $hasta, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax',
+    session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax',
         'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')]);
     session_start();
-    // renueva la cookie para que siempre venza a medianoche
-    if (!empty($_SESSION['uid']) && !headers_sent())
-        setcookie(session_name(), session_id(), ['expires' => time() + $hasta, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax',
-            'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')]);
+    if (!empty($_SESSION['uid'])) {
+        if (empty($_SESSION['larga']) && time() - (int) ($_SESSION['uso'] ?? time()) > OFICINA_INACTIVA) { $_SESSION = []; return; }
+        $_SESSION['uso'] = time();
+        // la sesión de las apps de reparto vence siempre a medianoche
+        if (!empty($_SESSION['larga'])) cookieSesion(finDelDia());
+    }
 }
 function perfilDe(array $u): array {
     return ['uid' => (int) $u['uid'], 'user' => $u['usuario'], 'nombre' => $u['nombre'], 'rol' => $u['rol'],
@@ -133,6 +157,16 @@ function yo(): ?array {
     if (!$u || !$u['activo']) { $_SESSION = []; return null; }
     // chofer con clave diaria: la sesión dura solo el día en que entró
     if (function_exists('esDiaria') && esDiaria($u) && ($_SESSION['dia'] ?? '') !== date('Y-m-d')) { $_SESSION = []; return null; }
+    // quién está conectado (se anota cada 30 segundos como máximo)
+    if (time() - (int) ($_SESSION['pt'] ?? 0) >= 30) {
+        $_SESSION['pt'] = time();
+        try {
+            if (empty($_SESSION['ptab'])) { db()->exec("CREATE TABLE IF NOT EXISTS presencia (uid INT NOT NULL PRIMARY KEY, t INT NOT NULL, app VARCHAR(14) NOT NULL DEFAULT '', ip VARCHAR(45) NOT NULL DEFAULT '')" . (esSqlite() ? '' : ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4')); $_SESSION['ptab'] = 1; }
+            $p = [(int) $u['uid'], time(), (string) ($_SESSION['app'] ?? ''), ip()];
+            db()->prepare(esSqlite() ? 'INSERT OR REPLACE INTO presencia (uid, t, app, ip) VALUES (?, ?, ?, ?)'
+                : 'INSERT INTO presencia (uid, t, app, ip) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE t = VALUES(t), app = VALUES(app), ip = VALUES(ip)')->execute($p);
+        } catch (Throwable $e) {}
+    }
     return perfilDe($u);
 }
 function requiereYo(): array { $u = yo(); if (!$u) salida(['error' => 'Sesión vencida. Vuelva a entrar.'], 401); return $u; }

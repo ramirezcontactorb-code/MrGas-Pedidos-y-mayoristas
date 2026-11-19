@@ -892,7 +892,7 @@ function salir(msg){clearTimeout(S.timer);ALARMA.cola=[];clearInterval(ALARMA.ti
   $("#v-app").hidden=true;$("#v-login").hidden=false;const e=$("#lg-err");e.textContent=msg||"";e.hidden=!msg}
 $("#b-salir").onclick=()=>salir();
 $("#f-login").addEventListener("submit",async e=>{e.preventDefault();desbloquear();const err=$("#lg-err"),btn=$("#lg-btn");err.hidden=true;btn.disabled=true;btn.textContent="Ingresando…";
-  try{const u=$("#lg-user").value.trim().toLowerCase(),j=await api("login",{user:u,pass:$("#lg-pass").value});grabar("usuario",u);$("#f-login").reset();$("#lg-user").value=u;await entrar(j.perfil)}
+  try{const u=$("#lg-user").value.trim().toLowerCase(),j=await api("login",{user:u,pass:$("#lg-pass").value,app:"repartidores"});grabar("usuario",u);$("#f-login").reset();$("#lg-user").value=u;await entrar(j.perfil)}
   catch(x){err.textContent=x.status===401||x.status===403?x.message:"No hay conexión con el servidor. Revise la señal y vuelva a intentar.";err.hidden=false}
   finally{btn.disabled=false;btn.textContent="Ingresar"}});
 

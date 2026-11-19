@@ -1027,7 +1027,7 @@ function salir(msg){
 $("f-login").addEventListener("submit",async e=>{
   e.preventDefault();
   $("lg-btn").disabled=true;$("lg-msg").textContent="Ingresando…";
-  try{const j=await api("login",{user:$("lg-user").value.trim().toLowerCase(),pass:$("lg-pass").value});$("f-login").reset();await entrar(j.perfil)}
+  try{const j=await api("login",{user:$("lg-user").value.trim().toLowerCase(),pass:$("lg-pass").value,app:"distribucion"});$("f-login").reset();await entrar(j.perfil)}
   catch(err){$("lg-msg").textContent=err.status===401||err.status===403||err.status===429?err.message:"No hay conexión con el servidor. Revisa la señal e intenta otra vez."}
   finally{$("lg-btn").disabled=false}
 });

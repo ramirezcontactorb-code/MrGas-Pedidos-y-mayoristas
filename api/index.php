@@ -19,21 +19,81 @@ try {
     case 'login': {
         $b = cuerpo();
         limitar('login', 8, 900);
+        $usr = strtolower(trim((string) ($b['user'] ?? '')));
+        limitarUsuario($usr, 10, 1800);
         $s = db()->prepare('SELECT * FROM usuarios WHERE usuario = ?');
-        $s->execute([strtolower(trim((string) ($b['user'] ?? '')))]);
+        $s->execute([$usr]);
         $u = $s->fetch();
         $pass = (string) ($b['pass'] ?? '');
         // choferes con clave diaria: la clave es el código de 5 dígitos de HOY
         $okClave = $u && (esDiaria($u) ? hash_equals(codigoDiario((int) $u['uid']), trim($pass)) : password_verify($pass, $u['hash']));
-        if (!$okClave) { anotarIntento('login'); salida(['error' => $u && esDiaria($u) ? 'Clave del día incorrecta. Pídale la clave de hoy al encargado.' : 'Usuario o clave incorrectos. Revise mayúsculas y vuelva a intentar.'], 401); }
+        if (!$okClave) { anotarIntento('login'); anotarIntentoUsuario($usr); salida(['error' => $u && esDiaria($u) ? 'Clave del día incorrecta. Pídale la clave de hoy al encargado.' : 'Usuario o clave incorrectos. Revise mayúsculas y vuelva a intentar.'], 401); }
         if (!$u['activo']) salida(['error' => 'Este usuario está desactivado. Pida al administrador que lo active.'], 403);
         session_regenerate_id(true);
         $_SESSION['uid'] = (int) $u['uid'];
         $_SESSION['dia'] = date('Y-m-d');
+        $app = in_array($b['app'] ?? '', ['repartidores', 'distribucion'], true) ? $b['app'] : 'erp';
+        $_SESSION['app'] = $app; $_SESSION['uso'] = time(); $_SESSION['pt'] = 0;
+        // apps de reparto o chofer con clave del día: hasta medianoche. Oficina: hasta cerrar el navegador.
+        $_SESSION['larga'] = $app !== 'erp' || $u['rol'] === 'chofer' || esDiaria($u);
+        cookieSesion($_SESSION['larga'] ? finDelDia() : 0);
+        db()->prepare('DELETE FROM intentos WHERE ip = ? AND tipo = ?')->execute([substr('u:' . $usr, 0, 45), 'login-u']);
+        yo();
         salida(['ok' => true, 'perfil' => perfilDe($u)]);
     }
     case 'salir':
+        if (!empty($_SESSION['uid'])) try { db()->prepare('DELETE FROM presencia WHERE uid = ?')->execute([(int) $_SESSION['uid']]); } catch (Throwable $e) {}
         $_SESSION = []; session_destroy(); salida(['ok' => true]);
+
+    // ---------- como en el ERP Local ----------
+    // Informes: alguien sin permiso puede abrirlos si otra persona con permiso escribe su usuario y clave
+    case 'autorizar': {
+        $u = requiereYo(); $b = cuerpo();
+        limitar('autoriza', 8, 900);
+        $s = db()->prepare('SELECT * FROM usuarios WHERE usuario = ?');
+        $s->execute([strtolower(trim((string) ($b['user'] ?? '')))]);
+        $x = $s->fetch();
+        $ok = $x && $x['activo'] && !esDiaria($x) && password_verify((string) ($b['pass'] ?? ''), $x['hash']);
+        if ($ok) { $p = perfilDe($x); $per = $p['permisos'];
+            $ok = $p['rol'] === 'admin' || ($p['rol'] === 'encargado' && ($per === null || in_array('informes', $per, true) || in_array('informes:ver', $per, true))); }
+        if (!$ok) { anotarIntento('autoriza'); salida(['error' => 'Usuario o clave incorrectos, o ese usuario no tiene permiso de Informes.'], 401); }
+        $_SESSION['inf_por'] = $x['nombre'];
+        salida(['ok' => true, 'por' => $x['nombre']]);
+    }
+    // Respaldos: piden una contraseña especial (distinta a la del usuario)
+    case 'respaldo_estado':
+        requiereAdmin(); asegurarPush(); salida(['tiene' => ajuste('respaldo_hash') !== null, 'abierto' => !empty($_SESSION['resp_ok'])]);
+    case 'respaldo_fijar': {
+        $adm = requiereAdmin(); $b = cuerpo(); asegurarPush();
+        limitar('respaldo', 6, 900);
+        $s = db()->prepare('SELECT hash FROM usuarios WHERE uid = ?'); $s->execute([$adm['uid']]);
+        $actual = ajuste('respaldo_hash');
+        $okYo = password_verify((string) ($b['mia'] ?? ''), (string) $s->fetchColumn());
+        $okAnt = $actual === null || password_verify((string) ($b['anterior'] ?? ''), $actual);
+        if (!$okYo || !$okAnt) { anotarIntento('respaldo'); salida(['error' => !$okYo ? 'Su clave de usuario no es correcta.' : 'La contraseña especial actual no es correcta.'], 400); }
+        $n = (string) ($b['nueva'] ?? '');
+        if (strlen($n) < 8) salida(['error' => 'La contraseña especial debe tener al menos 8 caracteres.'], 400);
+        $h = password_hash($n, PASSWORD_DEFAULT);
+        grabarAjuste('respaldo_hash', $h);
+        $_SESSION['resp_ok'] = true;
+        salida(['ok' => true]);
+    }
+    case 'respaldo_abrir': {
+        requiereAdmin(); $b = cuerpo(); asegurarPush();
+        limitar('respaldo', 6, 900);
+        $h = ajuste('respaldo_hash');
+        if ($h === null || !password_verify((string) ($b['pass'] ?? ''), $h)) { anotarIntento('respaldo'); salida(['error' => 'Contraseña especial incorrecta.'], 401); }
+        $_SESSION['resp_ok'] = true;
+        salida(['ok' => true]);
+    }
+    // Quién está conectado ahora (últimos 2 minutos)
+    case 'conectados': {
+        requiereAdmin();
+        $s = db()->prepare('SELECT p.uid, p.t, p.app, p.ip, u.nombre, u.usuario, u.rol FROM presencia p JOIN usuarios u ON u.uid = p.uid WHERE p.t > ? ORDER BY u.nombre');
+        $s->execute([time() - 120]);
+        salida(['conectados' => array_map(fn($r) => ['uid' => (int) $r['uid'], 'nombre' => $r['nombre'], 'user' => $r['usuario'], 'rol' => $r['rol'],
+            'app' => $r['app'], 'ip' => $r['ip'], 'hace' => time() - (int) $r['t']], $s->fetchAll())]);
+    }
     case 'yo':
         salida(['perfil' => yo()]);
     case 'clave': {
@@ -230,6 +290,9 @@ try {
     }
     case 'usuario': {
         $adm = requiereAdmin(); $b = cuerpo();
+        // al editar un usuario (por ejemplo, darle clave nueva) se le quita el bloqueo por intentos fallidos
+        if (!empty($b['uid'])) { $sq = db()->prepare('SELECT usuario FROM usuarios WHERE uid = ?'); $sq->execute([(int) $b['uid']]);
+            if ($nu = $sq->fetchColumn()) db()->prepare('DELETE FROM intentos WHERE ip = ? AND tipo = ?')->execute([substr('u:' . $nu, 0, 45), 'login-u']); }
         // Un administrador sin «Respaldos y reset» no puede dar ese permiso ni cambiar a quien lo tiene
         $total = fn(?array $per) => $per === null || in_array('respaldos', $per, true);
         $soyTotal = $total($adm['permisos']);

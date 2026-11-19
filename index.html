@@ -1143,7 +1143,7 @@ function fechaMasAntigua(){
 /* ---- sesión con el servidor ---- */
 async function loginNube(){
   const err=$("#lg-error"),btn=$("#form-login button[type=submit]");err.hidden=true;btn.disabled=true;
-  try{const r=await api("login",{user:$("#lg-user").value.trim().toLowerCase(),pass:$("#lg-pass").value});
+  try{const r=await api("login",{user:$("#lg-user").value.trim().toLowerCase(),pass:$("#lg-pass").value,app:"erp"});
     $("#form-login").reset();await entrarComo(r.perfil)}
   catch(e){err.textContent=e.status===401||e.status===403||e.status===429?e.message:"No hay conexión con el servidor. Revise internet y vuelva a intentar.";err.hidden=false}
   finally{btn.disabled=false}}
@@ -1230,7 +1230,7 @@ $("#form-login").addEventListener("submit",async e=>{
   if(esAdmin()){suc=loc(D.ultimaSuc)?D.ultimaSuc:D.locales[0].id;mod="menu"}else{suc=(usr.sucursales&&usr.sucursales[0])||usr.local;mod=usr.rol==="chofer"?"chofer":"menu"}
   guardarSesion();location.hash="panel";
 });
-function salir(){if(yo){log("sistema","Salida del sistema","");guardar()}if(NUBE.activo){const fin=()=>{detenerEscuchas();salirNube();TRANSAC.forEach(c=>D[c]=[]);NUBE.cache.clear();guardarLocal()};if(NUBE.listo)enviar().finally(fin);else fin()}yo=null;suc=null;try{sessionStorage.removeItem("gdm_sesion")}catch(e){};location.hash="acceso"}
+function salir(){infPor=null;respOk=false;if(yo){log("sistema","Salida del sistema","");guardar()}if(NUBE.activo){const fin=()=>{detenerEscuchas();salirNube();TRANSAC.forEach(c=>D[c]=[]);NUBE.cache.clear();guardarLocal()};if(NUBE.listo)enviar().finally(fin);else fin()}yo=null;suc=null;try{sessionStorage.removeItem("gdm_sesion")}catch(e){};location.hash="acceso"}
 
 /* ===================== ÍCONOS ===================== */
 const IC={
@@ -1307,7 +1307,9 @@ const tieneExtra=c=>{if(!yo)return false;if(esAdmin())return true;if(yo.rol!=="e
   if(!esV2(yo.permisos))return c==="pedidos.anular"||c.startsWith("app.");return yo.permisos.includes(c)};
 const soloVer=id=>!!yo&&yo.rol==="encargado"&&Array.isArray(yo.permisos)&&yo.permisos.includes(id+":ver")&&!yo.permisos.includes(id);
 const misSucs=()=>!yo?[]:esAdmin()?D.locales.map(l=>l.id):((yo.sucursales&&yo.sucursales.length)?yo.sucursales:[yo.local]).filter(x=>x!=null);
+var infPor=null,respOk=false;
 const puede=id=>{
+  if(id==="informes"&&infPor&&yo&&yo.rol==="encargado")return true;
   if(id==="sucursal")return D.locales.length>1&&(esAdmin()||misSucs().length>1);
   if(id==="sectorizar"&&(!yo||yo.rol!=="encargado"||!esV2(yo.permisos)))return !!yo&&esAdmin();
   if(id==="config")return !!yo&&(esAdmin()||cfgTabsLista().length>0);
@@ -1919,7 +1921,8 @@ const V={
       <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","ventachofer","choferes","bodega","compras","informes","config"],FUERA=["sectorizar","cuadratura"];
         const ids=[...ORDEN,...MODULOS.map(m=>m.id).filter(id=>!ORDEN.includes(id)&&!FUERA.includes(id))];
         return ids.map(id=>{if(id==="erp")return yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","ERP Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):"";
-          const m=MODULOS.find(x=>x.id===id);return m&&puede(m.id)?card(`data-modulo="${m.id}" type="button"`,m.id,m.t,m.s):""}).join("")})()}</div>
+          const m=MODULOS.find(x=>x.id===id);if(m&&id==="informes"&&!puede(id)&&yo.rol==="encargado")return card('data-infaut="1" type="button"',m.id,m.t,"Necesita la autorización de alguien con permiso.","Pedir autorización");
+          return m&&puede(m.id)?card(`data-modulo="${m.id}" type="button"`,m.id,m.t,m.s):""}).join("")})()}</div>
       <p class="stitle-mr">Resumen de hoy</p>
       <div class="stats-mr"><div><div class="k">Pedidos nuevos</div><div class="v">${nuevos}</div></div><div><div class="k">En ruta</div><div class="v">${enRuta}</div></div><div><div class="k">Entregados hoy</div><div class="v">${entHoy}</div></div><div><div class="k">Vendido hoy</div><div class="v">${clp(vendido)}</div></div></div>`;
   },
@@ -4137,13 +4140,13 @@ function vistaStockBodega(){
   return cabeza("Control de Bodega",`<span class="nota" style="margin:0">${esc(l.nombre)} · ${fechaLarga(hoy)}</span>`)+
   (bajos.length?`<div class="banner" style="background:#fef3f2;color:#b42318">Stock bajo en bodega: ${bajos.map(f=>`${f.et} (${l.stock[f.id]||0})`).join(", ")}. Mínimo: ${min}.</div>`:"")+`
   <div class="kpis bd-kpis"><div class="kpi"><span>Llenos en bodega</span><b class="num">${tot(l.stock)}</b></div><div class="kpi"><span>Vacíos en bodega</span><b class="num">${tot(l.vacios)}</b></div>
-    <div class="kpi"><span>Llenos en camiones</span><b class="num">${tot(enCam)}</b></div><div class="kpi"><span>Prestados a clientes</span><b class="num">${tot(l.prestados)}</b></div></div>
+    <div class="kpi"><span>Llenos en camiones</span><b class="num">${tot(enCam)}</b></div><div class="kpi"><span>Prestados a clientes</span><b class="num">${tot(l.prestados)}</b></div><div class="kpi bd-kt"><span>Stock total</span><b class="num">${tot(l.stock)+tot(l.vacios)+tot(enCam)+tot(vacCam)+tot(l.prestados)}</b></div></div>
   <div class="bd-dos"><section class="caja bd-bod"><h3>Stock de bodega</h3><div class="vc-card"><div class="vc-g bd-g" style="--n:${FORMATOS.length}">
-    <div class="vc-izq bd-leyenda"><span class="bd-l ll">Llenos</span><span class="bd-l va">Vacíos</span><span class="bd-l pr">Prestados</span><span class="bd-l ca">En camiones</span></div>
+    <div class="vc-izq bd-leyenda"><span class="bd-l ll">Llenos</span><span class="bd-l va">Vacíos</span><span class="bd-l pr">Prestados</span><span class="bd-l ca">En camiones</span><span class="bd-l tt">Stock total</span></div>
     ${FORMATOS.map(f=>`<div class="vc-col"><div class="vc-img">${cilBlanco(f)}</div><span class="vc-et"><b>${f.tipo==="h"?"H15":f.kg}</b> ${f.tipo==="h"?"Aluminio":"kg"}</span>
-      <span class="bd-v ll ${(l.stock[f.id]||0)<min?"bajo":""}">${n(l.stock[f.id]||0)}</span><span class="bd-v va">${n(l.vacios[f.id]||0)}</span><span class="bd-v pr">${n(l.prestados[f.id]||0)}</span><span class="bd-v ca">${n(enCam[f.id]||0)}</span></div>`).join("")}
+      <span class="bd-v ll ${(l.stock[f.id]||0)<min?"bajo":""}">${n(l.stock[f.id]||0)}</span><span class="bd-v va">${n(l.vacios[f.id]||0)}</span><span class="bd-v pr">${n(l.prestados[f.id]||0)}</span><span class="bd-v ca">${n(enCam[f.id]||0)}</span><span class="bd-v tt">${n((l.stock[f.id]||0)+(l.vacios[f.id]||0)+(enCam[f.id]||0)+(vacCam[f.id]||0)+(l.prestados[f.id]||0))}</span></div>`).join("")}
   </div></div>
-  <div class="bd-univ"><span>Universo de cilindros (bodega + camiones, llenos + vacíos): <b class="num">${tot(l.stock)+tot(l.vacios)+tot(enCam)+tot(vacCam)}</b></span><span>Con préstamos: <b class="num">${tot(l.stock)+tot(l.vacios)+tot(enCam)+tot(vacCam)+tot(l.prestados)}</b></span>
+  <div class="bd-univ"><span>Stock total = bodega (llenos + vacíos) + camiones (llenos + vacíos) + prestados: <b class="num">${tot(l.stock)+tot(l.vacios)+tot(enCam)+tot(vacCam)+tot(l.prestados)}</b></span>
     <button class="btn chico linea" type="button" data-btab="recuento">Hacer cuadratura de stock</button></div></section>
   <div class="bd-der"><section class="bd-cams-h"><h3>Carga de los camiones</h3><span class="nota" style="margin:0">Lo que lleva cada camión ahora. Las entregas y ventas se descuentan de su carga.</span></section>
   <div class="bd-cams">${chs.map(tarjeta).join("")||'<div class="caja"><p>Esta sucursal no tiene camiones. Agréguelos en Configuraciones → Choferes.</p></div>'}</div></div></div>
@@ -4206,6 +4209,82 @@ CFG_MAY.histCambios={v(){const B=(D.bitacora||[]).filter(x=>["sistema","precios"
   const side=`<aside class="cfg-side caja">${T.map(([id,t],j)=>`${id==="choferes"&&j?'<hr>':""}<button type="button" class="vc-t" data-cfgtab="${id}" aria-selected="${cfgTab===id}">${svg(CFG_IC[id]||"config")}<span>${t}</span></button>`).join("")}</aside>`;
   return h.slice(0,i)+`<div class="cfg-lay">${side}<div class="cfg-main">${h.slice(i+k.length)}</div></div>`}}
 {const lc=L.config;L.config=function(){lc.apply(this,arguments);$$(".cfgp [data-cfgtab]").forEach(a=>a.onclick=e=>{e.preventDefault();cfgTab=a.dataset.cfgtab;cfgCh=null;pintarSistema()})}}
+
+/* ===== Seguridad como en el ERP Local ===== */
+function dlSeg(html,onok){
+  let dl=document.getElementById("dl-seg");if(!dl){dl=document.createElement("dialog");dl.id="dl-seg";dl.className="dl-estado";document.body.appendChild(dl)}
+  dl.innerHTML=html;dl.showModal();
+  const f=dl.querySelector("form"),er=dl.querySelector(".error");dl.querySelector("[data-cerrar]").onclick=()=>dl.close();
+  f.onsubmit=async e=>{e.preventDefault();er.hidden=true;const b=f.querySelector("button[type=submit]");b.disabled=true;
+    try{await onok(f);dl.close()}catch(x){er.textContent=x.message||"No se pudo.";er.hidden=false}finally{b.disabled=false}};
+  setTimeout(()=>{const i=f.querySelector("input");if(i)i.focus()},30)}
+function pedirAutorizacionInformes(){
+  dlSeg(`<form><h3 style="margin:0 0 6px">Informes</h3><p class="nota" style="margin:0 0 12px">No tiene permiso para Informes. Ingrese los datos de alguien que sí tenga permiso.</p>
+    <label>Usuario con permiso de Informes<input id="au-user" autocomplete="off" required></label>
+    <label style="margin-top:8px">Clave<input id="au-pass" type="password" autocomplete="off" required></label>
+    <p class="error" hidden></p>
+    <div class="acc" style="margin-top:14px;justify-content:flex-end"><button class="btn linea" type="button" data-cerrar>Cancelar</button><button class="btn" type="submit">Abrir Informes</button></div></form>`,
+  async f=>{const u=$("#au-user").value.trim().toLowerCase(),p=$("#au-pass").value;
+    if(NUBE.activo){const r=await api("autorizar",{user:u,pass:p});infPor=r.por}
+    else{const h=await hash(p),x=D.usuarios.find(z=>z.user===u&&z.hash===h&&z.activo!==false);
+      const okp=x&&(x.rol==="admin"||(x.rol==="encargado"&&(!Array.isArray(x.permisos)||x.permisos.includes("informes")||x.permisos.includes("informes:ver"))));
+      if(!okp)throw new Error("Usuario o clave incorrectos, o ese usuario no tiene permiso de Informes.");infPor=x.nombre}
+    log("sistema","Informes autorizado","Por "+infPor);guardar();ir("informes")})}
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);
+  try{$$("[data-infaut]").forEach(b=>b.onclick=pedirAutorizacionInformes);
+    if(mod==="informes"&&infPor&&yo&&yo.rol==="encargado"&&!$("#inf-por")){const h=$("#sis-main .cab-mod")||$("#sis-main h2");
+      if(h)h.insertAdjacentHTML("afterend",`<p class="nota" id="inf-por" style="margin:0 0 10px">Autorizado por ${esc(infPor)} · se cierra al salir del sistema.</p>`)}}catch(e){}
+  return r}}
+
+/* Respaldos con contraseña especial */
+async function respEstado(){if(NUBE.activo)return api("respaldo_estado");return {tiene:!!D.respaldoHash,abierto:false}}
+function cajaResp(tiene){
+  return tiene?`<form class="caja" id="f-rsl" style="max-width:460px"><h3>Respaldos protegidos</h3><p class="nota" style="margin:0 0 12px">Escriba la contraseña especial de respaldo.</p>
+      <label>Contraseña especial<input id="rsl-pass" type="password" autocomplete="off" required></label><p class="error" id="rsl-err" hidden></p>
+      <div class="acc" style="margin-top:12px"><button class="btn" type="submit">Abrir respaldos</button></div></form>`
+    :`<form class="caja" id="f-rsn" style="max-width:520px"><h3>Crear contraseña especial</h3><p class="nota" style="margin:0 0 12px">Los respaldos tienen todos los datos del sistema. Cree una contraseña especial, distinta a la de su usuario. Se pedirá cada vez que entre aquí.</p>
+      <label>Su clave de usuario<input id="rsn-mia" type="password" autocomplete="current-password" required></label>
+      <div class="fila" style="margin-top:8px"><label>Contraseña especial (mín. 8)<input id="rsn-n1" type="password" autocomplete="new-password" minlength="8" required></label><label>Repetir<input id="rsn-n2" type="password" autocomplete="new-password" required></label></div>
+      <p class="error" id="rsn-err" hidden></p><div class="acc" style="margin-top:12px"><button class="btn" type="submit">Guardar y abrir</button></div></form>`}
+{const v0=V.respaldos;V.respaldos=function(){if(!respOk)return cabeza("Respaldos")+`<div id="rs-lock"><p class="nota">Revisando…</p></div>`;
+  return v0.apply(this,arguments).replace(`<div class="grid dos" style="gap:24px">`,`<div class="acc" style="margin:-6px 0 14px"><button class="btn chico linea" id="rs-cambiar" type="button">Cambiar contraseña especial</button><button class="btn chico linea" id="rs-cerrar" type="button">Cerrar respaldos</button></div><div class="grid dos" style="gap:24px">`)}}
+{const l0=L.respaldos;L.respaldos=async function(){
+  if(respOk){l0.apply(this,arguments);const c=$("#rs-cerrar");if(c)c.onclick=()=>{respOk=false;pintarSistema()};const k=$("#rs-cambiar");if(k)k.onclick=cambiarClaveResp;return}
+  let e;try{e=await respEstado()}catch(x){const z=$("#rs-lock");if(z)z.innerHTML=`<p class="error">${esc(x.message)}</p>`;return}
+  if(e.abierto){respOk=true;return pintarSistema()}
+  const z=$("#rs-lock");if(!z)return;z.innerHTML=cajaResp(e.tiene);
+  const fl=$("#f-rsl");if(fl){$("#rsl-pass").focus();fl.onsubmit=async ev=>{ev.preventDefault();const er=$("#rsl-err");er.hidden=true;
+    try{const p=$("#rsl-pass").value;if(NUBE.activo)await api("respaldo_abrir",{pass:p});else if(await hash(p)!==D.respaldoHash)throw new Error("Contraseña especial incorrecta.");
+      respOk=true;log("sistema","Respaldos abiertos","");guardar();pintarSistema()}catch(x){er.textContent=x.message;er.hidden=false;$("#rsl-pass").value=""}}}
+  const fn=$("#f-rsn");if(fn)fn.onsubmit=async ev=>{ev.preventDefault();const er=$("#rsn-err");er.hidden=true;
+    try{const n=$("#rsn-n1").value;if(n!==$("#rsn-n2").value)throw new Error("Las dos contraseñas no son iguales.");if(n.length<8)throw new Error("Debe tener al menos 8 caracteres.");
+      if(NUBE.activo)await api("respaldo_fijar",{mia:$("#rsn-mia").value,nueva:n});else{if(await hash($("#rsn-mia").value)!==yo.hash)throw new Error("Su clave de usuario no es correcta.");D.respaldoHash=await hash(n)}
+      respOk=true;log("sistema","Contraseña de respaldos creada","");guardar();pintarSistema()}catch(x){er.textContent=x.message;er.hidden=false}}}}
+function cambiarClaveResp(){
+  dlSeg(`<form><h3 style="margin:0 0 10px">Cambiar contraseña especial</h3>
+    <label>Su clave de usuario<input id="cr-mia" type="password" required></label>
+    <label style="margin-top:8px">Contraseña especial actual<input id="cr-ant" type="password" required></label>
+    <label style="margin-top:8px">Nueva contraseña especial (mín. 8)<input id="cr-n1" type="password" minlength="8" required></label>
+    <label style="margin-top:8px">Repetir nueva<input id="cr-n2" type="password" required></label><p class="error" hidden></p>
+    <div class="acc" style="margin-top:14px;justify-content:flex-end"><button class="btn linea" type="button" data-cerrar>Cancelar</button><button class="btn" type="submit">Cambiar</button></div></form>`,
+  async()=>{const n=$("#cr-n1").value;if(n!==$("#cr-n2").value)throw new Error("Las dos contraseñas nuevas no son iguales.");if(n.length<8)throw new Error("Debe tener al menos 8 caracteres.");
+    if(NUBE.activo)await api("respaldo_fijar",{mia:$("#cr-mia").value,anterior:$("#cr-ant").value,nueva:n});
+    else{if(await hash($("#cr-mia").value)!==yo.hash||await hash($("#cr-ant").value)!==D.respaldoHash)throw new Error("Alguna clave no es correcta.");D.respaldoHash=await hash(n)}
+    log("sistema","Contraseña de respaldos cambiada","");guardar();aviso("Listo","La contraseña especial de respaldos fue cambiada.")})}
+
+/* Conectados ahora (Configuraciones → Usuarios) */
+var conTimer=null;
+async function pintarConectados(){
+  const z=$("#con-ahora");if(!z){clearInterval(conTimer);conTimer=null;return}
+  let l=[];if(NUBE.activo){try{l=(await api("conectados")).conectados}catch(e){z.querySelector(".con-l").innerHTML=`<span class="nota">${esc(e.message)}</span>`;return}}
+  else l=yo?[{nombre:yo.nombre,user:yo.user,rol:yo.rol,app:"erp",hace:0}]:[];
+  const APP={erp:"ERP Matriz",repartidores:"App repartidores",distribucion:"App distribución","":"ERP Matriz"};
+  z.querySelector(".con-n").textContent=l.length;
+  z.querySelector(".con-l").innerHTML=l.length?l.map(c=>`<span class="con-c"><i></i><b>${esc(c.nombre)}</b><small>${esc(APP[c.app]||c.app)}${c.ip?" · "+esc(c.ip):""}</small></span>`).join(""):'<span class="nota">Nadie conectado ahora.</span>'}
+{const l0=L.usuarios;L.usuarios=function(){const r=l0.apply(this,arguments);
+  try{const f=$("#f-usr");if(f&&esAdmin()&&!$("#con-ahora")){f.insertAdjacentHTML("beforebegin",`<div class="caja" id="con-ahora"><div class="con-h"><b>Conectados ahora</b><span class="con-n">0</span><small>Se actualiza cada 30 segundos</small></div><div class="con-l"><span class="nota">Cargando…</span></div></div>`);
+    pintarConectados();clearInterval(conTimer);conTimer=setInterval(()=>{if(!document.hidden)pintarConectados()},30000)}}catch(e){}
+  return r}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5054,6 +5133,23 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .bd-leyenda{padding-left:0!important}
 .sis .bd-l{padding-left:12px}
 .sis .bd-l::before{flex-shrink:0}
+
+/* Seguridad */
+.sis #con-ahora{padding:10px 14px!important;margin-bottom:12px}
+.sis .con-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}.sis .con-h small{margin-left:auto;color:var(--mu,#667085);font-size:11.5px}
+.sis .con-n{background:#ecfdf3;color:#067647;border-radius:999px;padding:0 8px;font:600 12px "JetBrains Mono",monospace}
+.sis .con-l{display:flex;flex-wrap:wrap;gap:6px}
+.sis .con-c{display:inline-flex;align-items:center;gap:6px;border:1px solid #e4e8ee;border-radius:8px;padding:4px 10px;font-size:13px}
+.sis .con-c i{width:8px;height:8px;border-radius:50%;background:#12b76a}.sis .con-c small{color:#667085;font-size:11.5px}
+#dl-seg form{min-width:min(380px,82vw)}#dl-seg label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:500}
+
+/* Stock total */
+.sis .bd-l.tt,.sis .bd-v.tt{border-top:1.5px solid #c9d2df!important;background:#f5f8fd}
+.sis .bd-l.tt{font-weight:700;color:#0a2557}.sis .bd-l.tt::before{background:#0a2557}
+.sis .bd-v.tt b{color:#0a2557!important;font-weight:700!important}
+.sis .bd-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
+.sis .bd-kt{background:#f5f8fd;border-color:#c3d4ef}.sis .bd-kt b{color:#0a2557}
+@media (max-width:700px){.sis .bd-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </body>
 </html>
