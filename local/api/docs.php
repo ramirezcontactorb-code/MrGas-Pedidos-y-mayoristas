@@ -116,15 +116,25 @@ try {
             $vistos[$k] = 1;
             $l[] = ['nombre' => $n, 'indep' => !empty($x['indep']), 'activa' => !array_key_exists('activa', $x) || !empty($x['activa'])];
         }
-        foreach ($ant as $n => $x) if (!isset($vistos[slugLocal($n)])) salida(['error' => 'No se puede borrar «' . $n . '» porque puede tener datos. Desactívela.'], 400);
+        // Sucursales eliminadas: si tienen datos, hay que confirmar escribiendo el nombre (se borran sus ventas, rendiciones y bodega)
+        $confirmadas = array_map('slugLocal', (array) ($b['borrar'] ?? []));
+        $aBorrar = [];
+        foreach ($ant as $n => $x) {
+            $k = slugLocal((string) $n); if (isset($vistos[$k])) continue;
+            $st = db()->prepare("SELECT COUNT(*) FROM local_docs WHERE path = ? OR path LIKE ?"); $st->execute(['suc/' . $k, 'suc/' . $k . '/%']);
+            $hay = (int) $st->fetchColumn();
+            if ($hay && !in_array($k, $confirmadas, true)) salida(['error' => '«' . $n . '» tiene datos guardados (ventas, rendiciones o stock). Confirme escribiendo su nombre.', 'confirmar' => $n], 409);
+            $aBorrar[] = $k;
+        }
         if (!array_filter($l, fn($x) => $x['activa'])) salida(['error' => 'Debe quedar al menos una sucursal activa.'], 400);
         $p = db(); $p->beginTransaction();
         $p->exec("UPDATE contadores SET valor = valor + 1 WHERE nombre = 'local'");
         $ver = (int) $p->query("SELECT valor FROM contadores WHERE nombre = 'local'")->fetchColumn();
         $p->prepare(esSqlite() ? 'INSERT OR REPLACE INTO local_docs (path, data, ver) VALUES (?, ?, ?)'
             : 'INSERT INTO local_docs (path, data, ver) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), ver = VALUES(ver)')->execute(['app/sucursales', json_encode(['list' => $l], JSON_UNESCAPED_UNICODE), $ver]);
+        foreach ($aBorrar as $k) $p->prepare("DELETE FROM local_docs WHERE path = ? OR path LIKE ?")->execute(['suc/' . $k, 'suc/' . $k . '/%']);
         $p->commit();
-        salida(['ok' => true, 'list' => $l]);
+        salida(['ok' => true, 'list' => $l, 'borradas' => $aBorrar]);
     }
     if ($a === 'precios' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($q['perfil']['rol'] !== 'admin') salida(['error' => 'Solo el administrador puede cambiar precios del ERP Local.'], 403);

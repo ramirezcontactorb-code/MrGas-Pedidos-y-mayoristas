@@ -4378,10 +4378,10 @@ CFG_MAY.preciosLocal={v(){
     const com=(comp?g.comision:d.comision)||d.comision||{},qr=(comp?g.qr:d.qr)||d.qr||{};
     const fila=(f,campo,ro)=>{const id=LID[f.id],v=campo==="mayor"?may(id):pv(id,campo);return `<td class="pn"><span>$</span><input type="number" min="0" data-lc="${campo}|${id}" value="${v||0}" ${ro?"disabled":""}></td>`};
     z.innerHTML=`<div class="cfg-dos pl-dos"><div>
-      <h3 class="sub" style="margin-top:4px">Precio local, envases y mayorista</h3>
-      <div class="tabla-wrap cfgt"><table><thead><tr><th>Cilindro</th><th class="c">Venta local</th><th class="c">Envase</th><th class="c">Base mayorista</th></tr></thead><tbody>
-      ${FORMATOS.map(f=>`<tr><td><b>${etC(f)}</b></td>${fila(f,"venta",comp)}${fila(f,"envase",false)}${fila(f,"mayor",comp)}</tr>`).join("")}</tbody></table></div>
-      <p class="cfgp-nota" style="margin-top:6px">${comp?"Venta local y base mayorista salen del <b>Precio Base</b> (pestaña de arriba). Envase 0 = no se vende.":"Chillán tiene precios propios: aquí se cambian todos."}</p>
+      <h3 class="sub" style="margin-top:4px">Venta al público, envases y mayorista</h3>
+      <div class="tabla-wrap cfgt"><table><thead><tr><th>Cilindro</th><th class="c">Venta al público</th><th class="c">Envase</th><th class="c">Base mayorista</th></tr></thead><tbody>
+      ${FORMATOS.map(f=>`<tr><td><b>${etC(f)}</b></td>${fila(f,"venta",false)}${fila(f,"envase",false)}${fila(f,"mayor",comp)}</tr>`).join("")}</tbody></table></div>
+      <p class="cfgp-nota" style="margin-top:6px">${comp?"La venta al público se guarda en todas estas sucursales. Al guardar el <b>Precio Base</b>, la venta al público vuelve a quedar igual al precio base. La base mayorista sale del Precio Base. Envase 0 = no se vende.":esc(locGrupo)+" tiene precios propios: aquí se cambian todos."}</p>
       <h3 class="sub">Descuento QR (por unidad)</h3>
       <div class="tabla-wrap cfgt angosta"><table><tbody>${QRS_L.map(x=>`<tr><td><b>Cilindro ${x} kg</b></td><td class="pn"><span>$</span><input type="number" min="0" data-lq="${x}" value="${qr[x]||0}"></td></tr>`).join("")}</tbody></table></div></div>
       <div><h3 class="sub" style="margin-top:4px">Comisión de vales (Rendición Mayorista)</h3>
@@ -4392,14 +4392,14 @@ CFG_MAY.preciosLocal={v(){
       const venta={},envase={},mayor={};$$("[data-lc]").forEach(i=>{if(i.disabled)return;const [c,id]=i.dataset.lc.split("|"),v=Math.max(0,Math.round(+i.value||0));({venta,envase,mayor})[c][id]=v});
       const qrN={};$$("[data-lq]").forEach(i=>qrN[i.dataset.lq]=Math.max(0,Math.round(+i.value||0)));
       const comN={};$$("[data-lv]").forEach(i=>{const [k,x]=i.dataset.lv.split("|"),t=VTIPOS_L[+k];comN[t]=comN[t]||{};comN[t][x]=Math.max(0,Math.round(+i.value||0))});
-      try{if(comp){const sucs={};locCompartidas().forEach(x=>sucs[lslug(x)]={envase});await locPrecios({global:{comision:comN,qr:qrN},sucs})}
+      try{if(comp){const sucs={};locCompartidas().forEach(x=>sucs[lslug(x)]={venta,envase});await locPrecios({global:{comision:comN,qr:qrN},sucs})}
         else await locPrecios({sucs:{[lslug(locGrupo)]:{venta,envase,mayor,comision:comN,qr:qrN}}});
         log("precios","Precios del ERP Local",comp?"Sucursales: "+locCompartidas().join(", "):locGrupo);guardar();
         aviso("Precios guardados",`Se actualizaron en el ERP Local (${comp?locCompartidas().length+" sucursales":locGrupo}).`);pintarSistema()}
       catch(x){er.textContent=x.message;er.hidden=false}finally{b.disabled=false}}}};
 
 /* ===== Sucursales del ERP Local (cuántas, activas y con precios propios) ===== */
-let sucLocCargando=false,sucLocNueva=[];
+let sucLocCargando=false,sucLocNueva=[],sucLocBorrar=new Set();
 function aplicarSucLocal(l){if(!Array.isArray(l)||!l.length)return;LOCAL_CFG=l.map(x=>({nombre:x.nombre,indep:!!x.indep,activa:x.activa!==false}));
   LOCAL_SUCS=LOCAL_CFG.map(x=>x.nombre);LOC_INDEP=LOCAL_CFG.filter(x=>x.indep).map(x=>x.nombre)}
 async function cargarSucLocal(){if(sucLocCargando||LOCAL_CFG||!NUBE.activo||!yo||!esAdmin())return;sucLocCargando=true;
@@ -4407,11 +4407,12 @@ async function cargarSucLocal(){if(sucLocCargando||LOCAL_CFG||!NUBE.activo||!yo|
 {const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{cargarSucLocal()}catch(e){}return r}}
 CFG_MAY.sucLocal={v(){const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC_INDEP.includes(n),activa:true}))).concat(sucLocNueva);
   return `<section class="cfgp" id="s-sucl" style="max-width:860px"><h3>Sucursales del ERP Local</h3>
-    <p class="cfgp-nota">Aquí decides cuántas sucursales tiene el ERP Local. <b>Precios iguales</b>: usa el Precio Base y los precios de «Precio Local» de todas. <b>Precios propios</b>: se cambian aparte (como Chillán). Una sucursal no se borra, porque puede tener ventas y stock: se <b>desactiva</b> y deja de aparecer.</p>
-    <div class="tabla-wrap cfgt"><table><thead><tr><th>Sucursal</th><th class="c">Precios</th><th class="c">Activa</th></tr></thead><tbody>
-    ${L.map((x,i)=>`<tr class="${x.activa?"":"apagada"}"><td><b>${esc(x.nombre)}</b>${i>=L.length-sucLocNueva.length?' <span class="pill">nueva</span>':""}</td>
+    <p class="cfgp-nota">Aquí decides cuántas sucursales tiene el ERP Local. <b>Precios iguales</b>: usa el Precio Base y los precios de «Precio Local» de todas. <b>Precios propios</b>: se cambian aparte (como Chillán). <b>Desactivar</b> la oculta y guarda sus datos. <b>Eliminar</b> (✕) la quita del todo; si tiene ventas o stock, se pide confirmar y esos datos se borran.</p>
+    <div class="tabla-wrap cfgt"><table><thead><tr><th>Sucursal</th><th class="c">Precios</th><th class="c">Activa</th><th class="c">Eliminar</th></tr></thead><tbody>
+    ${L.map((x,i)=>`<tr class="${x.activa?"":"apagada"} ${sucLocBorrar.has(x.nombre)?"borrar":""}"><td><b>${esc(x.nombre)}</b>${i>=L.length-sucLocNueva.length?' <span class="pill">nueva</span>':""}${sucLocBorrar.has(x.nombre)?' <span class="pill rojo">se eliminará</span>':""}</td>
       <td class="c"><select data-sli="${i}"><option value="0" ${x.indep?"":"selected"}>Iguales a las demás</option><option value="1" ${x.indep?"selected":""}>Propios (independientes)</option></select></td>
-      <td class="c"><input type="checkbox" data-sla="${i}" ${x.activa?"checked":""} aria-label="Activa ${esc(x.nombre)}"></td></tr>`).join("")}
+      <td class="c"><input type="checkbox" data-sla="${i}" ${x.activa?"checked":""} aria-label="Activa ${esc(x.nombre)}"></td>
+      <td class="c">${sucLocBorrar.has(x.nombre)?`<button class="btn chico linea" type="button" data-sld="${i}">Deshacer</button>`:`<button class="x-rojo" type="button" data-sld="${i}" aria-label="Eliminar ${esc(x.nombre)}">✕</button>`}</td></tr>`).join("")}
     </tbody></table></div>
     <div class="cfgp-fila" style="margin-top:12px"><label class="g2">Nueva sucursal<input id="sl-nom" maxlength="40" placeholder="Ej: Rancagua"></label><button class="btn linea" type="button" id="sl-add">＋ Agregar</button></div>
     <div class="cfgp-btn"><button class="btn" type="button" id="sl-guardar">Guardar sucursales</button></div><p class="error" id="sl-err" hidden style="text-align:center"></p>
@@ -4419,14 +4420,25 @@ CFG_MAY.sucLocal={v(){const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC
   l(){const z=$("#s-sucl");if(!z)return;
     const leer=()=>{const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC_INDEP.includes(n),activa:true}))).concat(sucLocNueva);
       return L.map((x,i)=>({nombre:x.nombre,indep:$(`[data-sli="${i}"]`).value==="1",activa:$(`[data-sla="${i}"]`).checked}))};
+    const fijar=()=>{const t=leer(),n=sucLocNueva.length;LOCAL_CFG=t.slice(0,t.length-n);sucLocNueva=t.slice(t.length-n)};
+    $$("[data-sld]").forEach(b=>b.onclick=()=>{fijar();const L=LOCAL_CFG.concat(sucLocNueva),x=L[+b.dataset.sld];if(!x)return;
+      const nueva=sucLocNueva.includes(x);if(nueva){sucLocNueva=sucLocNueva.filter(y=>y!==x)}else if(sucLocBorrar.has(x.nombre))sucLocBorrar.delete(x.nombre);else sucLocBorrar.add(x.nombre);pintarSistema()});
     $("#sl-add").onclick=()=>{const n=$("#sl-nom").value.trim().replace(/\s+/g," "),er=$("#sl-err");er.hidden=true;if(!n)return;
       if(!/^[\p{L}\p{N} -]+$/u.test(n)){er.textContent="Use solo letras, números, espacios o guion.";er.hidden=false;return}
       const todas=leer();if(todas.some(x=>lslug(x.nombre)===lslug(n))){er.textContent="Esa sucursal ya existe.";er.hidden=false;return}
       const prev=todas;LOCAL_CFG=prev.slice(0,prev.length-sucLocNueva.length);sucLocNueva=prev.slice(prev.length-sucLocNueva.length).concat([{nombre:n,indep:false,activa:true}]);pintarSistema()};
-    $("#sl-guardar").onclick=async()=>{const er=$("#sl-err");er.hidden=true;const list=leer();const b=$("#sl-guardar");b.disabled=true;
-      try{const r=await fetch("local/api/docs.php?a=sucursales",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({list})});const j=await r.json().catch(()=>({}));
-        if(!r.ok)throw new Error(j.error||"No se pudo guardar");sucLocNueva=[];aplicarSucLocal(j.list);
-        log("sistema","Sucursales del ERP Local",j.list.map(x=>x.nombre+(x.indep?" (precios propios)":"")+(x.activa?"":" (inactiva)")).join(", "));guardar();
+    $("#sl-guardar").onclick=async()=>{const er=$("#sl-err");er.hidden=true;const list=leer().filter(x=>!sucLocBorrar.has(x.nombre));const b=$("#sl-guardar");b.disabled=true;
+      const enviar=async borrar=>{const r=await fetch("local/api/docs.php?a=sucursales",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({list,borrar})});const j=await r.json().catch(()=>({}));return {r,j}};
+      try{let borrar=[],{r,j}=await enviar(borrar);
+        while(r.status===409&&j.confirmar){const nom=j.confirmar;b.disabled=false;
+          const ok=await new Promise(res=>{dlSeg(`<form><h3 style="margin:0 0 8px">Eliminar «${esc(nom)}»</h3><p class="nota" style="margin:0 0 10px">Esta sucursal tiene <b>ventas, rendiciones o stock</b> guardados. Si la elimina, <b>esos datos se borran y no se pueden recuperar</b>. Si solo quiere ocultarla, mejor desactívela.</p>
+            <label>Escriba <b>${esc(nom)}</b> para confirmar<input id="sl-conf" autocomplete="off" required></label><p class="error" hidden></p>
+            <div class="acc" style="margin-top:14px;justify-content:flex-end"><button class="btn linea" type="button" data-cerrar>Cancelar</button><button class="btn rojo" type="submit">Eliminar con sus datos</button></div></form>`,
+            async()=>{if($("#sl-conf").value.trim().toLowerCase()!==nom.toLowerCase())throw new Error("El nombre no coincide.");res(true)});
+            document.getElementById("dl-seg").addEventListener("close",()=>res(false),{once:true})});
+          if(!ok)return;borrar.push(nom);b.disabled=true;({r,j}=await enviar(borrar))}
+        if(!r.ok)throw new Error(j.error||"No se pudo guardar");sucLocNueva=[];sucLocBorrar=new Set();aplicarSucLocal(j.list);
+        log("sistema","Sucursales del ERP Local",j.list.map(x=>x.nombre+(x.indep?" (precios propios)":"")+(x.activa?"":" (inactiva)")).join(", ")+((j.borradas||[]).length?" · eliminadas: "+j.borradas.join(", "):""));guardar();
         pintarSistema();aviso("Sucursales guardadas","El ERP Local ya usa esta lista. Los usuarios que lo tengan abierto la verán al recargar la página.")}
       catch(x){er.textContent=x.message;er.hidden=false}finally{b.disabled=false}}}};
 </script>
@@ -5312,6 +5324,9 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 
 .sis #s-sucl tr.apagada td{color:#98a2b3}.sis #s-sucl select{padding:6px 8px}
 .sis #s-sucl .pill{background:#ecfdf3;color:#067647;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:600}
+
+.sis #s-sucl tr.borrar td{background:#fef3f2}.sis #s-sucl tr.borrar td b{text-decoration:line-through;color:#b42318}
+.sis #s-sucl .pill.rojo{background:#fef3f2;color:#b42318}
 </style>
 </body>
 </html>
