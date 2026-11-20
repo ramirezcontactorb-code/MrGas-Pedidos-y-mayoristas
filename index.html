@@ -4164,7 +4164,7 @@ function vistaStockBodega(){
 </tbody></table>
       <div class="bd-cam-p"><span>${tot(hoyC)?`Cargado hoy: <b>${esc(resumenQ(hoyC))}</b>`:"Hoy sin carga registrada"}${on?"":" · <b>No activo</b>"}</span>
         <button class="btn chico linea" type="button" data-bcargar="${c.id}">Editar carga</button></div></article>`};
-  return cabeza("Control de Bodega",`<span class="nota" style="margin:0">${esc(l.nombre)} · ${fechaLarga(hoy)}</span>`)+
+  return cabeza("Control de Bodega",`<span class="nota" style="margin:0">${fechaLarga(hoy)}</span>`)+
   (bajos.length?`<div class="banner" style="background:#fef3f2;color:#b42318">Stock bajo en bodega: ${bajos.map(f=>`${f.et} (${l.stock[f.id]||0})`).join(", ")}. Mínimo: ${min}.</div>`:"")+`
   <div class="kpis bd-kpis"><div class="kpi"><span>Llenos en bodega</span><b class="num" id="bd-k-ll">${tot(l.stock)}</b></div><div class="kpi"><span>Vacíos en bodega</span><b class="num" id="bd-k-va">${tot(l.vacios)}</b></div>
     <div class="kpi"><span>Llenos en camiones</span><b class="num">${tot(enCam)}</b></div><div class="kpi"><span>Prestados a clientes</span><b class="num" id="bd-k-pe">${tot(l.prestados)}</b></div><div class="kpi bd-kt"><span>Stock total</span><b class="num" id="bd-kt-n">${tot(l.stock)+tot(l.vacios)+tot(l.prestados)}</b></div></div>
@@ -4173,7 +4173,7 @@ function vistaStockBodega(){
     ${FORMATOS.map(f=>`<div class="vc-col"><div class="vc-img">${cilBlanco(f)}</div><span class="vc-et"><b>${f.tipo==="h"?"H15":f.kg}</b> ${f.tipo==="h"?"Aluminio":"kg"}</span>
       <span class="bd-v ll ${(l.stock[f.id]||0)<min?"bajo":""}" data-bl="${f.id}">${n(l.stock[f.id]||0)}</span><span class="bd-v va" data-bv="${f.id}">${n(l.vacios[f.id]||0)}</span><span class="bd-v pr" data-bp="${f.id}">${n(l.prestados[f.id]||0)}</span><span class="bd-v ca">${n(enCam[f.id]||0)}</span><span class="bd-v tt" data-tt="${f.id}">${n((l.stock[f.id]||0)+(l.vacios[f.id]||0)+(l.prestados[f.id]||0))}</span></div>`).join("")}
   </div></div>
-  <div class="bd-univ"><span id="bd-univ-t">Stock total = bodega matriz (llenos + vacíos + prestados): <b class="num">${tot(l.stock)+tot(l.vacios)+tot(l.prestados)}</b>. Los camiones van aparte.</span>
+  <div class="bd-univ"><span id="bd-univ-t">Stock total = bodega (llenos + vacíos + prestados): <b class="num">${tot(l.stock)+tot(l.vacios)+tot(l.prestados)}</b>. Los camiones van aparte.</span>
 </div></section>
   <div class="bd-der"><section class="bd-cams-h"><h3>Carga de los camiones</h3><span class="nota" style="margin:0">Lo que lleva cada camión ahora. Las entregas y ventas se descuentan de su carga.</span></section>
   <div class="bd-cams">${chs.map(tarjeta).join("")||'<div class="caja"><p>Esta sucursal no tiene camiones. Agréguelos en Configuraciones → Choferes.</p></div>'}</div></div></div>
@@ -4634,8 +4634,27 @@ async function stockSucursales(){const z=$("#bd-sucs");if(!z)return;
     const b=$("#bd-sucs-rec");if(b)b.onclick=()=>{z.innerHTML='<p class="nota">Actualizando…</p>';stockSucursales()}}
   catch(e){z.innerHTML=`<p class="nota" style="margin:0">No se pudo leer el stock de las sucursales del ERP Local${e&&e.message?": "+esc(e.message):""}.</p>`}}
 {const l0=L.bodega;L.bodega=function(){const r=l0.apply(this,arguments);
-  try{if(bTab==="stock"&&NUBE.activo&&(esAdmin()||(Array.isArray(yo.permisos)&&yo.permisos.includes("app.local")))&&!$("#bd-sucs")){
+  try{if(false&&bTab==="stock"&&NUBE.activo&&(esAdmin()||(Array.isArray(yo.permisos)&&yo.permisos.includes("app.local")))&&!$("#bd-sucs")){
     const bod=document.querySelector(".bd-dos>.bd-bod"),ancla=bod||document.querySelector(".bd-dos");if(ancla){ancla.insertAdjacentHTML(bod?"beforeend":"afterend",'<section class="'+(bod?"bd-sucs-in":"caja")+'" id="bd-sucs"><p class="nota" style="margin:0">Cargando stock de las sucursales…</p></section>');stockSucursales()}}}catch(e){}
+  return r}}
+
+/* ===== Control de Bodega: editar el stock de la bodega ===== */
+function editarStockBodega(){const l=ensureLoc(loc(suc));
+  let dl=document.getElementById("dl-stock");if(!dl){dl=document.createElement("dialog");dl.id="dl-stock";dl.className="dl-estado";document.body.appendChild(dl)}
+  const fila=(k,t)=>`<tr><td><b>${t}</b></td>${FORMATOS.map(f=>`<td><input type="number" class="num" data-es="${k}|${f.id}" value="${(l[k]||{})[f.id]||0}" aria-label="${t} ${f.et}"></td>`).join("")}</tr>`;
+  dl.innerHTML=`<form><h3 style="margin:0 0 4px">Editar stock de bodega</h3><p class="nota" style="margin:0 0 10px">Escriba lo que hay realmente en la bodega. El cambio queda en Informes → Historial de bodega.</p>
+    <div class="tabla-wrap"><table class="es-t"><thead><tr><th></th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15":f.kg+" kg"}</th>`).join("")}</tr></thead><tbody>
+    ${fila("stock","Llenos")}${fila("vacios","Vacíos")}${fila("prestados","Prestados")}</tbody></table></div>
+    <p class="error" hidden></p><div class="acc" style="margin-top:12px;justify-content:flex-end"><button class="btn linea" type="button" data-cerrar>Cancelar</button><button class="btn" type="submit">Guardar stock</button></div></form>`;
+  dl.showModal();dl.querySelector("[data-cerrar]").onclick=()=>dl.close();
+  dl.querySelector("form").onsubmit=e=>{e.preventDefault();const cam=[];
+    dl.querySelectorAll("[data-es]").forEach(i=>{const [k,id]=i.dataset.es.split("|"),v=Math.round(+i.value||0),a=(l[k]||{})[id]||0;
+      if(v!==a){l[k]=l[k]||{};l[k][id]=v;cam.push(`${({stock:"llenos",vacios:"vacíos",prestados:"prestados"})[k]} ${fmt(id).et} ${a}→${v}`)}});
+    if(!cam.length){dl.close();return aviso("Sin cambios","El stock quedó igual.")}
+    log("bodega","Stock de bodega editado",cam.join(", "),{local:l.id});guardar();dl.close();pintarSistema();aviso("Stock guardado",`${cam.length} cambio(s) en el stock de bodega.`)}}
+{const l0=L.bodega;L.bodega=function(){const r=l0.apply(this,arguments);
+  try{if(bTab==="stock"&&!soloVer("bodega")){const h=document.querySelector(".bd-bod h3");if(h&&!document.getElementById("bd-editar")){
+    h.insertAdjacentHTML("afterend",'<button class="btn chico linea" type="button" id="bd-editar">✎ Editar stock</button>');document.getElementById("bd-editar").onclick=editarStockBodega}}}catch(e){}
   return r}}
 </script>
 <style id="tema-erp">
@@ -5627,6 +5646,9 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 
 /* la tabla por sucursal no se muestra; solo se usa para sumar el stock */
 .sis #bd-sucs{display:none!important}
+
+.sis .bd-bod{position:relative}.sis #bd-editar{position:absolute;right:16px;top:12px}
+#dl-stock{width:min(820px,94vw)!important;max-width:94vw!important;overflow:auto}#dl-stock form{min-width:0;width:100%}#dl-stock .tabla-wrap{overflow-x:auto}#dl-stock .es-t td,#dl-stock .es-t th{padding:4px 6px}#dl-stock .es-t input{width:82px;text-align:center;padding:6px}
 </style>
 </body>
 </html>
