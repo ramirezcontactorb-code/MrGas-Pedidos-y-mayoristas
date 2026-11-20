@@ -58,11 +58,11 @@ if ($paso === 2) {
             $nombre = trim((string) ($_POST['nombre'] ?? ''));
             $pass = (string) ($_POST['pass'] ?? '');
             if (!preg_match('/^[a-z0-9._-]{3,30}$/', $user)) $msg = 'El usuario debe tener entre 3 y 30 letras o números, sin espacios.';
-            elseif (strlen($pass) < 4) $msg = 'La clave debe tener al menos 4 caracteres.';
+            elseif ($e = claveDebil($pass)) $msg = $e;
             else {
                 crearTablas();
                 db()->prepare('INSERT INTO usuarios (usuario, hash, nombre, rol, local_id, sucursales, permisos, chofer, activo, creado) VALUES (?,?,?,?,NULL,?,NULL,NULL,1,?)')
-                    ->execute([$user, password_hash($pass, PASSWORD_DEFAULT), $nombre ?: $user, 'admin', '[]', date('Y-m-d H:i:s')]);
+                    ->execute([$user, hashClave($pass), $nombre ?: $user, 'admin', '[]', date('Y-m-d H:i:s')]);
                 $ok = true; $yaEsta = true;
             }
         }

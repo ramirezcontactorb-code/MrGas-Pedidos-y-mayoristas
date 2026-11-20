@@ -102,8 +102,8 @@ try {
         $s = db()->prepare('SELECT hash FROM usuarios WHERE uid = ?'); $s->execute([$q['perfil']['uid']]);
         if (!password_verify((string) ($b['actual'] ?? ''), (string) $s->fetchColumn())) salida(['error' => 'Clave actual incorrecta'], 400);
         $n = (string) ($b['nueva'] ?? '');
-        if (strlen($n) < 4) salida(['error' => 'La clave nueva debe tener al menos 4 caracteres'], 400);
-        db()->prepare('UPDATE usuarios SET hash = ? WHERE uid = ?')->execute([password_hash($n, PASSWORD_DEFAULT), $q['perfil']['uid']]);
+        if ($e = claveDebil($n)) salida(['error' => $e], 400);
+        db()->prepare('UPDATE usuarios SET hash = ? WHERE uid = ?')->execute([hashClave($n), $q['perfil']['uid']]);
         salida(['ok' => true]);
     }
 

@@ -29,6 +29,7 @@ try {
         $okClave = $u && (esDiaria($u) ? hash_equals(codigoDiario((int) $u['uid']), trim($pass)) : password_verify($pass, $u['hash']));
         if (!$okClave) { anotarIntento('login'); anotarIntentoUsuario($usr); salida(['error' => $u && esDiaria($u) ? 'Clave del día incorrecta. Pídale la clave de hoy al encargado.' : 'Usuario o clave incorrectos. Revise mayúsculas y vuelva a intentar.'], 401); }
         if (!$u['activo']) salida(['error' => 'Este usuario está desactivado. Pida al administrador que lo active.'], 403);
+        if (!esDiaria($u) && password_needs_rehash((string) $u['hash'], algoClave())) db()->prepare('UPDATE usuarios SET hash = ? WHERE uid = ?')->execute([hashClave($pass), (int) $u['uid']]);
         $appL = in_array($b['app'] ?? '', ['repartidores', 'distribucion'], true) ? $b['app'] : 'erp';
         session_regenerate_id(true);
         $_SESSION['uid'] = (int) $u['uid'];
@@ -74,7 +75,7 @@ try {
         if (!$okYo || !$okAnt) { anotarIntento('respaldo'); salida(['error' => !$okYo ? 'Su clave de usuario no es correcta.' : 'La contraseña especial actual no es correcta.'], 400); }
         $n = (string) ($b['nueva'] ?? '');
         if (strlen($n) < 8) salida(['error' => 'La contraseña especial debe tener al menos 8 caracteres.'], 400);
-        $h = password_hash($n, PASSWORD_DEFAULT);
+        $h = hashClave($n);
         grabarAjuste('respaldo_hash', $h);
         $_SESSION['resp_ok'] = true;
         salida(['ok' => true]);
@@ -103,8 +104,8 @@ try {
         $s = db()->prepare('SELECT hash FROM usuarios WHERE uid = ?'); $s->execute([$u['uid']]);
         if (!password_verify((string) ($b['actual'] ?? ''), (string) $s->fetchColumn())) salida(['error' => 'La clave actual no es correcta.'], 400);
         $n = (string) ($b['nueva'] ?? '');
-        if (strlen($n) < 4) salida(['error' => 'La clave nueva debe tener al menos 4 caracteres.'], 400);
-        db()->prepare('UPDATE usuarios SET hash = ? WHERE uid = ?')->execute([password_hash($n, PASSWORD_DEFAULT), $u['uid']]);
+        if ($e = claveDebil($n)) salida(['error' => $e], 400);
+        db()->prepare('UPDATE usuarios SET hash = ? WHERE uid = ?')->execute([hashClave($n), $u['uid']]);
         salida(['ok' => true]);
     }
 
@@ -208,7 +209,7 @@ try {
                 if (!in_array('_v2', $pp, true)) $pp = ['_v2', 'app.repartidores'];
                 if (!in_array('app.repartidores', $pp, true)) $pp[] = 'app.repartidores';
                 if (!in_array(PERM_DIARIA, $pp, true)) $pp[] = PERM_DIARIA;
-                db()->prepare('UPDATE usuarios SET permisos = ?, hash = ? WHERE uid = ?')->execute([json_encode(array_values($pp)), password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT), $x['uid']]);
+                db()->prepare('UPDATE usuarios SET permisos = ?, hash = ? WHERE uid = ?')->execute([json_encode(array_values($pp)), hashClave(bin2hex(random_bytes(24))), $x['uid']]);
             }
             salida(['ok' => true]);
         }
@@ -222,7 +223,7 @@ try {
         $local = isset($b['local']) ? (int) $b['local'] : null; $nombre = mb_substr(trim((string) ($b['nombre'] ?? $user)), 0, 80);
         // la clave guardada es aleatoria e inservible: el chofer entra solo con el código del día
         db()->prepare('INSERT INTO usuarios (usuario, hash, nombre, rol, local_id, sucursales, permisos, chofer, activo, creado) VALUES (?,?,?,?,?,?,?,?,1,?)')
-            ->execute([$user, password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT), $nombre ?: $user, 'chofer', $local, json_encode($local ? [$local] : []), $permDiaria, $ch, ahora()]);
+            ->execute([$user, hashClave(bin2hex(random_bytes(24))), $nombre ?: $user, 'chofer', $local, json_encode($local ? [$local] : []), $permDiaria, $ch, ahora()]);
         salida(['ok' => true]);
     }
     // ---------- avisos al celular (push) ----------
@@ -408,18 +409,18 @@ try {
             db()->prepare('UPDATE usuarios SET nombre = ?, rol = ?, local_id = ?, sucursales = ?, permisos = ?, chofer = ? WHERE uid = ?')
                 ->execute([$nombre, $rol, $local, json_encode($suc), $per, $chofer, $uid]);
             if ($pass !== '') {
-                if (strlen($pass) < 4) salida(['error' => 'La clave debe tener al menos 4 caracteres.'], 400);
-                db()->prepare('UPDATE usuarios SET hash = ? WHERE uid = ?')->execute([password_hash($pass, PASSWORD_DEFAULT), $uid]);
+                if ($e = claveDebil($pass)) salida(['error' => $e], 400);
+                db()->prepare('UPDATE usuarios SET hash = ? WHERE uid = ?')->execute([hashClave($pass), $uid]);
             }
             salida(['ok' => true]);
         }
         $user = strtolower(trim((string) ($b['user'] ?? '')));
         if (!preg_match('/^[a-z0-9._-]{3,30}$/', $user)) salida(['error' => 'El usuario debe tener entre 3 y 30 letras, números, punto o guion, sin espacios.'], 400);
-        if (strlen($pass) < 4) salida(['error' => 'La clave debe tener al menos 4 caracteres.'], 400);
+        if ($e = claveDebil($pass)) salida(['error' => $e], 400);
         $s = db()->prepare('SELECT COUNT(*) FROM usuarios WHERE usuario = ?'); $s->execute([$user]);
         if ((int) $s->fetchColumn() > 0) salida(['error' => 'Ese usuario ya existe. Elija otro.'], 400);
         db()->prepare('INSERT INTO usuarios (usuario, hash, nombre, rol, local_id, sucursales, permisos, chofer, activo, creado) VALUES (?,?,?,?,?,?,?,?,1,?)')
-            ->execute([$user, password_hash($pass, PASSWORD_DEFAULT), $nombre ?: $user, $rol, $local, json_encode($suc), $per, $chofer, ahora()]);
+            ->execute([$user, hashClave($pass), $nombre ?: $user, $rol, $local, json_encode($suc), $per, $chofer, ahora()]);
         salida(['ok' => true]);
     }
 

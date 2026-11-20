@@ -118,9 +118,10 @@ function anotarIntentoUsuario(string $user): void { db()->prepare('INSERT INTO i
 // Igual que Venta Local: en la oficina la sesión se cierra al cerrar el navegador
 // (y también tras 10 horas sin uso). En las apps de los choferes dura hasta las 00:00,
 // para que no tengan que volver a poner la clave mientras conducen.
+function esHttps(): bool { return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https' || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443; }
 function cookieSesion(int $expira): void {
     if (headers_sent()) return;
-    $o = ['path' => '/', 'httponly' => true, 'samesite' => 'Lax', 'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')];
+    $o = ['path' => '/', 'httponly' => true, 'samesite' => 'Lax', 'secure' => esHttps()];
     if ($expira > 0) $o['expires'] = $expira;
     setcookie(session_name(), session_id(), $o);
 }
@@ -128,12 +129,12 @@ function finDelDia(): int { return max(time() + 300, strtotime('tomorrow')); }
 const OFICINA_INACTIVA = 36000; // 10 horas
 function iniciarSesion(): void {
     session_name('mrgas');
+    ini_set('session.use_strict_mode', '1'); ini_set('session.use_only_cookies', '1'); ini_set('session.use_trans_sid', '0');
     ini_set('session.gc_maxlifetime', '86400');
     // carpeta propia para las sesiones, fuera de public_html, para que el hosting no las borre antes
     $dir = dirname(dirname(__DIR__)) . '/mrgas-sesiones';
     if ((is_dir($dir) || @mkdir($dir, 0700, true)) && is_writable($dir)) session_save_path($dir);
-    session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax',
-        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')]);
+    session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax', 'secure' => esHttps()]);
     session_start();
     if (!empty($_SESSION['uid'])) {
         if (empty($_SESSION['larga']) && time() - (int) ($_SESSION['uso'] ?? time()) > OFICINA_INACTIVA) { $_SESSION = []; return; }
@@ -173,6 +174,44 @@ function yo(): ?array {
 function soloLocal(array $p): bool {
     if ($p['rol'] !== 'encargado' || !is_array($p['permisos']) || !in_array('app.local', $p['permisos'], true)) return false;
     foreach ($p['permisos'] as $c) if (!preg_match('/^(_v2|app\.|loc\.|lsuc\.|clave\.)/', (string) $c)) return false;
+    return true;
+}
+// Claves: se guardan solo cifradas (Argon2id si el servidor lo permite; si no, bcrypt). Nunca se guarda la clave real.
+function algoClave() { return defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT; }
+function hashClave(string $c): string { return password_hash($c, algoClave()); }
+// Clave nueva: mínimo 8 caracteres, con al menos una letra y un número
+function claveDebil(string $c): ?string {
+    if (strlen($c) < 8) return 'La clave debe tener al menos 8 caracteres.';
+    if (!preg_match('/[A-Za-zÁÉÍÓÚáéíóúÑñ]/u', $c) || !preg_match('/[0-9]/', $c)) return 'La clave debe tener letras y números.';
+    return null;
+}
+// Permisos detallados (iguales a los del Panel General): los usuarios antiguos conservan lo que podían hacer antes
+function permExtra(array $u, string $c): bool {
+    if ($u['rol'] === 'admin') return true;
+    $p = $u['permisos']; if (!is_array($p)) return true;
+    if (!in_array('_v2', $p, true)) return $c === 'pedidos.anular' || in_array($c, ['vc.anular', 'vc.descuento', 'may.anular', 'may.descuento', 'bodega.editar'], true);
+    if (in_array($c, $p, true)) return true;
+    if (in_array('_v3', $p, true)) return false;
+    $antes = ['vc.anular' => 'ventachofer', 'vc.descuento' => 'ventachofer', 'may.anular' => 'mayorista', 'may.descuento' => 'mayorista', 'bodega.editar' => 'bodega'];
+    return isset($antes[$c]) && in_array($antes[$c], $p, true);
+}
+// Revisa en el servidor las acciones que piden permiso especial (anular y dar descuentos)
+function accionesPermitidas(array $u, string $col, ?array $nuevo, ?array $antes): bool {
+    if ($u['rol'] === 'admin' || $nuevo === null) return true;
+    $a = $antes ?? [];
+    if ($col === 'pedidos' && ($nuevo['estado'] ?? '') === 'anulado' && ($a['estado'] ?? '') !== 'anulado') return permExtra($u, 'pedidos.anular');
+    if ($col === 'cargasDist') {
+        if (!empty($nuevo['anulada']) && empty($a['anulada']) && !permExtra($u, 'may.anular')) return false;
+        if ((int) ($nuevo['dcto'] ?? 0) > (int) ($a['dcto'] ?? 0) && !permExtra($u, 'may.descuento')) return false;
+    }
+    if ($col === 'rendiciones' && ($nuevo['tipo'] ?? '') === 'movil') {
+        $va = []; foreach (($a['vueltas'] ?? []) as $x) $va[(string) ($x['id'] ?? '')] = $x;
+        foreach (($nuevo['vueltas'] ?? []) as $x) {
+            $o = $va[(string) ($x['id'] ?? '')] ?? [];
+            if (!empty($x['anulada']) && empty($o['anulada']) && !permExtra($u, 'vc.anular')) return false;
+            if ((int) ($x['dcto'] ?? 0) > (int) ($o['dcto'] ?? 0) && !permExtra($u, 'vc.descuento')) return false;
+        }
+    }
     return true;
 }
 function requiereYo(): array { $u = yo(); if (!$u) salida(['error' => 'Sesión vencida. Vuelva a entrar.'], 401); return $u; }
@@ -246,6 +285,7 @@ function puedeEscribir(array $u, string $col, string $id, array $m, ?array $nuev
     if ($col === 'pedidos' && $nuevo === null) return false; // borrar pedidos: solo administrador
     if (!tienePermiso($u, $col)) return false;
     foreach ([$m['local'], $metaAntes['local_id'] ?? null] as $l) if ($l !== null && !in_array((int) $l, sucs($u), true)) return false;
+    if (!accionesPermitidas($u, $col, $nuevo, $antes)) return false;
     return true;
 }
 

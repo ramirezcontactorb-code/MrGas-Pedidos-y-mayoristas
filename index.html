@@ -2437,7 +2437,7 @@ const V={
     return cabeza("Permisos Usuarios")+`<p class="nota" style="margin:-8px 0 18px">${nube?"Los usuarios se guardan en el servidor. ":""}Elija a qué sucursales entra cada persona y qué cuadros puede usar. Cada sucursal ve solo sus propios pedidos, ventas, cuadraturas y bodega.</p>
     <form class="caja" id="f-usr" style="max-width:900px;margin-bottom:22px"><h3>${ed?"Editar a "+esc(ed.nombre):"Agregar usuario"}</h3>
       <div class="fila"><label>Nombre<input id="us-nombre" required value="${ed?esc(ed.nombre):""}"></label><label>Usuario<input id="us-user" required autocomplete="off" value="${ed?esc(ed.user):""}" ${ed?"readonly":""} placeholder="Ej: maria.maipu"></label></div>
-      <div class="fila">${`<label>${ed?"Clave nueva (deje vacío para no cambiarla)":"Clave (mínimo 4 caracteres)"}<input id="us-pass" type="password" minlength="4" ${ed?"":"required"} autocomplete="new-password"></label>`}
+      <div class="fila">${`<label>${ed?"Clave nueva (deje vacío para no cambiarla)":"Clave (mínimo 8, con letras y números)"}<input id="us-pass" type="password" minlength="8" ${ed?"":"required"} autocomplete="new-password"></label>`}
         <label>Tipo de usuario<select id="us-rol"><option value="encargado" ${rolSel==="encargado"?"selected":""}>Encargado o cajero de sucursal</option><option value="chofer" ${rolSel==="chofer"?"selected":""}>Repartidor</option><option value="admin" ${rolSel==="admin"?"selected":""}>Administrador (todo)</option></select></label></div>
       ${camposAcceso(ed)}
       <label class="radio" id="us-resp-l" ${puede("respaldos")?"":'style="display:none"'}><input type="checkbox" id="us-resp" ${ed?(ed.permisos==null?"checked":Array.isArray(ed.permisos)&&ed.permisos.includes("respaldos")?"checked":""):""}> Puede usar <b>Respaldos y reset</b> (copia de seguridad y borrar datos)</label>
@@ -2816,7 +2816,7 @@ const L={
       datos.local=r==="admin"?null:datos.sucursales[0];
       if(editUser!=null){
         if(nube){try{await api("usuario",{uid:+editUser,...datos,pass});await cargarUsuarios()}catch(x){return falla(x.message)}}
-        else{if(pass&&pass.length<4)return falla("La clave debe tener al menos 4 caracteres.");
+        else{if(pass&&(pass.length<8||!/[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(pass)||!/[0-9]/.test(pass)))return falla("La clave debe tener al menos 8 caracteres, con letras y números.");
           const u=D.usuarios.find(x=>x.user===editUser);Object.assign(u,datos);if(pass){u.hash=await hash(pass);u.cambiar=false}}
         log("sistema","Permisos cambiados",`${user} · ${r}${datos.permisos?" · "+datos.permisos.join(", "):""}`);editUser=null;guardar();pintarSistema();
         aviso("Cambios guardados",`Los permisos de ${user} quedaron actualizados.`);return}
