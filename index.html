@@ -2007,8 +2007,7 @@ const V={
         ${ch.map(c=>{const n=D.pedidos.filter(p=>p.chofer===c.id&&(p.despacho||"").startsWith(hoy)).length;return `<tr class="${rutaChofer===c.id?"rt-on":""}"><td><button type="button" class="rt-ch" data-vch="${c.id}" title="Ver pedidos de ${esc(c.nombre)}"><span class="punto on"></span>${esc(c.nombre)}</button><br><span style="color:var(--muted);font-size:.82rem">${esc(c.patente||"Sin patente")}${c.local!==suc?" · "+esc(nomLocal(c.local)):""}</span></td><td class="der num">${n}</td>
           <td><select data-chsec="${c.id}" aria-label="Sector de ${esc(c.nombre)}" class="sel-mini">${opcSec(c.sector??null).replace("Sector…","—")}</select></td>
           </tr>`}).join("")||'<tr><td colspan="3">No hay móviles activos. Actívelos en el cuadro Choferes.</td></tr>'}
-        </tbody></table><p class="nota">Suma de pedidos despachados el ${new Date().toLocaleDateString("es-CL")}. El sector del móvil sirve para sugerirlo al despachar. Los móviles se activan o desactivan en <b>Choferes</b>.</p>
-        ${esAdmin()?'<button type="button" class="btn chico linea" id="rt-ir-choferes">Agregar o editar choferes</button>':'<p class="nota" style="margin:0">Los choferes los agrega el administrador en Configuraciones.</p>'}</aside>
+        </tbody></table></aside>
       <div style="min-width:0">
         ${(()=>{const fch=rutaChofer!=null&&D.choferes.some(c=>c.id===rutaChofer)?rutaChofer:null,deCh=a=>fch==null?a:a.filter(p=>p.chofer===fch);
           const rr=deCh(enRuta),ee=deCh(entHoy),v=fch!=null&&rutaVista==="pend"?"ruta":rutaVista;
@@ -4025,6 +4024,7 @@ V.mayorista=function(){
   let main;
   if(!mays.length&&mayTab!=="cuenta")main=v0().replace(/<div class="tabs" role="tablist">[\s\S]*?<\/div>/,"");
   else if(mayTab==="cuenta")main=v0().replace(/<div class="tabs" role="tablist">[\s\S]*?<\/div>/,"");
+  else if(mayTab==="rend"&&!ventasDiaMay().length&&!((getRendMayV(mayCli,fechaCuad,null,false)||{}).ventas&&calcRend(getRendMayV(mayCli,fechaCuad,null,false)).tarros>0)){cuadTab="mayorista";cuadSel=mayCli;main=sinVentasMay(fechaSel)}
   else if(mayTab==="rend"){cuadTab="mayorista";cuadSel=mayCli;elegirVentaMay();const r=getRend("mayorista",mayCli,fechaCuad,true);syncRendMayV(r);{const h=vistaRend(r,fechaSel),bar=barraVentasMay();main=h.includes('<div class="vr-sum"')?h.replace('<div class="vr-sum"',bar+'<div class="vr-sum"'):h.replace('<fieldset class="bloqueo"',bar+'<fieldset class="bloqueo"')}}
   else main=vistaVentaMay(mays,fechaSel);
   return `<div class="vc-lay">${side}<div class="vc-main">${main}</div></div>`};
@@ -4152,13 +4152,13 @@ function vistaStockBodega(){
   return cabeza("Control de Bodega",`<span class="nota" style="margin:0">${esc(l.nombre)} · ${fechaLarga(hoy)}</span>`)+
   (bajos.length?`<div class="banner" style="background:#fef3f2;color:#b42318">Stock bajo en bodega: ${bajos.map(f=>`${f.et} (${l.stock[f.id]||0})`).join(", ")}. Mínimo: ${min}.</div>`:"")+`
   <div class="kpis bd-kpis"><div class="kpi"><span>Llenos en bodega</span><b class="num">${tot(l.stock)}</b></div><div class="kpi"><span>Vacíos en bodega</span><b class="num">${tot(l.vacios)}</b></div>
-    <div class="kpi"><span>Llenos en camiones</span><b class="num">${tot(enCam)}</b></div><div class="kpi"><span>Prestados a clientes</span><b class="num">${tot(l.prestados)}</b></div><div class="kpi bd-kt"><span>Stock total</span><b class="num">${tot(l.stock)+tot(l.vacios)+tot(enCam)+tot(vacCam)+tot(l.prestados)}</b></div></div>
+    <div class="kpi"><span>Llenos en camiones</span><b class="num">${tot(enCam)}</b></div><div class="kpi"><span>Prestados a clientes</span><b class="num">${tot(l.prestados)}</b></div><div class="kpi bd-kt"><span>Stock total</span><b class="num" id="bd-kt-n">${tot(l.stock)+tot(l.vacios)+tot(l.prestados)}</b></div></div>
   <div class="bd-dos"><section class="caja bd-bod"><h3>Stock de bodega</h3><div class="vc-card"><div class="vc-g bd-g" style="--n:${FORMATOS.length}">
     <div class="vc-izq bd-leyenda"><span class="bd-l ll">Llenos</span><span class="bd-l va">Vacíos</span><span class="bd-l pr">Prestados</span><span class="bd-l ca">En camiones</span><span class="bd-l tt">Stock total</span></div>
     ${FORMATOS.map(f=>`<div class="vc-col"><div class="vc-img">${cilBlanco(f)}</div><span class="vc-et"><b>${f.tipo==="h"?"H15":f.kg}</b> ${f.tipo==="h"?"Aluminio":"kg"}</span>
-      <span class="bd-v ll ${(l.stock[f.id]||0)<min?"bajo":""}">${n(l.stock[f.id]||0)}</span><span class="bd-v va">${n(l.vacios[f.id]||0)}</span><span class="bd-v pr">${n(l.prestados[f.id]||0)}</span><span class="bd-v ca">${n(enCam[f.id]||0)}</span><span class="bd-v tt">${n((l.stock[f.id]||0)+(l.vacios[f.id]||0)+(enCam[f.id]||0)+(vacCam[f.id]||0)+(l.prestados[f.id]||0))}</span></div>`).join("")}
+      <span class="bd-v ll ${(l.stock[f.id]||0)<min?"bajo":""}">${n(l.stock[f.id]||0)}</span><span class="bd-v va">${n(l.vacios[f.id]||0)}</span><span class="bd-v pr">${n(l.prestados[f.id]||0)}</span><span class="bd-v ca">${n(enCam[f.id]||0)}</span><span class="bd-v tt" data-tt="${f.id}">${n((l.stock[f.id]||0)+(l.vacios[f.id]||0)+(l.prestados[f.id]||0))}</span></div>`).join("")}
   </div></div>
-  <div class="bd-univ"><span>Stock total = bodega (llenos + vacíos) + camiones (llenos + vacíos) + prestados: <b class="num">${tot(l.stock)+tot(l.vacios)+tot(enCam)+tot(vacCam)+tot(l.prestados)}</b></span>
+  <div class="bd-univ"><span id="bd-univ-t">Stock total = bodega matriz (llenos + vacíos + prestados): <b class="num">${tot(l.stock)+tot(l.vacios)+tot(l.prestados)}</b>. Los camiones van aparte.</span>
     <button class="btn chico linea" type="button" data-btab="recuento">Hacer cuadratura de stock</button></div></section>
   <div class="bd-der"><section class="bd-cams-h"><h3>Carga de los camiones</h3><span class="nota" style="margin:0">Lo que lleva cada camión ahora. Las entregas y ventas se descuentan de su carga.</span></section>
   <div class="bd-cams">${chs.map(tarjeta).join("")||'<div class="caja"><p>Esta sucursal no tiene camiones. Agréguelos en Configuraciones → Choferes.</p></div>'}</div></div></div>
@@ -4548,9 +4548,9 @@ function barraVentasMay(){const vs=ventasDiaMay(),gen=getRendMayV(mayCli,fechaCu
   const chip=(k,t,sub,on,an)=>`<button type="button" class="mv-ch ${on?"on":""}" data-mvsel="${k}">${t}${sub?`<small>${sub}</small>`:""}</button>`;
   return `<div class="mv-bar"><span class="mv-lbl">VENTAS DE ${esc((c||{}).nombre||"").toUpperCase()} · ${fF(fechaCuad)}</span>
     ${vs.map((x,i)=>{const r=rendDeVenta(x),sd=r?(S.ef.get(r)??0):valorDist(x);return chip(x.k,`Venta ${i+1} · ${esc(String(x.hora||"").slice(0,5))}`,sd<=0?((S.cubierto.get(r)||0)?"pagada con abono":"pagada"):"debe "+clp(sd),String(mayVenta)===String(x.k))}).join("")||'<span class="nota" style="margin:0">Sin ventas este día</span>'}
-    ${chip("sin","Abonar / pagos sin venta",gen?clp(calcRend(gen).pagado):"",mayVenta==null)}
+    ${gen&&(calcRend(gen).tarros>0)?chip("sin","Ventas antiguas del día",clp(calcRend(gen).saldo),mayVenta==null):""}
     <span class="mv-hist ${Math.round(cta.saldo)>0?"debe":Math.round(cta.saldo)<0?"favor":""}">Saldo histórico: <b>${Math.round(cta.saldo)>0?"debe "+clp(cta.saldo):Math.round(cta.saldo)<0?"a favor "+clp(-cta.saldo):"al día"}</b></span></div>
-  ${pend.length?`<p class="nota mv-nota">Para descontar deudas anteriores, registre el pago en «Abonar / pagos sin venta»: se aplica a la deuda más antigua.</p>`:""}`}
+  ${pend.length?`<p class="nota mv-nota">Para pagar una deuda anterior, toque su fecha en «Deudas pendientes» y registre el pago en esa venta.</p>`:""}`}
 {const l0=L.mayorista;L.mayorista=function(){l0.apply(this,arguments);if(mayTab!=="rend")return;
   $$("[data-mvsel]").forEach(b=>b.onclick=()=>{mayVenta=b.dataset.mvsel==="sin"?null:+b.dataset.mvsel;mayVentaFija=true;pintarSistema()});
   $$("[data-mvdeuda]").forEach(b=>b.onclick=()=>{const [f,v]=b.dataset.mvdeuda.split("|");fechaCuad=f;mayVenta=v===""?null:+v;mayVentaFija=true;pintarSistema()});
@@ -4585,6 +4585,39 @@ function saldoAntMay(r){const o=ordenRend(r);
   let t=rs.reduce((s,x)=>s+calcRend(x).saldo,0);
   (D.cargasDist||[]).filter(x=>x.mayorista===r.ref&&!x.anulada&&x.fecha<r.fecha&&!rendDeVenta(x)&&!(D.rendiciones||[]).some(y=>y.tipo==="mayorista"&&y.ref===r.ref&&y.venta==null&&y.fecha===x.fecha)).forEach(x=>t+=valorDist(x));
   return Math.round(t)}
+
+function sinVentasMay(fechaSel){const c=cliMay(mayCli),S=saldosMay(mayCli),mays=(D.mayoristas||[]).filter(m=>(m.local??1)===suc).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const pend=[];S.ef.forEach((v,r)=>{if(v>0)pend.push(r)});pend.sort((a,b)=>ordenRend(a).localeCompare(ordenRend(b)));
+  return cabeza("Rendición Mayorista",`<div class="acc" style="align-items:end">${fechaSel}<button class="btn linea" type="button" data-mytab="venta">← Volver a Venta Mayorista</button></div>`)+
+  `<div class="mrbar"><div class="row"><span class="lbl">CLIENTE</span><select id="rd-sel" class="big">${mays.map(x=>`<option value="${x.id}" ${x.id===mayCli?"selected":""}>${esc(x.nombre)}</option>`).join("")}</select></div></div>
+  <div class="caja" style="margin-top:10px"><p style="margin:0 0 8px"><b>${esc((c||{}).nombre||"")}</b> no tiene ventas el ${fF(fechaCuad)}.</p>
+  ${pend.length?`<p class="nota" style="margin:0 0 6px">Deudas pendientes (toque una para rendirla):</p><div class="mv-bar" style="margin:0">${pend.map(r=>`<button type="button" class="mv-ch" data-mvdeuda="${r.fecha}|${r.venta??""}">${fF(r.fecha)}<small>debe ${clp(S.ef.get(r))}</small></button>`).join("")}</div>`:'<p class="nota" style="margin:0">No tiene deudas pendientes.</p>'}</div>`}
+
+/* ===== Control de Bodega: stock de cada sucursal del ERP Local ===== */
+async function stockSucursales(){const z=$("#bd-sucs");if(!z)return;
+  try{const r=await fetch("local/api/docs.php?a=sucursales",{credentials:"same-origin",cache:"no-store"});const j=await r.json();if(!r.ok)throw new Error(j.error);
+    const sucs=j.list.filter(x=>x.activa!==false).map(x=>x.nombre);const docs=await locLeer(sucs.map(n=>"suc/"+lslug(n)));if(!$("#bd-sucs"))return;
+    const filas=sucs.map(n=>{const d=docs["suc/"+lslug(n)]||{},pr=d.products||[],ll={},va={},pe={};
+      FORMATOS.forEach(f=>{const id=LID[f.id],p=pr.find(x=>x.id===id);ll[f.id]=p?(+p.stock||0):0;va[f.id]=+((d.vacios||{})[id]||0);pe[f.id]=+((d.prestados||{})[id]||0)});return {n,ll,va,pe,sin:!docs["suc/"+lslug(n)]}});
+    const l=ensureLoc(loc(suc)),mat={n:l.nombre+" (Matriz)",ll:{...l.stock},va:{...l.vacios},pe:{...l.prestados},mz:1};
+    const todas=[mat,...filas],tot=o=>FORMATOS.reduce((a,f)=>a+(+o[f.id]||0),0),min=D.precios.minimo||0;
+    const suma=k=>{const o={};FORMATOS.forEach(f=>o[f.id]=todas.reduce((a,x)=>a+(+x[k][f.id]||0),0));return o};
+    const T={ll:suma("ll"),va:suma("va"),pe:suma("pe")};
+    {const gt=tot(T.ll)+tot(T.va)+tot(T.pe),k=$("#bd-kt-n");if(k)k.textContent=gt;
+      FORMATOS.forEach(f=>{const c=document.querySelector(`[data-tt="${f.id}"] b`);if(c)c.textContent=(T.ll[f.id]||0)+(T.va[f.id]||0)+(T.pe[f.id]||0)});
+      const u=$("#bd-univ-t");if(u)u.innerHTML=`Stock total = bodega matriz + bodegas de ${filas.length} sucursales del ERP Local (llenos + vacíos + prestados): <b class="num">${gt}</b>. Los camiones van aparte.`}
+    z.innerHTML=`<div class="bd-sh"><h3>Stock de cada sucursal</h3><span class="nota" style="margin:0">llenos por cilindro · vacíos y prestados en total</span><button class="btn chico linea" type="button" id="bd-sucs-rec">Actualizar</button></div>
+    <div class="tabla-wrap"><table class="bd-st"><thead><tr><th>Sucursal</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15":f.kg+" kg"}</th>`).join("")}<th class="c">Llenos</th><th class="c">Vacíos</th><th class="c">Prestados</th><th class="c">Total</th></tr></thead><tbody>
+    ${todas.map(x=>`<tr class="${x.mz?"mz":""}"><td class="nom"${x.sin?' title="Todavía no tiene datos en el ERP Local"':""}><b>${esc(x.n.replace(" (Matriz)",""))}</b>${x.mz?' <small class="nota" style="margin:0">matriz</small>':""}</td>${FORMATOS.map(f=>{const v=+x.ll[f.id]||0;return `<td class="c num ${min&&v<min&&!x.sin?"bajo":""}">${v}</td>`}).join("")}
+      <td class="c num"><b>${tot(x.ll)}</b></td><td class="c num">${tot(x.va)}</td><td class="c num">${tot(x.pe)}</td><td class="c num"><b>${tot(x.ll)+tot(x.va)+tot(x.pe)}</b></td></tr>`).join("")}
+    <tr class="tt"><td><b>Total empresa</b></td>${FORMATOS.map(f=>`<td class="c num"><b>${T.ll[f.id]}</b></td>`).join("")}<td class="c num"><b>${tot(T.ll)}</b></td><td class="c num"><b>${tot(T.va)}</b></td><td class="c num"><b>${tot(T.pe)}</b></td><td class="c num"><b>${tot(T.ll)+tot(T.va)+tot(T.pe)}</b></td></tr>
+    </tbody></table></div>`;
+    const b=$("#bd-sucs-rec");if(b)b.onclick=()=>{z.innerHTML='<p class="nota">Actualizando…</p>';stockSucursales()}}
+  catch(e){z.innerHTML=`<p class="nota" style="margin:0">No se pudo leer el stock de las sucursales del ERP Local${e&&e.message?": "+esc(e.message):""}.</p>`}}
+{const l0=L.bodega;L.bodega=function(){const r=l0.apply(this,arguments);
+  try{if(bTab==="stock"&&NUBE.activo&&(esAdmin()||(Array.isArray(yo.permisos)&&yo.permisos.includes("app.local")))&&!$("#bd-sucs")){
+    const bod=document.querySelector(".bd-dos>.bd-bod"),ancla=bod||document.querySelector(".bd-dos");if(ancla){ancla.insertAdjacentHTML(bod?"beforeend":"afterend",'<section class="'+(bod?"bd-sucs-in":"caja")+'" id="bd-sucs"><p class="nota" style="margin:0">Cargando stock de las sucursales…</p></section>');stockSucursales()}}}catch(e){}
+  return r}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5558,6 +5591,20 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .mv-hist.debe b{color:#b42318}.sis .mv-hist.favor b{color:#067647}
 
 .sis .mv-nota{margin:-4px 0 10px!important;font-size:12px}
+
+.sis #bd-sucs{margin-top:12px;padding:12px 16px}
+.sis .bd-sh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}.sis .bd-sh h3{margin:0}.sis .bd-sh .btn{margin-left:auto}
+.sis .bd-st td,.sis .bd-st th{padding:4px 6px;font-size:12.5px}.sis .bd-st td.nom{white-space:nowrap}.sis .bd-sucs-in{margin-top:14px;padding-top:12px;border-top:1px solid #e4e8ee}.sis .bd-sucs-in h3{font-size:15px}.sis .bd-dos #bd-sucs{padding:10px 12px}
+.sis .bd-st td.bajo{color:#d92d20;font-weight:700}
+.sis .bd-st tr.mz td{background:#f5f8fd}
+.sis .bd-st tr.tt td{border-top:1.5px solid #c9d2df;background:#f9fafb}
+
+.sis .bd-dos>.bd-bod{min-width:0}
+.sis .bd-sucs-in .tabla-wrap{overflow-x:auto;max-width:100%}
+.sis .bd-sucs-in .bd-st{width:100%;table-layout:auto}
+.sis .bd-sucs-in .bd-st th{font-size:10.5px;letter-spacing:.03em;padding:4px 4px}
+.sis .bd-sucs-in .bd-st td{font-size:12px;padding:4px 4px}
+.sis .bd-sucs-in .bd-st td.nom small{display:none}
 </style>
 </body>
 </html>

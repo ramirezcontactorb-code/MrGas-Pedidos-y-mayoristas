@@ -1683,7 +1683,7 @@ function vRend(){
     </div>
     <div class="rc-pagos"><div class="mgrp pay">② LO QUE SE RINDE <small>Efectivo, vales, transferencias, tarjetas y descuentos · se RESTAN del saldo</small></div>
       <div class="rleg"><span class="lg ing">Efectivo</span><span class="lg val">Vales</span><span class="lg ban">Banco / tarjeta</span><span class="lg res">Descuentos y gastos</span></div>
-      ${MY?secAbonos():''}
+      
       <div class="r2c">${sec('efectivo','EFECTIVO',inp('efectivo','monto','Monto $',1),'Guardar')}
       ${sec('vuelto','VUELTO',inp('vuelto','monto','Monto $',1),'Guardar')}</div>
       ${sec('vales','VALES (Recarga) '+(multiR()?'':rad('vales','tipo',VTIPOS)),vq('vales'),'Guardar')}
