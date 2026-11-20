@@ -169,6 +169,12 @@ function yo(): ?array {
     }
     return perfilDe($u);
 }
+// Encargado que solo tiene permisos del ERP Local (ningún cuadro del ERP Matriz)
+function soloLocal(array $p): bool {
+    if ($p['rol'] !== 'encargado' || !is_array($p['permisos']) || !in_array('app.local', $p['permisos'], true)) return false;
+    foreach ($p['permisos'] as $c) if (!preg_match('/^(_v2|app\.|loc\.|lsuc\.|clave\.)/', (string) $c)) return false;
+    return true;
+}
 function requiereYo(): array { $u = yo(); if (!$u) salida(['error' => 'Sesión vencida. Vuelva a entrar.'], 401); return $u; }
 function requiereAdmin(): array { $u = requiereYo(); if ($u['rol'] !== 'admin') salida(['error' => 'Solo el administrador puede hacer esto.'], 403); return $u; }
 // Protección simple contra formularios de otros sitios: el sistema siempre envía este encabezado

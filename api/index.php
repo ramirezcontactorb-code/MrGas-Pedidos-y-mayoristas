@@ -29,6 +29,8 @@ try {
         $okClave = $u && (esDiaria($u) ? hash_equals(codigoDiario((int) $u['uid']), trim($pass)) : password_verify($pass, $u['hash']));
         if (!$okClave) { anotarIntento('login'); anotarIntentoUsuario($usr); salida(['error' => $u && esDiaria($u) ? 'Clave del día incorrecta. Pídale la clave de hoy al encargado.' : 'Usuario o clave incorrectos. Revise mayúsculas y vuelva a intentar.'], 401); }
         if (!$u['activo']) salida(['error' => 'Este usuario está desactivado. Pida al administrador que lo active.'], 403);
+        $appL = in_array($b['app'] ?? '', ['repartidores', 'distribucion'], true) ? $b['app'] : 'erp';
+        if ($appL === 'erp' && soloLocal(perfilDe($u))) salida(['error' => 'Este usuario es solo del ERP Local. Entre con el botón «ERP Local» del inicio.'], 403);
         session_regenerate_id(true);
         $_SESSION['uid'] = (int) $u['uid'];
         $_SESSION['dia'] = date('Y-m-d');

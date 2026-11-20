@@ -1343,16 +1343,16 @@ function camposAcceso(u){
     </div>
     <p class="nota" style="margin:8px 0 0"><b>Solo ver</b>: entra y mira, pero no puede guardar cambios. Los administradores pueden todo.</p></fieldset>
   <fieldset class="acceso" id="us-apps"><legend>Apps a las que puede entrar</legend><div class="checks-grid">${PERM_APPS.map(([c,t])=>`<label class="radio"><input type="checkbox" name="us-app" value="${c}" ${(c==="app.local"?!!(p&&v2&&p.includes(c)):(p?(v2?p.includes(c):true):true))?"checked":""}>${t.replace(" (oficina)","")}</label>`).join("")}</div>
-    <p class="nota" style="margin:6px 0 0">Encargado: trabaja en la app con los cuadros que tenga permitidos. Repartidor: ve sus entregas en la app. Si no la marca, no puede entrar.</p></fieldset>`;
+    <p class="nota" style="margin:6px 0 0">Encargado: trabaja en la app con los cuadros que tenga permitidos. Repartidor: ve sus entregas en la app. Si no la marca, no puede entrar.</p></fieldset>`+camposLocal(p);
 }
-const leerAcceso=()=>({sucursales:[...$$('input[name="us-suc"]:checked')].map(i=>+i.value),
+const leerAcceso0=()=>({sucursales:[...$$('input[name="us-suc"]:checked')].map(i=>+i.value),
   permisos:["_v2",...MOD_PERM.map(id=>{const r=$(`input[name="pm-${id}"]:checked`);return !r||!r.value?null:r.value==="ver"?id+":ver":id}).filter(Boolean),...[...$$('input[name="us-perm"]:checked')].map(i=>i.value),...[...$$('input[name="us-app"]:checked')].map(i=>i.value)],
   apps:[...$$('input[name="us-app"]:checked')].map(i=>i.value)});
 function resumenPerm(p){if(!Array.isArray(p))return "Todos los cuadros";
   const T=id=>id==="informes"?"Informes":(MODULOS.find(m=>m.id===id)||{}).t;
   const tr=MOD_PERM.filter(id=>p.includes(id)).map(T),vr=MOD_PERM.filter(id=>p.includes(id+":ver")&&!p.includes(id)).map(T);
   const ex=esV2(p)?PERM_EXTRA.filter(([c])=>p.includes(c)).map(([,t])=>t):[];
-  return [tr.length?"Trabaja: "+tr.join(", "):"",vr.length?"Solo ve: "+vr.join(", "):"",ex.length?"Además: "+ex.join(", "):"",appsTxt(p)].filter(Boolean).join("<br>")||"Sin cuadros"}
+  return [tr.length?"Trabaja: "+tr.join(", "):"",vr.length?"Solo ve: "+vr.join(", "):"",ex.length?"Además: "+ex.join(", "):"",appsTxt(p),resumenLocal(p)].filter(Boolean).join("<br>")||"Sin cuadros"}
 function appsTxt(p){const l=!esV2(p)?PERM_APPS:PERM_APPS.filter(([c])=>p.includes(c));return l.length?"Apps: "+l.map(([,t])=>t.replace(" (oficina)","")).join(", "):"Sin apps"}
 
 /* ===================== PINTAR SISTEMA ===================== */
@@ -2771,7 +2771,8 @@ const L={
       const r=rol.value,user=$("#us-user").value.trim().toLowerCase(),acc=leerAcceso(),pass=$("#us-pass")?$("#us-pass").value:"";
       const ch=r==="chofer"?D.choferes.find(x=>x.id===+$("#us-chofer").value):null;
       if(r==="chofer"&&!ch)return falla("Primero agregue el móvil en Asigna Ruta.");
-      if(r==="encargado"&&!acc.sucursales.length)return falla("Marque al menos una sucursal.");
+      if(r==="encargado"&&!acc.sucursales.length&&!soloLocalP(acc.permisos))return falla("Marque al menos una sucursal.");
+      if(r==="encargado"&&acc.permisos.includes("app.local")&&!acc.permisos.some(c=>c.startsWith("lsuc.")))return falla("Marque al menos una sucursal del ERP Local.");
       if(r==="encargado"&&!acc.permisos.some(x=>MOD_PERM.includes(x.split(":")[0])||x.startsWith("app.")))return falla("Marque al menos un cuadro o una app que pueda usar.");
       const datos={nombre:$("#us-nombre").value.trim(),rol:r,sucursales:r==="admin"?[]:r==="chofer"?[ch.local]:acc.sucursales,permisos:r==="encargado"?acc.permisos:r==="admin"?(puede("respaldos")?($("#us-resp").checked?null:[]):[]):["_v2",...acc.apps],chofer:ch?ch.id:null};
       datos.local=r==="admin"?null:datos.sucursales[0];
@@ -4291,6 +4292,32 @@ async function pintarConectados(){
 /* Quién agregó cada pago o cargo de una rendición (solo lo ve el administrador) */
 function porMi(){return yo?(yo.nombre||yo.user||""):""}
 function porTag(o){return esAdmin()&&o&&o.por?`<small class="por-tag" title="Agregado por ${esc(o.por)}${o.hora?" · "+esc(String(o.hora).slice(0,16)):""}">${esc(o.por)}</small>`:""}
+
+/* ===== Permisos del ERP Local (se dan aquí, en el ERP Matriz) ===== */
+const LOCAL_SUCS=['Cervantes','El Tranque','Maipo','Padre Damián','Olivos','Jr Coyhaique','Jr Parcelas','Chillán'];
+const lslug=n=>n.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,'_');
+const LOCAL_PERMS=[["Ventas",[["venta","Venta Local"],["anular","Anular ventas"],["rend","Rendición del local"],["mayor","Venta mayorista y su rendición"],["mcta","Ver cuenta clientes mayoristas"]]],
+  ["Bodega",[["bodega","Ver resumen de bodega"],["bmov","Ingreso de carga"],["bvmov","Ver movimientos de bodega"],["bedit","Modificar stock"]]],
+  ["Configuración",[["precios","Cambiar precios"],["com","Comisión de vales"],["phist","Historial de precios"],["theme","Colores (theme)"]]],
+  ["Informes",[["inf","Informes de todas las sucursales"]]]];
+const LOCAL_PLANT=[["Vendedor",["venta","rend","bodega"]],["Bodeguero",["bodega","bmov","bvmov","bedit"]],["Encargado de local",["venta","anular","rend","mayor","mcta","bodega","bmov","bvmov","bedit","precios","com","phist"]]];
+const soloLocalP=p=>Array.isArray(p)&&p.includes("app.local")&&p.every(c=>/^(_v2|app\.|loc\.|lsuc\.|clave\.)/.test(c));
+function camposLocal(p){const t=c=>!!(p&&p.includes(c));
+  return `<fieldset class="acceso" id="us-local" ${t("app.local")?"":"hidden"}><legend>ERP Local</legend>
+    <p class="perm-tit" style="margin:0 0 4px">Sucursales del ERP Local</p>
+    <div class="checks-grid">${LOCAL_SUCS.map(x=>`<label class="radio"><input type="checkbox" name="us-lsuc" value="lsuc.${lslug(x)}" ${t("lsuc."+lslug(x))?"checked":""}>${esc(x)}</label>`).join("")}</div>
+    <div class="pl-bar" style="margin-top:10px"><span>Plantilla rápida:</span>${LOCAL_PLANT.map(([n],i)=>`<button type="button" class="btn chico linea" data-lplant="${i}">${n}</button>`).join("")}<button type="button" class="btn chico linea" data-lplant="-1">Nada</button></div>
+    <div class="loc-perm">${LOCAL_PERMS.map(([g,l])=>`<div class="loc-g"><p class="perm-tit">${g}</p>${l.map(([c,n])=>`<label class="radio"><input type="checkbox" name="us-lperm" value="loc.${c}" ${t("loc."+c)?"checked":""}>${n}</label>`).join("")}</div>`).join("")}</div>
+    <p class="nota" style="margin:6px 0 0">Los mismos permisos valen para todas las sucursales marcadas. Si el usuario no tiene ningún cuadro del ERP Matriz, solo puede entrar al ERP Local (no a la matriz). Los administradores pueden todo.</p></fieldset>`}
+const leerAcceso=()=>{const a=leerAcceso0();if(a.permisos.includes("app.local"))a.permisos.push(...[...$$('input[name="us-lsuc"]:checked'),...$$('input[name="us-lperm"]:checked')].map(i=>i.value));return a};
+function resumenLocal(p){if(!Array.isArray(p)||!p.includes("app.local"))return "";
+  const ss=LOCAL_SUCS.filter(x=>p.includes("lsuc."+lslug(x))),ps=LOCAL_PERMS.flatMap(([,l])=>l).filter(([c])=>p.includes("loc."+c)).map(([,n])=>n);
+  return `ERP Local${soloLocalP(p)?" (solo ERP Local)":""}: ${ss.length?ss.join(", "):"sin sucursal"} · ${ps.length?ps.join(", "):"sin permisos"}`}
+{const l0=L.usuarios;L.usuarios=function(){const r=l0.apply(this,arguments);
+  try{const fs=$("#us-local"),rol=$("#us-rol"),ck=$('input[name="us-app"][value="app.local"]');
+    const upd=()=>{if(fs)fs.hidden=!(ck&&ck.checked&&rol&&rol.value==="encargado")};if(ck)ck.addEventListener("change",upd);if(rol)rol.addEventListener("change",upd);upd();
+    $$("[data-lplant]").forEach(b=>b.onclick=()=>{const i=+b.dataset.lplant,set=i<0?[]:LOCAL_PLANT[i][1];$$('input[name="us-lperm"]').forEach(x=>x.checked=set.includes(x.value.slice(4)))})}catch(e){}
+  return r}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5158,6 +5185,11 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 @media (max-width:700px){.sis .bd-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .por-tag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:4px;background:#eef2f8;color:#475467;font-size:10.5px;font-weight:600;vertical-align:1px}
+
+.sis #us-local .loc-perm{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px 14px;margin-top:8px}
+.sis #us-local .loc-g{display:flex;flex-direction:column;gap:3px}.sis #us-local .loc-g .perm-tit{margin:0 0 2px}
+@media (max-width:900px){.sis #us-local .loc-perm{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:1200px){.sis #f-usr>#us-local{grid-column:1/-1}}
 </style>
 </body>
 </html>

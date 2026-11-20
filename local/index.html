@@ -967,7 +967,7 @@ function fixUsers(l){
 function migrarLocal(){
   if(!STORE)return;
   let chg=false;
-  const loc=readLS('mr_users');
+  const loc=MGU?null:readLS('mr_users');
   if(Array.isArray(loc))loc.forEach(u=>{if(u&&u.u&&!USERS.some(x=>x.u.toLowerCase()===u.u.toLowerCase())){USERS.push(u);chg=true;}});
   const parts={};
   SUCS.forEach(suc=>{
@@ -1005,25 +1005,51 @@ function onReady(){
   render();
 }
 let db=null;
-/* ===== ERP Local dentro del ERP Matriz: usa la sesión y la base de datos de MR Gas ===== */
-let MGU=null;
+/* ===== ERP Local dentro del ERP Matriz: misma base de datos de MR Gas, login propio ===== */
+let MGU=null,MG_LOGIN=false;
+const MG_API='api/docs.php';
 function mgPantalla(t,d){document.body.innerHTML=`<div class="login-wrap"><div class="login"><div class="lbrand"><div class="sq">MR</div><div><b>ERP Local</b><small>MR Gas</small></div></div>
-  <h2>${t}</h2><p class="hint">${d}</p><a class="btn primary" href="../#acceso" style="text-decoration:none">Ir al ERP Matriz</a></div></div>`;}
+  <h2>${t}</h2><p class="hint">${d}</p><button class="btn primary" onclick="location.reload()">Reintentar</button></div></div>`;}
 async function mgGate(){
   if(!/^https?:$/.test(location.protocol))return true; /* vista previa sin servidor */
-  let j=null;try{const r=await fetch('../api/index.php?a=yo',{credentials:'same-origin',cache:'no-store'});j=await r.json();}catch(e){}
-  if(!j){mgPantalla('Sin conexión','No se pudo conectar con el servidor. Revise internet y vuelva a intentar.');return false;}
-  const p=j.perfil;
-  if(!p){location.replace('../?volver=local#acceso');return false;}
-  const ok=p.rol==='admin'||(p.rol==='encargado'&&Array.isArray(p.permisos)&&p.permisos.includes('app.local'));
-  if(!ok){mgPantalla('Sin permiso','Su usuario no tiene permiso para el ERP Local. Pídalo al administrador (Configuraciones → Usuarios → Apps).');return false;}
-  MGU=p;return true;
+  let j=null;try{const r=await fetch(MG_API+'?a=estado',{credentials:'same-origin',cache:'no-store'});j=await r.json();}catch(e){}
+  if(!j||j.error){mgPantalla('Sin conexión','No se pudo conectar con el servidor. Revise internet y vuelva a intentar.');return false;}
+  if(j.quien){MGU={modo:j.quien.modo,user:j.quien.perfil.user};USERS=[mgUsuario(j.quien.perfil)];return true;}
+  /* sin sesión: login propio del ERP Local (la clave la revisa el servidor) */
+  MG_LOGIN=true;S.user=null;S.view='login';try{sessionStorage.removeItem('gl_user');}catch(e){}
+  READY=true;MODE='login';render();return false;
 }
-/* entra solo si en el ERP Local existe un usuario con el mismo nombre de usuario */
+async function mgServerLogin(){
+  const u=$('#lu').value.trim().toLowerCase(),p=$('#lp').value;if(!u||!p)return toast('Completa usuario y contraseña','err');
+  let r,j={};try{r=await fetch(MG_API+'?a=login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:u,pass:p})});j=await r.json();}
+  catch(e){return toast('No hay conexión con el servidor.','err');}
+  if(!r.ok)return toast(j.error||'Usuario o contraseña incorrectos','err');
+  location.reload();
+}
+{const d0=doLogin;doLogin=function(e){if(!MG_LOGIN)return d0(e);e.preventDefault();mgServerLogin();};}
+{const o0=logout;logout=async function(){try{await fetch(MG_API+'?a=salir',{credentials:'same-origin'});}catch(e){}
+  try{o0();}catch(e){}try{sessionStorage.removeItem('gl_user');}catch(e){}location.reload();};}
+/* usuario del ERP Local armado con los permisos dados en el ERP Matriz */
+function mgUsuario(p){const per=Array.isArray(p.permisos)?p.permisos:[];
+  if(p.rol==='admin')return {u:p.user,nombre:p.nombre,rol:'admin',verInf:true,mvmig:1,ctamig:1,p:''};
+  const lp=per.filter(c=>c.startsWith('loc.')).map(c=>c.slice(4));
+  const sucs=SUCS.filter(x=>per.includes('lsuc.'+slug(x))),loc=lp.filter(k=>!GLOBALP.includes(k)),ps={};sucs.forEach(x=>ps[x]=loc.slice());
+  return {u:p.user,nombre:p.nombre,rol:'vendedor',perms:lp.filter(k=>GLOBALP.includes(k)&&k!=='users'),ps,verInf:lp.includes('inf'),mvmig:1,ctamig:1,p:''};}
+/* usuarios, permisos y claves se manejan en el ERP Matriz */
+{const f0=fixUsers;fixUsers=function(l){return MGU?l:f0(l);};}
+{const g0=go;go=function(v){if(v==='users'&&MGU)return toast('Los usuarios y permisos se manejan en ERP Matriz → Configuraciones → Usuarios.');return g0(v);};}
+{const a0=abrirInf;abrirInf=function(){if(!MGU)return a0();if(can('inf'))return go('inf');toast('No tienes permiso de Informes. Pídelo al administrador.','err');};}
+{const c0=chMyPass;chMyPass=function(){if(!MGU)return c0();ask('Cambiar contraseña',async v=>{if(!v.cn)return toast('Escribe la nueva clave','err');
+  try{const r=await fetch(MG_API+'?a=clave',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({actual:v.ca,nueva:v.cn})});const j=await r.json();
+    if(!r.ok)return toast(j.error||'No se pudo cambiar','err');toast('Clave cambiada ✔');}catch(e){toast('Sin conexión','err');}},
+  [{id:'ca',label:'Clave actual',type:'password'},{id:'cn',label:'Nueva clave',type:'password'}]);};}
+/* entra directo con el usuario de la sesión */
 function mgAutoLogin(){
-  if(S.user||!MGU)return;
+  if(!MGU)return;
+  if(S.user&&String(S.user.u).toLowerCase()===String(MGU.user).toLowerCase())return;
+  S.user=null;
   const us=USERS.find(x=>String(x.u).toLowerCase()===String(MGU.user).toLowerCase());if(!us)return;
-  const mias=userSucs(us);if(!mias.length)return;
+  const mias=userSucs(us);if(!mias.length)return toast('Tu usuario no tiene ninguna sucursal asignada. Pídelo a un administrador.','err');
   S.user={u:us.u,nombre:us.nombre,suc:mias[0]};S.view='home';
   try{sessionStorage.setItem('gl_user',JSON.stringify(S.user));}catch(e){}
   db=load(S.user.suc);setTimeout(()=>{try{presPing();}catch(e){}},0);
@@ -1135,7 +1161,7 @@ function vLogin(){
     <label>Contraseña<input id="lp" type="password" autocomplete="current-password" required oninput="loginReset()"></label>
     <label id="lsucw" hidden>Sucursal<select id="lsuc"></select></label>
     <button class="btn primary">Ingresar</button>
-    <p class="hint" style="text-align:center">${READY?(MODE==='shared'?'Conectado a la base compartida':'Modo local: datos solo en este navegador'):'Conectando con la base de datos…'}</p>
+    <p class="hint" style="text-align:center">${READY?(MODE!=='local'?'Conectado a la base compartida':'Modo local: datos solo en este navegador'):'Conectando con la base de datos…'}</p>
   </form></div></div>`;
 }
 
@@ -2705,8 +2731,8 @@ function vInf(){
 const VIEWS={qrc:vQr,login:vLogin,home:vHome,caja:vCaja,venta:vVenta,rend:vRend,may:vMay,mrend:vRend,mcta:vMRend,config:vConfig,com:vCom,colores:vColores,inf:vInf,phist:vPHist,users:vUsers,
   penv:vPEnv,clientes:vClientes,pmay:vPMay,bres:vBRes,bcarga:vBCarga,bmov:vBMov,bedit:vBEdit};
 function mgVolver(){if(!/^https?:$/.test(location.protocol))return;const ab=document.querySelector('.ab-right');
-  if(ab&&!document.getElementById('mg-volver'))ab.insertAdjacentHTML('afterbegin','<a class="hb" id="mg-volver" href="../#panel" style="text-decoration:none">← ERP Matriz</a>');
-  const lg=document.querySelector('.login');if(lg&&!document.getElementById('mg-volver2'))lg.insertAdjacentHTML('beforeend','<a id="mg-volver2" class="hint" href="../#panel" style="text-align:center">← Volver al ERP Matriz</a>');}
+  if(ab&&MGU&&MGU.modo==='matriz'&&!document.getElementById('mg-volver'))ab.insertAdjacentHTML('afterbegin','<a class="hb" id="mg-volver" href="../#panel" style="text-decoration:none">← ERP Matriz</a>');
+  const lg=document.querySelector('.login');if(lg&&!document.getElementById('mg-volver2'))lg.insertAdjacentHTML('beforeend','<a id="mg-volver2" class="hint" href="../" style="text-align:center">← Volver al inicio</a>');}
 {const r0=render;render=function(){const x=r0.apply(this,arguments);try{mgVolver();}catch(e){}return x;};}
 function render(){
   if(S.user&&!READY){$('#app').innerHTML=`<div class="login-wrap"><div class="login" style="text-align:center"><div class="lbrand" style="justify-content:center"><span class="sq">MR</span><div style="text-align:left"><b>MR</b><small>Sistema Local</small></div></div><p>Cargando datos compartidos…</p></div></div>`;return;}
