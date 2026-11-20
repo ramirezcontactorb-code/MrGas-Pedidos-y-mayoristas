@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>Venta Local · MR Gas</title><style id="mg-oculto">#app{visibility:hidden}body::after{content:"Cargando Venta Local…";position:fixed;inset:0;display:grid;place-items:center;font:600 16px system-ui,sans-serif;color:#667085;background:#f2f4f7}</style>
+<title>Venta Local · MR Gas</title><style id="mg-oculto">#app{visibility:hidden}body::after{content:"Cargando Venta Local…";position:fixed;inset:0;display:grid;place-items:center;font:600 16px system-ui,sans-serif;color:#667085;background:#f2f4f7}html.mg-app body::after{content:"";background:#f2f4f7}</style><script>if(/[?&]app=1/.test(location.search))document.documentElement.classList.add('mg-app')</script>
 <link rel="icon" type="image/png" sizes="192x192" href="../icons/icon-192.png">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="theme-color" content="#1d4ed8">
@@ -2795,7 +2795,7 @@ function mgVolver(){if(!/^https?:$/.test(location.protocol))return;const ab=docu
 {const r0=render;render=function(){const x=r0.apply(this,arguments);try{mgVolver();}catch(e){}return x;};}
 /* Venta Local es una sola sucursal: entra directo a Venta Local, sin menú propio.
    Su informe se ve en Panel General → Informes → Venta Local (esta misma página con ?solo=inf). */
-const MG_EMB=/[?&]solo=inf\b/.test(location.search);
+const MG_EMB=/[?&]solo=inf\b/.test(location.search),MG_APP=/[?&]app=1\b/.test(location.search);
 if(MG_EMB)document.documentElement.classList.add('mg-emb');
 {const r1=render;render=function(){
   if(MGU&&S.user&&db&&READY){
@@ -2808,6 +2808,9 @@ if(MG_EMB)document.documentElement.classList.add('mg-emb');
     const br=document.querySelector('.appbar .brand');if(br){br.removeAttribute('onclick');br.style.cursor='default';}
     const sy=document.getElementById('sync');if(sy&&!document.getElementById('mg-con')){sy.insertAdjacentHTML('beforebegin','<span class="mg-con" id="mg-con"><i></i>Conectado al servidor</span>');sy.style.display='none';mgConPintar();}
     const ab=document.querySelector('.ab-right'),u=USERS[0];
+    if(MG_APP){const ph=document.querySelector('.phead');if(ph&&!document.getElementById('mg-acc')){const mc=document.getElementById('mg-con');
+      ph.insertAdjacentHTML('beforeend','<div class="mg-acc" id="mg-acc"><span class="pill">'+esc(S.user.suc)+'</span>'+(u&&userSucs(u).length>1?'<button class="btn sm" onclick="cambioSuc()">Cambiar sucursal</button>':'')+'</div>');
+      if(mc)document.getElementById('mg-acc').appendChild(mc);}}
     if(ab&&u&&userSucs(u).length>1&&!document.getElementById('mg-suc'))ab.insertAdjacentHTML('afterbegin','<button class="hb" id="mg-suc" onclick="cambioSuc()">Cambiar sucursal</button>');}}catch(e){}
   return x;};}
 presPill=function(){return '';};
@@ -2817,7 +2820,7 @@ function mgConPintar(){const e=document.getElementById('mg-con');if(!e)return;e.
 function mgCon(ok){if(MG_CON===ok)return;MG_CON=ok;mgConPintar();}
 {const f0=window.fetch.bind(window);window.fetch=function(u,o){const p=f0(u,o);if(String(u).includes('api/'))p.then(()=>mgCon(true),()=>mgCon(false));return p;};}
 addEventListener('offline',()=>mgCon(false));addEventListener('online',()=>mgCon(true));
-const mgCss=document.createElement('style');mgCss.textContent='.mg-con{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#fff;background:#12b76a;border-radius:999px;padding:4px 11px;white-space:nowrap}.mg-con i{width:8px;height:8px;border-radius:50%;background:#fff}.mg-con.off{background:#d92d20}'+'.mg-emb .appbar,.mg-emb .foot,.mg-emb .phead{display:none!important}.mg-emb body{background:transparent}.mg-emb .frame{margin:0;max-width:none;padding:0}';document.head.appendChild(mgCss);
+const mgCss=document.createElement('style');mgCss.textContent='.mg-con{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#fff;background:#12b76a;border-radius:999px;padding:4px 11px;white-space:nowrap}.mg-con i{width:8px;height:8px;border-radius:50%;background:#fff}.mg-con.off{background:#d92d20}'+'.mg-emb .appbar,.mg-emb .foot,.mg-emb .phead{display:none!important}.mg-app .appbar,.mg-app .foot{display:none!important}.mg-app .frame{padding-top:14px}.mg-app .phead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.mg-acc{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.mg-emb body{background:transparent}.mg-emb .frame{margin:0;max-width:none;padding:0}';document.head.appendChild(mgCss);
 function render(){
   if(S.user&&!READY){$('#app').innerHTML=`<div class="login-wrap"><div class="login" style="text-align:center"><div class="lbrand" style="justify-content:center"><span class="sq">MR</span><div style="text-align:left"><b>MR</b><small>Sistema Local</small></div></div><p>Cargando datos compartidos…</p></div></div>`;return;}
   if((!S.user||!db)&&S.view!=='login')S.view='login';

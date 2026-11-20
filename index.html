@@ -1942,7 +1942,7 @@ const V={
     const entHoy=ps.filter(p=>p.estado==="entregado"&&(p.entregado||"").startsWith(hoy)).length,nom=String(yo.nombre||"").split(" ")[0];
     const card=(attr,ico,t,d,go="Abrir")=>`<${attr.startsWith("href")?"a":"button"} class="modulo" ${attr}><span class="ico">${svg(ico)}</span><b>${t}</b><span class="sub">${d}</span><span class="mgo">${go}<span aria-hidden="true">→</span></span></${attr.startsWith("href")?"a":"button"}>`;
     return `<div class="phead-mr"><div class="eyebrow-mr">Sucursal ${esc(nomLocal(suc))}</div><h1>${saludo}, ${esc(nom)}</h1><p class="sub">${fechaLarga(hoy)}</p></div>
-      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","ventachofer","local","choferes","bodega","compras","informes","config"],FUERA=["sectorizar","cuadratura"];
+      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","ventachofer","local","choferes","bodega","informes","config"],FUERA=["sectorizar","cuadratura","compras"];
         const ids=[...ORDEN,...MODULOS.map(m=>m.id).filter(id=>!ORDEN.includes(id)&&!FUERA.includes(id))];
         return ids.map(id=>{if(id==="local")return esAdmin()||(yo.rol==="encargado"&&Array.isArray(yo.permisos)&&yo.permisos.includes("app.local"))?card('href="local/"',"ventachofer","Venta Local","Venta y rendición de los locales"):"";
           if(id==="erp")return yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","Venta Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):"";
@@ -3338,7 +3338,7 @@ function volverAtras(){
 document.addEventListener("keydown",e=>{if(e.altKey&&e.key==="ArrowLeft"&&yo&&location.hash==="#panel"){e.preventDefault();volverAtras()}});
 
 /* ===================== PESTAÑAS DE CONFIGURACIONES (Sectorizar vive aquí) ===================== */
-const cfgTabsTodas=()=>[...(esAdmin()?[["precioBase","Precio Base"]]:[]),["precios","Precio Domicilio"],["preciosMay","Precios Mayoristas"],...(esAdmin()?[["preciosLocal","Precio Local"]]:[]),["envases","Precio Envases"],["clientesMay","Clientes"],["comVale","Comisión Vales"],["histPrecios","Historial de Precios"],["histCambios","Historial de Cambios"],["usuarios","Usuarios"],["choferes","Choferes"],["sectorizar","Sectorizar"],...(esAdmin()?[["sucLocal","Sucursales"]]:[["sucursal","Sucursal"]]),["general","General"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
+const cfgTabsTodas=()=>[...(esAdmin()?[["precioBase","Precio Base"]]:[]),["precios","Precio Domicilio"],["preciosMay","Precios Mayoristas"],...(esAdmin()?[["preciosLocal","Precio Local"]]:[]),["envases","Precio Envases"],["clientesMay","Clientes"],["comVale","Comisión Vales"],["histPrecios","Historial de Precios"],["histCambios","Historial de Cambios"],["usuarios","Usuarios"],["choferes","Choferes"],["sectorizar","Sectorizar"],...(esAdmin()?[]:[["sucursal","Sucursal"]]),["general","General"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
 const CFG_MAY_TABS=["clientesMay","preciosMay","comVale"];
 const cfgTabsLista=()=>(!yo?[]:esAdmin()?cfgTabsTodas():cfgTabsTodas().filter(([k])=>CFG_PERM[k]&&tieneExtra(CFG_PERM[k]))).filter(([k])=>!(D.precios&&D.precios.sinMayorista&&CFG_MAY_TABS.includes(k)));
 const cfgTabsHtml=sel=>`<!--CFGTABS-->`;
@@ -3630,8 +3630,7 @@ function vistaRendERP(r,fechaSel){
         <tr><td class="l">Saldo anterior pendiente</td><td class="r">${clp(ant)}</td></tr>
         <tr><td class="l">+ Venta del día</td><td class="r">${clp(c.venta)}</td></tr>
         <tr><td class="l">+ Cargos</td><td class="r">${clp(c.cargos)}</td></tr>
-        <tr><td class="l">− Rendido</td><td class="r">${clp(c.pagado)}</td></tr>
-        ${MY?`<tr><td class="l">− Comisión vales (a favor del cliente)</td><td class="r">${clp(c.com)}</td></tr>`:""}
+        <tr><td class="l">− Rendido</td><td class="r">${clp(c.pagado+(MY?c.com:0))}</td></tr>
         <tr class="tt"><td class="l">= SALDO PENDIENTE</td><td class="r">${clp(ant+c.saldo)}</td></tr></table>
       <div class="acc" style="margin-top:10px"><button class="btn" id="rd-guardar" type="button">Guardar rendición</button><span class="aviso ok" id="rd-ok" hidden style="margin:0">Rendición guardada.</span></div>
      </div>
@@ -4055,7 +4054,7 @@ function vistaVentaMay(mays,fechaSel){
   const vs=(D.cargasDist||[]).filter(x=>x.mayorista===mayCli&&x.fecha===fechaCuad).sort((a,b)=>(+a.k||0)-(+b.k||0)),act=vs.filter(x=>!x.anulada);
   const r=getRend("mayorista",mayCli,fechaCuad,false),k=r?calcRend(r):null;
   const sel=`<label>Cliente<select id="my-cli2" class="vc-chsel">${mays.map(m=>`<option value="${m.id}" ${m.id===mayCli?"selected":""}>${esc(m.nombre)}</option>`).join("")}</select></label>`;
-  return cabeza("Venta Mayorista",`<div class="acc" style="align-items:end">${sel}${fechaSel}</div>`)+(ed?"":`<div class="banner">${soloVer("mayorista")?"Solo puede ver este cuadro.":"Este día ya pasó y está bloqueado. Para editarlo, el administrador debe darle acceso a históricos."}</div>`)+`
+  return cabeza("Venta Mayorista","")+`<div class="vc-top">${sel}${fechaSel}</div>`+(ed?"":`<div class="banner">${soloVer("mayorista")?"Solo puede ver este cuadro.":"Este día ya pasó y está bloqueado. Para editarlo, el administrador debe darle acceso a históricos."}</div>`)+`
   <form class="caja vc-caja" id="f-vm" autocomplete="off"><div class="vc-card">
    <div class="vc-g" style="--n:${FORMATOS.length}">
     <div class="vc-izq"><span class="vc-plab">Precio cliente</span>
@@ -4149,11 +4148,12 @@ L.mayorista=function(){
 /* ===================== CONTROL DE BODEGA rediseñado: bodega (llenos / vacíos) y carga de cada camión ===================== */
 {const v0=V.bodega,l0=L.bodega;
 V.bodega=function(){
-  const TABS=[["stock","Stock","bodega"],["cargas","Carga camión","ruta"]];
+  const TABS=[["stock","Stock","bodega"],["cargas","Carga camión","ruta"],...(puede("compras")||puede("bodega")?[["ingreso","Ingreso de carga","compras"]]:[])];
   if(!TABS.some(t=>t[0]===bTab))bTab="stock";
-  const side=`<aside class="vc-side caja">${TABS.map(([k,t,ic])=>`<button type="button" class="vc-t${k==="stock"||k==="cargas"?"":" chico"}" data-btab="${k}" aria-selected="${bTab===k}">${k==="stock"||k==="cargas"?svg(ic):""}<span>${t}</span></button>`).join("")}</aside>`;
+  const side=`<aside class="vc-side caja">${TABS.map(([k,t,ic])=>`<button type="button" class="vc-t${k==="stock"||k==="cargas"||k==="ingreso"?"":" chico"}" data-btab="${k}" aria-selected="${bTab===k}">${k==="stock"||k==="cargas"||k==="ingreso"?svg(ic):""}<span>${t}</span></button>`).join("")}</aside>`;
   let main;
   if(bTab==="stock")main=vistaStockBodega();
+  else if(bTab==="ingreso")main=V.compras().replace(">Compras y Devoluciones<",">Ingreso de carga<");
   else main=v0().replace(/<div class="tabs" role="tablist">[\s\S]*?<\/div>/,"");
   return `<div class="vc-lay">${side}<div class="vc-main">${main}</div></div>`};
 function vistaStockBodega(){
@@ -4824,7 +4824,7 @@ function resCSV(){const [d1,d2]=rangoRes(),q=v=>`"${String(v??"").replace(/"/g,'
      .replace('<section class="cfgp" id="s-sucl" style="max-width:860px">','<section class="cfgp" id="s-sucl" style="max-width:920px">'+(form?form.replace('<form class="caja" id="f-suc" style="margin-bottom:24px">','<form class="caja" id="f-suc" style="margin-bottom:16px">'):""));
     return h+'<button type="button" id="nueva-suc" hidden></button>'};
   s0.l=function(){const r=l0.apply(this,arguments);try{L.admin()}catch(e){}return r}}
-{const vc=V.config;V.config=function(){if(cfgTab==="sucursal"&&esAdmin())cfgTab="sucLocal";if(cfgTab==="descQR")cfgTab=esAdmin()?"preciosLocal":"precios";return vc.apply(this,arguments)}}
+{const vc=V.config;V.config=function(){if((cfgTab==="sucursal"||cfgTab==="sucLocal")&&esAdmin())cfgTab="general";if(cfgTab==="descQR")cfgTab=esAdmin()?"preciosLocal":"precios";return vc.apply(this,arguments)}}
 
 /* Precio de envases: uno solo para la matriz y todas las sucursales de Venta Local */
 function envLocal(){const o={};FORMATOS.forEach(f=>{const id=LID[f.id];if(id)o[id]=Math.max(0,Math.round(+((D.preciosEnvase||{})[f.id])||0))});return o}
@@ -4857,6 +4857,48 @@ function aplicarPermDet(){if(!yo||esAdmin())return;
 /* Venta Local se precarga desde el menú para que abra rápido */
 {const l0=L.menu;L.menu=function(){const r=l0?l0.apply(this,arguments):undefined;
   try{if(document.querySelector('a.modulo[href="local/"]')&&!document.getElementById("pre-local")){const k=document.createElement("link");k.id="pre-local";k.rel="prefetch";k.href="local/";document.head.appendChild(k)}}catch(e){}return r}}
+
+/* ===== Venta Local dentro del Panel General: se carga escondida al entrar y se muestra al instante ===== */
+function vlPuede(){return !!yo&&NUBE.activo&&(esAdmin()||(yo.rol==="encargado"&&Array.isArray(yo.permisos)&&yo.permisos.includes("app.local")))}
+function vlCapa(){let c=document.getElementById("vl-capa");if(c||!vlPuede())return c;
+  c=document.createElement("div");c.id="vl-capa";c.className="vl-oculta";
+  c.innerHTML='<div class="vl-bar"><button type="button" class="btn chico linea" id="vl-volver">← Menú principal</button><b>Venta Local</b></div><iframe id="vl-frame" src="local/?app=1" title="Venta Local"></iframe>';
+  document.body.appendChild(c);document.getElementById("vl-volver").onclick=vlCerrar;return c}
+function vlTop(){const h=document.querySelector(".sis-top"),c=document.getElementById("vl-capa");if(h&&c)c.style.top=Math.max(0,h.getBoundingClientRect().bottom)+"px"}
+function vlAbrir(){const c=vlCapa();if(!c){location.href="local/";return}vlTop();c.classList.remove("vl-oculta");document.body.classList.add("vl-abierta");
+  if(location.hash!=="#venta-local")history.pushState({vl:1},"","#venta-local")}
+function vlCerrar(){const c=document.getElementById("vl-capa");if(c)c.classList.add("vl-oculta");document.body.classList.remove("vl-abierta");if(location.hash==="#venta-local")history.back()}
+function vlQuitar(){const c=document.getElementById("vl-capa");if(c)c.remove();document.body.classList.remove("vl-abierta")}
+addEventListener("popstate",()=>{if(location.hash!=="#venta-local"){const c=document.getElementById("vl-capa");if(c)c.classList.add("vl-oculta");document.body.classList.remove("vl-abierta")}});
+addEventListener("resize",vlTop);
+document.addEventListener("click",e=>{const a=e.target.closest('a.modulo[href="local/"]');if(!a||!yo)return;if(vlPuede()){e.preventDefault();vlAbrir()}},true);
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{if(yo&&vlPuede())vlCapa();else if(!yo)vlQuitar()}catch(e){}return r}}
+{const s0=salirNube;salirNube=async function(){vlQuitar();return s0.apply(this,arguments)}}
+
+/* ===== Rendición chofer y mayorista con el formato de Venta Local ===== */
+function compactarRend(){const rr=document.querySelector(".rerp");if(!rr||rr.dataset.cp)return;rr.dataset.cp=1;
+  const cont=rr.closest(".sis-main")||document;cont.classList.add("rd-lv");
+  // una sola línea arriba: cliente/chofer · ventas · saldo histórico · N° guía
+  const bar=cont.querySelector(".mrbar"),lin=document.createElement("div");lin.className="rd-linea";
+  if(bar){const r1=bar.querySelector(".row");if(r1)lin.appendChild(r1)}
+  const mv=cont.querySelector(".mv-bar");
+  if(mv){mv.querySelectorAll(".mv-ch").forEach(x=>lin.appendChild(x));const h=mv.querySelector(".mv-hist");mv.remove();const n=cont.querySelector(".mv-nota");if(n)n.remove();if(h)lin.appendChild(h)}
+  const vr=cont.querySelector(".vr-sum");
+  if(vr){const btn=vr.querySelector("[data-ctab]");if(mv){if(btn)lin.insertBefore(btn,lin.querySelector(".mv-hist"))}else{const g=document.createElement("span");g.className="rd-vs";[...vr.childNodes].forEach(x=>g.appendChild(x));lin.appendChild(g)}vr.remove()}
+  const top=cont.querySelector(".rtop-erp");if(top){const g=top.querySelector(".guia");if(g)lin.appendChild(g);top.remove()}
+  if(bar){bar.parentNode.insertBefore(lin,bar);if(!bar.querySelector(".row"))bar.remove()}else{rr.closest("fieldset")?.parentNode.insertBefore(lin,rr.closest("fieldset"))}
+  // sin Descuento QR (salvo que ya tenga montos guardados)
+  rr.querySelectorAll(".rc-pagos .rbox").forEach(b=>{const h=b.querySelector(".rbox-h span");if(h&&h.textContent.trim()==="DESCUENTO QR"&&!b.querySelector(".chips"))b.remove()})}
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{compactarRend()}catch(e){}return r}}
+
+/* Ingreso de carga (antes Compras y Devoluciones) vive dentro de Control de Bodega */
+{const lb=L.bodega;L.bodega=function(){if(bTab==="ingreso"){$$("[data-btab]").forEach(b=>b.onclick=()=>{bTab=b.dataset.btab;pintarSistema()});try{L.compras()}catch(e){}return}return lb.apply(this,arguments)}}
+{const i0=ir;ir=function(m){if(m==="compras"){bTab="ingreso";return i0.call(this,"bodega")}return i0.apply(this,arguments)}}
+
+/* Configuraciones → General: incluye la lista de Sucursales (solo administrador) */
+{const lc=L.config;L.config=function(){const r=lc.apply(this,arguments);
+  try{if(cfgTab==="general"&&esAdmin()&&!document.getElementById("s-sucl")){const z=document.querySelector(".cfg-main");if(z){z.insertAdjacentHTML("beforeend",'<div class="cfg-suc-gen">'+CFG_MAY.sucLocal.v()+'</div>');CFG_MAY.sucLocal.l()}}}catch(e){console.error(e)}
+  return r}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5889,11 +5931,43 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 
 .sis .perm-der .perm-g{margin:10px 0 2px;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#667085}.sis .perm-der .perm-g:first-of-type{margin-top:4px}
 
-.sis .vc-top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:end;background:#fff;border:1px solid #e4e8ee;border-radius:12px;padding:10px 16px;margin:0 0 12px}
+.sis .vc-top{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:end;background:#fff;border:1px solid #e4e8ee;border-radius:12px;padding:8px 14px;margin:0 0 10px}
 .sis .vc-top label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#667085;margin:0}
-.sis .vc-top select.vc-chsel{font-size:20px;font-weight:700;color:#0a2557;padding:10px 40px 10px 14px;min-width:340px;height:auto;text-transform:none;letter-spacing:0}
-.sis .vc-top input[type=date]{font-size:16px;padding:10px 12px;height:auto}
+.sis .vc-top select.vc-chsel{font-size:15px;font-weight:700;color:#0a2557;padding:7px 34px 7px 12px;min-width:260px;height:auto;text-transform:none;letter-spacing:0}
+.sis .vc-top input[type=date]{font-size:14px;padding:7px 10px;height:auto}
 @media (max-width:700px){.sis .vc-top select.vc-chsel{min-width:0;width:100%}.sis .vc-top label{flex:1 1 100%}}
+
+#vl-capa{position:fixed;left:0;right:0;bottom:0;top:56px;z-index:60;background:#f2f4f7;display:flex;flex-direction:column}
+#vl-capa.vl-oculta{visibility:hidden;pointer-events:none;left:-300vw;right:300vw}
+#vl-capa .vl-bar{display:flex;align-items:center;gap:14px;padding:8px 24px;background:#fff;border-bottom:1px solid #e4e8ee}
+#vl-capa .vl-bar b{font-size:17px;color:#101828}
+#vl-capa iframe{flex:1;width:100%;border:0;background:#f2f4f7}
+body.vl-abierta{overflow:hidden}
+
+/* rendición con formato de Venta Local */
+.sis .rd-linea{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 8px;padding:5px 10px;background:#fff;border:1px solid #e4e8ee;border-radius:8px;font-size:12.5px}
+.sis .rd-linea .row{display:flex;align-items:center;gap:6px}.sis .rd-linea .lbl{font-size:10px;font-weight:700;letter-spacing:.08em;color:#667085}
+.sis .rd-linea select.big{font-size:13px;font-weight:700;padding:3px 8px;min-width:180px;border:1px solid #c8d1de;border-radius:7px;color:#0a2557;background:#fff;height:auto}
+.sis .rd-linea .mv-ch{font-size:12px;padding:2px 8px;border-radius:6px}.sis .rd-linea .mv-hist{margin-left:auto;font-size:12px}
+.sis .rd-linea .rd-vs{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.sis .rd-linea .vr-v{font-size:12px}
+.sis .rd-linea .btn{padding:3px 9px;height:auto;min-height:0;font-size:12px}
+.sis .rd-linea .guia{display:flex;align-items:center;gap:5px;margin-left:auto;font-size:12px;font-weight:600;color:#475467}.sis .rd-linea .guia input{width:110px;padding:3px 7px;height:26px}
+.sis .rd-lv .mrbar{margin-bottom:6px}
+.sis .rd-lv .rerp{font-size:12.5px;gap:10px}
+.sis .rd-lv .rerp table.rv{font-size:12px}.sis .rd-lv .rerp table.rv td.l,.sis .rd-lv .rerp table.rv th.l{font-size:11px}
+.sis .rd-lv .rerp table.rv tr.cant input{font-size:14px}
+.sis .rd-lv .rerp .ei{height:26px;font-size:12px}
+.sis .rd-lv .rerp .rc-pagos .rbox{display:block!important;margin-bottom:5px}
+.sis .rd-lv .rerp .rc-pagos .rbox-h{flex-direction:row!important;align-items:center!important;justify-content:space-between!important;border-right:0!important;border-bottom:1px solid var(--kd,var(--line2))!important;padding:3px 8px!important;font-size:10.5px!important}
+.sis .rd-lv .rerp .rc-pagos .rbox-h .radios{margin-left:auto}
+.sis .rd-lv .rerp .rc-pagos .rbox-b{padding:4px 6px}
+.sis .rd-lv .rerp .rbox-b input,.sis .rd-lv .rerp .rbox-b select{height:26px;font-size:12px;padding:3px 6px}
+.sis .rd-lv .rerp .rbox-b .btn{height:26px;padding:3px 9px;font-size:12px}
+.sis .rd-lv .rerp .tbox th{font-size:10px;padding:4px}.sis .rd-lv .rerp .tbox td{font-size:12px;padding:4px 7px}.sis .rd-lv .rerp .tbox .bigv{font-size:13px;padding:5px 4px}
+.sis .rd-lv .cab-mod h1,.sis .rd-lv .cab-mod h2{font-size:20px}
+.sis .rd-lv .rerp .radios,.sis .rd-lv .rerp .radios label{font-size:12px!important;font-weight:500!important}.sis .rd-lv .rerp .radios input{width:13px;height:13px}
+
+.sis .cfg-suc-gen{margin-top:20px}.sis .cfg-suc-gen #s-sucl{max-width:1000px!important}.sis .cfg-suc-gen #s-sucl select{max-width:190px}.sis .cfg-suc-gen .tabla-wrap{overflow-x:auto}
 </style>
 </body>
 </html>
