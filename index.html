@@ -1954,7 +1954,6 @@ const V={
         <label>Observaciones<input id="np-obs"></label><label>Entrega<input id="np-entrega" type="datetime-local" value="${ahora().replace(" ","T")}"></label></div>
       </div>
       <aside class="ped-lado caja">
-        <div><span class="eyebrow">Lista de precios</span>${radios("np-lista",D.listas||{base:"Precio base"},"base")}</div>
         <div><span class="eyebrow">Tipo de cliente</span>${radios("np-tipo",{hogar:"Domiciliario",empresa:"Empresa"},"hogar")}</div>
         <div><span class="eyebrow">Forma de pago</span>${radios("np-pago",PAGOS,"efectivo")}</div>
         <label class="radio"><input type="checkbox" id="np-factura"> Solicita factura</label>
@@ -2275,14 +2274,7 @@ const V={
         <div class="tabla-wrap"><table><thead><tr><th>Rige desde</th>${FORMATOS.map(f=>`<th class="der">${f.et}</th>`).join("")}<th>Hecho por</th></tr></thead><tbody>
         ${hist.length?hist.map(h=>`<tr><td class="num">${esc(h.desde.split("-").reverse().join("-"))}</td>${FORMATOS.map(f=>`<td class="der num">${clp(h.nuevos[f.id])}<br>${difPrecio(h.ant[f.id],h.nuevos[f.id])}</td>`).join("")}<td>${esc(h.user)}${h.motivo?`<br><span style="color:var(--muted)">${esc(h.motivo)}</span>`:""}</td></tr>`).join(""):'<tr><td colspan="6">Todavía no hay cambios. Cada vez que guarde precios nuevos quedará anotado aquí.</td></tr>'}
         </tbody></table></div>
-      <form class="caja" id="f-listas" style="margin-top:12px"><h3>Otras listas de precios</h3>
-        <p class="nota" style="margin:0">La lista convenio se elige al ingresar un pedido. Los precios mayoristas, listas con descuento y clientes están en la pestaña «Precios mayoristas».</p>
-        <label style="max-width:360px">Nombre de la lista convenio<input id="lp-nombre" value="${esc(nomLista("convenio"))}"></label>
-        <div class="tabla-wrap"><table class="vt"><thead><tr><th></th>${FORMATOS.map(f=>`<th class="der">${f.et}</th>`).join("")}</tr></thead><tbody>
-          <tr><td>${esc(nomLista("convenio"))}</td>${FORMATOS.map(f=>`<td class="der"><input class="num" type="number" min="0" step="1" data-lc="${f.id}" value="${D.preciosConvenio[f.id]}" aria-label="Convenio ${f.et}"></td>`).join("")}</tr>
-          
-        </tbody></table></div>
-        <div><button class="btn" type="submit">Guardar listas</button></div><p class="aviso ok" id="lp-ok" hidden>Listas guardadas.</p></form>
+
       </div></div>`;
   },
   petroleo(){
@@ -2317,7 +2309,7 @@ const V={
   manual(){
     const TX={sectorizar:"En «Mapa de calles» dibuje cada zona sobre las calles reales (Santiago, Estación Central, Recoleta, Independencia, Conchalí, Quinta Normal, Cerrillos, Padre Hurtado y Peñaflor): elija «Dibujar zona», el sector, y haga clic en cada esquina del borde. Para calles que cruzan dos sectores agregue una regla por número (ej: San Pablo del 1 al 2999). El pedido se ubica por calle y número; si no se encuentra, use «Marcar en mapa». En la pestaña «Región Metropolitana» vea qué comunas tiene cada sector y qué camiones lo atienden. Para cambiar un sector, elíjalo y haga clic en las comunas. Con «Despachar pendientes» cada pedido se envía al camión de su sector con menos pedidos en ruta; si el sector no tiene camión, va al sector más cercano. Active «Enviar solo cada pedido nuevo» para que se despache al grabarlo.",pedidos:"Ingrese los pedidos que llegan por teléfono, WhatsApp o apps. Al escribir la calle, el sistema sugiere las calles reales y revisa que el número exista y que la dirección quede dentro de las zonas de reparto; si queda fuera, avisa antes de grabar. Al escribir el teléfono de un cliente que ya pidió antes, sus datos (dirección, lista, pago y factura) se completan solos; con «Repetir último pedido» también se cargan los cilindros. Elija los cilindros (normales o H15), la venta de envase si corresponde, la lista de precios y la forma de pago.",
       ruta:"Asigne cada pedido a un móvil. \"Sectorizar\" pone el sector según la comuna y sugiere el móvil de ese sector. Use R si el cliente reclama, A para anular y CF si el móvil cerró un pedido sin entregarlo (vuelve a En ruta).",
-      precios:"Cambie los precios de todos los cilindros juntos o uno por uno, ahora o programado para un día (por ejemplo, el próximo jueves). También se editan la lista convenio y los precios mayoristas.",
+      precios:"Cambie los precios de todos los cilindros juntos o uno por uno, ahora o programado para un día (por ejemplo, el próximo jueves). También se editan los precios mayoristas.",
       informes:"Todos los informes de pedidos y rendiciones. Elija las fechas y la sucursal, y descargue a Excel si lo necesita.",
       petroleo:"Registre cada carga de combustible de los móviles: litros, monto, kilometraje y boleta. Calcula el gasto del mes y el rendimiento de cada móvil.",
       mayorista:"Elija el cliente, escriba los cilindros y grabe. El precio sale solo según la lista del cliente (Configuraciones → Precios mayoristas). En «Cuenta clientes» ve cuánto debe cada uno y registra abonos. Los vales recibidos en la Rendición mayorista dan comisión al cliente.",
@@ -2685,7 +2677,7 @@ const L={
     const rc=$("#rep-csv");if(rc)rc.onclick=descargarCSV;
   },
   precios(){
-    $("#f-listas").onsubmit=e=>{e.preventDefault();D.listas.convenio=$("#lp-nombre").value.trim()||"Precio convenio";
+    if($("#f-listas"))$("#f-listas").onsubmit=e=>{e.preventDefault();D.listas.convenio=$("#lp-nombre").value.trim()||"Precio convenio";
       FORMATOS.forEach(f=>{D.preciosConvenio[f.id]=Math.max(0,+$(`[data-lc="${f.id}"]`).value||0);0});
       log("precios","Listas de precios actualizadas",D.listas.convenio);guardar();pintarSistema();$("#lp-ok").hidden=false};
     const val=id=>Math.max(0,Math.round(+$("#pn-"+id).value||0));
@@ -4178,7 +4170,7 @@ L.bodega=function(){l0();
 const CFG_IC={sucLocal:"sucursal",precioBase:"precios",preciosLocal:"precios",precios:"precios",envases:"factura",clientesMay:"usuarios",descQR:"precios",preciosMay:"precios",comVale:"cuadratura",histPrecios:"manual",histCambios:"manual",usuarios:"usuarios",choferes:"choferes",sectorizar:"ruta",sucursal:"sucursal",general:"bodega",respaldos:"config"};
 // Precio del Gas
 CFG_MAY.precios={v(){const p=D.precios,prog=(D.programados||[]).slice().sort((a,b)=>a.desde.localeCompare(b.desde));
-  return `<div class="cfg-dos"><form class="cfgp" id="f-pr"><h3>Precio domicilio</h3>
+  return `<div style="max-width:900px"><form class="cfgp" id="f-pr"><h3>Precio domicilio</h3>
     <p class="cfgp-nota">Es el precio de cada cilindro para pedidos a domicilio y venta de choferes${D.locales.length>1?` en las ${D.locales.length} sucursales`:""}. Vigente desde el ${fechaLarga(p.fecha)}. Cada cambio queda en el Historial de Precios.</p>
     <div class="tabla-wrap cfgt"><table><thead><tr><th>Cilindro</th><th class="c">Precio actual</th><th class="c">Precio nuevo</th><th class="c">Cambio</th></tr></thead><tbody>
     ${FORMATOS.map(f=>`<tr><td><b>Cilindro ${f.tipo==="h"?"H15A":f.kg+"N"}</b> <span class="gris">${f.tipo==="h"?"Aluminio":f.kg+" kilos"}</span></td><td class="c azul">${clp(p[f.id])}</td><td class="pn"><span>$</span><input type="number" min="0" step="1" id="pn-${f.id}" value="${p[f.id]}" aria-label="Precio nuevo ${f.et}"></td><td class="c" id="dif-${f.id}"></td></tr>`).join("")}
@@ -4191,12 +4183,7 @@ CFG_MAY.precios={v(){const p=D.precios,prog=(D.programados||[]).slice().sort((a,
     <p class="error" id="pn-error" hidden style="text-align:center"></p><p class="aviso ok" id="pn-ok" hidden></p>
     ${prog.length?`<h3 class="sub">Cambios programados</h3><div class="tabla-wrap cfgt"><table><thead><tr><th>Rige desde</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15A":f.kg+"N"}</th>`).join("")}<th></th></tr></thead><tbody>
       ${prog.map(x=>`<tr><td>${fechaLarga(x.desde)}</td>${FORMATOS.map(f=>`<td class="c azul">${clp(x.precios[f.id])}</td>`).join("")}<td class="c"><button class="x-rojo" data-cancelar="${x.id}" type="button" aria-label="Cancelar cambio">✕</button></td></tr>`).join("")}</tbody></table></div>`:""}</form>
-  <form class="cfgp" id="f-listas"><h3>Precio convenio</h3>
-    <p class="cfgp-nota">La lista convenio se elige al ingresar un pedido.</p>
-    <div class="cfgp-fila"><label class="g2">Nombre de la lista<input id="lp-nombre" value="${esc(nomLista("convenio"))}"></label></div>
-    <div class="tabla-wrap cfgt"><table><thead><tr><th>Cilindro</th><th class="c">Precio convenio</th></tr></thead><tbody>
-      ${FORMATOS.map(f=>`<tr><td><b>Cilindro ${f.tipo==="h"?"H15A":f.kg+"N"}</b></td><td class="pn c"><span>$</span><input type="number" min="0" step="1" data-lc="${f.id}" value="${D.preciosConvenio[f.id]}" aria-label="Convenio ${f.et}"></td></tr>`).join("")}</tbody></table></div>
-    <div class="cfgp-btn"><button class="btn" type="submit">Guardar precio convenio</button></div><p class="aviso ok" id="lp-ok" hidden>Precio convenio guardado.</p></form></div>`},
+</div>`},
   l(){L.precios()}};
 // Precio de envases
 CFG_MAY.envases={v(){const PE=D.preciosEnvase||{};return `<form class="cfgp" id="f-env"><h3>Precio de envases</h3>
@@ -4443,6 +4430,12 @@ CFG_MAY.sucLocal={v(){const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC
         log("sistema","Sucursales del ERP Local",j.list.map(x=>x.nombre+(x.indep?" (precios propios)":"")+(x.activa?"":" (inactiva)")).join(", ")+((j.borradas||[]).length?" · eliminadas: "+j.borradas.join(", "):""));guardar();
         pintarSistema();aviso("Sucursales guardadas","El ERP Local ya usa esta lista. Los usuarios que lo tengan abierto la verán al recargar la página.")}
       catch(x){er.textContent=x.message;er.hidden=false}finally{b.disabled=false}}}};
+
+/* Pedidos de Gas compacto: Fuente al lado del teléfono */
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);
+  try{if(mod==="pedidos"){const fu=document.querySelector(".ped-main>.fuente"),fi=fu&&fu.nextElementSibling;
+    if(fu&&fi&&fi.classList.contains("fila")){fi.classList.add("fila-tel");fi.appendChild(fu)}}}catch(e){}
+  return r}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5329,6 +5322,36 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 
 .sis #s-sucl tr.borrar td{background:#fef3f2}.sis #s-sucl tr.borrar td b{text-decoration:line-through;color:#b42318}
 .sis #s-sucl .pill.rojo{background:#fef3f2;color:#b42318}
+
+/* ===== Pedidos de Gas compacto (cabe sin bajar) ===== */
+.sis .ped-main{padding:12px 16px!important}
+.sis .ped-main .buscar{margin-bottom:8px!important;padding-bottom:8px!important;gap:8px!important}
+.sis .ped-main .buscar label{font-size:0!important;gap:0!important}
+.sis .ped-main .buscar input{font-size:14px!important}
+.sis .ped-main .buscar+*{margin-top:0!important}
+.sis .ped-main .fila-tel{margin-top:4px!important}
+.sis .ped-main .np-img{height:64px!important}.sis .ped-main .np-img svg{height:62px!important}
+.sis .ped-main .buscar input,.sis .ped-main .buscar .btn{height:36px;padding-top:6px;padding-bottom:6px}
+.sis .ped-main .fila-tel{display:flex!important;gap:18px;align-items:flex-end;margin-bottom:8px!important}
+.sis .ped-main .fila-tel>label{flex:1;max-width:560px;gap:3px}
+.sis .ped-main .fila-tel .fuente{margin:0!important;padding-bottom:8px;white-space:nowrap}
+.sis .ped-main .fila-tel input,.sis .ped-main .fila-tel .btn{height:36px}
+.sis .ped-main .barra{margin-bottom:4px!important}
+.sis .ped-main .np-cil{padding:6px 4px 8px!important;gap:3px!important}
+.sis .ped-main .np-img{height:58px!important}
+.sis .ped-main .np-img svg{height:56px!important;width:auto!important}
+.sis .ped-main .np-et{font-size:14px!important;line-height:1.2}
+.sis .ped-main .np-q{height:34px!important;font-size:17px!important;padding:2px 6px!important}
+.sis .ped-main .np-env input{height:26px!important}
+.sis .ped-main .np-envp{font-size:11px!important;line-height:1.1}
+.sis .ped-main .dir6,.sis .ped-main .dir3,.sis .ped-main>.fila{margin-top:8px!important;gap:8px 10px!important}
+.sis .ped-main .dir6 label,.sis .ped-main>.fila label,.sis .ped-main>div>label{gap:3px}
+.sis .ped-main .dir6 input,.sis .ped-main>div input:not(.np-q):not([type=radio]):not([type=checkbox]){height:34px;padding-top:5px;padding-bottom:5px}
+.sis .ped-lado{padding:10px 14px!important;gap:6px!important}
+.sis .ped-lado .radio{font-size:13px}
+/* Barra superior en una sola fila (el reloj se oculta en pantallas medianas: el computador ya muestra la hora) */
+@media (max-width:1599px){#sis-reloj{display:none!important}}
+@media (max-width:1499px){.sis-top .accion{padding-left:6px!important;padding-right:6px!important;font-size:13px!important}.sis-top .wrap{gap:10px!important}#nube-estado{font-size:12px!important;padding-left:8px!important;padding-right:8px!important}}
 </style>
 </body>
 </html>
