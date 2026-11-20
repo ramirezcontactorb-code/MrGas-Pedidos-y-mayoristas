@@ -1898,7 +1898,8 @@ function setEstado(p,e){
   nubePedido(p);
 }
 const FUENTES={fono:"Fono",whatsapp:"WhatsApp",pedidosya:"Pedidos Ya",instagram:"Instagram",app:"App",mercadolibre:"Mercado Libre",web:"Sitio web"};
-const PAGOS={efectivo:"Efectivo",transferencia:"Transferencia",pagorut:"Pago RUT",chequedia:"Cheque al día",chequefecha:"Cheque a fecha",vale:"Vale",tarjeta:"Tarjeta débito/crédito",webpay:"Webpay",oneclick:"One Click",cuenta:"Crédito empresa",valegob:"Vale Gobierno",otros:"Otros"};
+const PAGOS_PED={efectivo:"Efectivo",tarjeta:"Tarjeta",transferencia:"Transferencia",vale:"Vale",cheque:"Cheque"};
+const PAGOS={cheque:"Cheque",efectivo:"Efectivo",transferencia:"Transferencia",pagorut:"Pago RUT",chequedia:"Cheque al día",chequefecha:"Cheque a fecha",vale:"Vale",tarjeta:"Tarjeta débito/crédito",webpay:"Webpay",oneclick:"One Click",cuenta:"Crédito empresa",valegob:"Vale Gobierno",otros:"Otros"};
 Object.assign(MEDIOS,PAGOS);
 
 /* ===================== VISTAS ===================== */
@@ -1941,10 +1942,9 @@ const V={
         <div class="fila"><label>Teléfono<span class="tel-sn"><input id="np-fono" type="tel" required list="lista-fonos" autocomplete="off" placeholder="Escriba el número"><button class="btn chico linea" type="button" id="np-sinnum">Sin número</button></span></label></div>
         <div id="np-cliente" class="cli-card" hidden></div>
         <div><div class="barra" style="margin:0 0 6px"><span class="eyebrow">Cilindros</span><span class="nota" style="margin:0">H15 = grúa aluminio</span></div>
-          <div class="np-cils" style="--n:${FORMATOS.length}">${FORMATOS.map(f=>`<div class="np-cil" title="${esc(f.nom||f.et)}"><span class="np-pr num" data-pr="${f.id}">${clp(precioLista("base",f.id))}</span>
-            <div class="np-img">${cilBlanco(f)}</div><b class="np-et">${f.tipo==="h"?"H15":f.kg+" kg"}</b>
-            <input type="number" min="0" inputmode="numeric" class="np-q" data-cant="${f.id}" value="0" aria-label="Cantidad ${f.et}">
-            ${PE[f.id]?`<label class="np-env">Con envase<input type="number" min="0" inputmode="numeric" data-env="${f.id}" value="0" aria-label="Envases ${f.et}"></label><span class="np-envp">(${clp(PE[f.id])})</span>`:`<span class="np-envp">Sin venta de envase</span>`}</div>`).join("")}</div></div>
+          <div class="np-cils" style="--n:${FORMATOS.length}">${FORMATOS.map(f=>`<div class="np-cil np-b" title="${esc(f.nom||f.et)}"><b class="np-et">${f.tipo==="h"?"H15":f.kg+" kg"}</b><span class="np-pr num" data-pr="${f.id}">${clp(precioLista("base",f.id))}</span>
+            <div class="np-step"><button type="button" class="np-m" data-paso="-1" aria-label="Quitar ${f.et}">−</button><input type="number" min="0" inputmode="numeric" class="np-q" data-cant="${f.id}" value="0" aria-label="Cantidad ${f.et}"><button type="button" class="np-p" data-paso="1" aria-label="Agregar ${f.et}">+</button></div>
+            ${PE[f.id]?`<span class="np-envt">Envase <small>${clp(PE[f.id])}</small></span><div class="np-step chico"><button type="button" class="np-m" data-paso="-1" aria-label="Quitar envase ${f.et}">−</button><input type="number" min="0" inputmode="numeric" data-env="${f.id}" value="0" aria-label="Envases ${f.et}"><button type="button" class="np-p" data-paso="1" aria-label="Agregar envase ${f.et}">+</button></div>`:`<span class="np-envp">Sin venta de envase</span>`}</div>`).join("")}</div></div>
         <div class="dir6"><label class="con-sug">Calle<input id="np-calle" required autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="np-sug" aria-expanded="false" placeholder="Empiece a escribir…"><div class="sug" id="np-sug" role="listbox" hidden></div></label><label>Número<input id="np-num"></label><label>Block<input id="np-block"></label>
         <label>Depto<input id="np-depto"></label><label>Comuna<input id="np-comuna" list="lista-comunas" value="${esc(loc(suc).comuna)}"></label><label>Ciudad<input id="np-ciudad" value="Santiago"></label></div>
         <datalist id="lista-fonos">${(D.clientes||[]).slice().sort((a,b)=>(b.ultimo||"").localeCompare(a.ultimo||"")).slice(0,500).map(c=>`<option value="${esc(c.fonoTxt)}">${esc(c.calle)} ${esc(c.num)}${c.comuna?", "+esc(c.comuna):""}</option>`).join("")}</datalist>
@@ -1954,8 +1954,8 @@ const V={
         <label>Observaciones<input id="np-obs"></label><label>Entrega<input id="np-entrega" type="datetime-local" value="${ahora().replace(" ","T")}"></label></div>
       </div>
       <aside class="ped-lado caja">
-        <div><span class="eyebrow">Tipo de cliente</span>${radios("np-tipo",{hogar:"Domiciliario",empresa:"Empresa"},"hogar")}</div>
-        <div><span class="eyebrow">Forma de pago</span>${radios("np-pago",PAGOS,"efectivo")}</div>
+        
+        <label class="np-pago-l"><span class="eyebrow">Forma de pago</span><select id="np-pago" aria-label="Forma de pago">${Object.entries(PAGOS_PED).map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select></label>
         <label class="radio"><input type="checkbox" id="np-factura"> Solicita factura</label>
         <div id="np-fact" class="grid" style="gap:10px" hidden><label>RUT<input id="np-rut" placeholder="76.000.000-0"></label><label>Razón social<input id="np-razon"></label><label>Giro<input id="np-giro"></label><label>Dirección<input id="np-fdir"></label><label>Comuna<input id="np-fcomuna" list="lista-comunas"></label></div>
         <label>Descuento (CLP)<input id="np-dcto" type="number" min="0" value="0" class="num"></label>
@@ -2479,7 +2479,8 @@ const L={
     let llenado="";
     const rellenar=(c,conCil)=>{llenado=c.fono;$("#np-fono").value=c.fonoTxt;
       set("#np-calle",c.calle);set("#np-num",c.num);set("#np-block",c.block);set("#np-depto",c.depto);set("#np-comuna",c.comuna);set("#np-ciudad",c.ciudad||"Santiago");set("#np-ref",c.ref);
-      [["np-lista",c.lista],["np-tipo",c.tipo],["np-pago",c.medio]].forEach(([n,v])=>{const r=document.querySelector(`input[name="${n}"][value="${v}"]`);if(r)r.checked=true});
+      {const sp=$("#np-pago");if(sp&&c.medio&&PAGOS_PED[c.medio])sp.value=c.medio}
+      [["np-lista",c.lista],["np-tipo",c.tipo]].forEach(([n,v])=>{const r=document.querySelector(`input[name="${n}"][value="${v}"]`);if(r)r.checked=true});
       $("#np-factura").checked=!!c.factura;$("#np-fact").hidden=!c.factura;
       if(c.factura){set("#np-rut",c.factura.rut);set("#np-razon",c.factura.razon);set("#np-giro",c.factura.giro);set("#np-fdir",c.factura.dir);set("#np-fcomuna",c.factura.comuna)}
       if(conCil){$$("[data-cant],[data-env]").forEach(i=>i.value=0);(c.ultimoItems||[]).forEach(i=>{set(`[data-cant="${i.formato}"]`,i.cant);if(i.env)set(`[data-env="${i.formato}"]`,i.env)})}
@@ -2507,7 +2508,7 @@ const L={
       D.pedidos.unshift({id,fecha:ahora(),nombre:"",fono:g("#np-fono"),
         dir:[calle+(nro?" "+nro:""),block&&("block "+block),depto&&("depto "+depto),comuna].filter(Boolean).join(", "),calle,num:nro,block,depto,comuna,ciudad:g("#np-ciudad"),ref:g("#np-ref"),obs:g("#np-obs"),
         entrega:$("#np-entrega").value.replace("T"," "),items:it,dcto:num("#np-dcto"),local:suc,estado:"pendiente",chofer:null,sector:null,
-        medio:val("np-pago"),origen:val("np-fuente"),tipo:val("np-tipo"),lista:lista(),usuario:yo.nombre,
+        medio:($("#np-pago")||{}).value||"efectivo",origen:val("np-fuente"),tipo:val("np-tipo")||"hogar",lista:lista(),usuario:yo.nombre,
         factura:$("#np-factura").checked?{rut:g("#np-rut"),razon:g("#np-razon"),giro:g("#np-giro"),dir:g("#np-fdir"),comuna:g("#np-fcomuna")}:null});
       if(pinManual)D.pedidos[0].geo=pinManual;
       {const q=D.pedidos[0];{const c=guardarCliente(q);if(c)nubeGuardar("clientes",c)}if(autoActivo(q.local))cargarCalles().catch(()=>{}).then(()=>{const r=autoDespachar([q]);if(r.ok)aviso("Despacho automático",`Pedido N° ${q.id} enviado a ${nomChofer(q.chofer)} (${nomSector(q.sector)}).`);guardar();if(mod==="ruta"||mod==="sectorizar")pintarSistema()});log("pedidos","Pedido ingresado",`Pedido N° ${q.id} · ${resumenP(q)} · ${nomCli(q)} · ${q.dir} · ${MEDIOS[q.medio]||""}`,{pedido:q.id});nubePedido(q)}
@@ -4436,6 +4437,74 @@ CFG_MAY.sucLocal={v(){const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC
   try{if(mod==="pedidos"){const fu=document.querySelector(".ped-main>.fuente"),fi=fu&&fu.nextElementSibling;
     if(fu&&fi&&fi.classList.contains("fila")){fi.classList.add("fila-tel");fi.appendChild(fu)}}}catch(e){}
   return r}}
+
+/* Pedido: botones − y + de cilindros y envases */
+document.addEventListener("click",e=>{const b=e.target.closest(".np-step button");if(!b)return;e.preventDefault();
+  const i=b.parentElement.querySelector("input");if(!i)return;const v=Math.max(0,(parseInt(i.value,10)||0)+(+b.dataset.paso));
+  if(String(v)===i.value)return;i.value=v;i.dispatchEvent(new Event("input",{bubbles:true}));i.dispatchEvent(new Event("change",{bubbles:true}))});
+
+/* ===== Asigna Ruta: botón «Ver mapa» con los pedidos (se abre solo cuando se necesita) ===== */
+let MR={x:0,y:0,s:.05,sel:null,ver:{pendiente:true,ruta:true},puntos:[],sin:0};
+function abrirMapaRuta(){
+  let dl=document.getElementById("dl-mapa");if(!dl){dl=document.createElement("dialog");dl.id="dl-mapa";document.body.appendChild(dl)}
+  dl.innerHTML=`<div class="mr-cab"><b>Mapa de pedidos</b>
+    <label class="mr-f"><input type="checkbox" data-mrf="pendiente" ${MR.ver.pendiente?"checked":""}><i class="mr-d pend"></i>Por despachar <span id="mr-np"></span></label>
+    <label class="mr-f"><input type="checkbox" data-mrf="ruta" ${MR.ver.ruta?"checked":""}><i class="mr-d ruta"></i>En ruta <span id="mr-nr"></span></label>
+    <span class="mr-sin" id="mr-sin"></span><span style="flex:1"></span>
+    <button class="btn chico linea" type="button" id="mr-centrar">Ver todos</button><button class="btn chico" type="button" id="mr-cerrar">Cerrar</button></div>
+    <div class="mr-cuerpo"><canvas id="mr-cv"></canvas><div class="mr-zoom"><button type="button" data-mrz="1.4" aria-label="Acercar">+</button><button type="button" data-mrz="0.7" aria-label="Alejar">−</button></div>
+    <div class="mr-info" id="mr-info" hidden></div><div class="mr-carga" id="mr-carga">Cargando mapa de calles…</div></div>
+    <p class="mr-pie">Arrastre para mover · rueda o botones para acercar · clic en un punto para ver el pedido · Calles © OpenStreetMap</p>`;
+  dl.showModal();
+  dl.querySelector("#mr-cerrar").onclick=()=>dl.close();
+  dl.onclick=e=>{if(e.target===dl)dl.close()};
+  $$("[data-mrf]").forEach(c=>c.onchange=()=>{MR.ver[c.dataset.mrf]=c.checked;MR.sel=null;dibujarMapaRuta()});
+  dl.querySelector("#mr-centrar").onclick=()=>{centrarMapaRuta();dibujarMapaRuta()};
+  $$("[data-mrz]").forEach(b=>b.onclick=()=>{MR.s*=+b.dataset.mrz;dibujarMapaRuta()});
+  cargarCalles().then(()=>{const c=$("#mr-carga");if(c)c.remove();prepararMapaRuta();centrarMapaRuta();enlazarMapaRuta();dibujarMapaRuta()})
+    .catch(()=>{const c=$("#mr-carga");if(c)c.textContent="No se pudo cargar el mapa de calles."})}
+function prepararMapaRuta(){
+  const ps=pedidosSuc().filter(p=>p.estado==="pendiente"||p.estado==="ruta");let sin=0;
+  MR.puntos=ps.map(p=>{const g=ubicar(p);if(!g){sin++;return null}const [x,y]=aMundo(g.lon,g.lat);return {p,x,y,conf:g.conf}}).filter(Boolean);MR.sin=sin}
+function centrarMapaRuta(){const cv=$("#mr-cv");if(!cv)return;const P=MR.puntos.filter(q=>MR.ver[q.p.estado]);
+  let pts=P.length?P:MR.puntos;if(!pts.length){const l=loc(suc),g=l&&GEO_RM[l.comuna]||[-33.45,-70.66],[x,y]=aMundo(g[1],g[0]);MR.x=x;MR.y=y;MR.s=.06;return}
+  const xs=pts.map(q=>q.x),ys=pts.map(q=>q.y),a=Math.min(...xs),b=Math.max(...xs),c=Math.min(...ys),d=Math.max(...ys);
+  MR.x=(a+b)/2;MR.y=(c+d)/2;const W=cv.clientWidth||900,H=cv.clientHeight||500;MR.s=Math.min(.25,Math.min((W-120)/Math.max(400,b-a),(H-120)/Math.max(400,d-c)))}
+function dibujarMapaRuta(){const cv=$("#mr-cv");if(!cv||!CALLES)return;const dpr=devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);
+  const P=(x,y)=>[(x-MR.x)*MR.s+W/2,(y-MR.y)*MR.s+H/2],m=40/MR.s,vx0=MR.x-W/2/MR.s-m,vx1=MR.x+W/2/MR.s+m,vy0=MR.y-H/2/MR.s-m,vy1=MR.y+H/2/MR.s+m;
+  const vis=bb=>!(bb[2]<vx0||bb[0]>vx1||bb[3]<vy0||bb[1]>vy1);
+  g.fillStyle="#f4f6f9";g.fillRect(0,0,W,H);
+  CALLES.comunas.forEach(c=>{if(!vis(c.bb))return;g.beginPath();c.pp.forEach(p=>p.forEach(([x,y],i)=>{const [a,b]=P(x,y);i?g.lineTo(a,b):g.moveTo(a,b)}));g.fillStyle="#fff";g.fill();g.strokeStyle="#c9ced6";g.lineWidth=1.2;g.stroke()});
+  const maxCl=MR.s>.12?6:MR.s>.05?5:MR.s>.025?3:2;
+  for(const cl of [6,5,4,3,2,1]){if(cl>maxCl)continue;g.beginPath();
+    for(const c of CALLES.calles){if(c.cl!==cl||!vis(c.bb))continue;c.pts.forEach(([x,y],i)=>{const [a,b]=P(x,y);i?g.lineTo(a,b):g.moveTo(a,b)})}
+    g.strokeStyle=cl<=2?"#f5c26b":cl<=4?"#e3d3a6":"#dfe3ea";g.lineWidth=cl<=2?3:cl<=4?2:1.2;g.stroke()}
+  g.font="600 12px system-ui,sans-serif";g.textAlign="center";g.fillStyle="#98a2b3";
+  CALLES.comunas.forEach(c=>{if(!vis(c.bb))return;const cx=(c.bb[0]+c.bb[2])/2,cy=(c.bb[1]+c.bb[3])/2,[a,b]=P(cx,cy);if((c.bb[2]-c.bb[0])*MR.s>70)g.fillText(c.n,a,b)});
+  const vis2=MR.puntos.filter(q=>MR.ver[q.p.estado]);
+  vis2.forEach(q=>{const [a,b]=P(q.x,q.y),r=q===MR.sel?17:14,esp=(Date.now()-new Date(String(q.p.fecha).replace(" ","T")).getTime())/36e5;
+    const col=q.p.estado==="ruta"?"#1d4ed8":esp>=3?"#d92d20":"#f79009";
+    g.beginPath();g.arc(a,b,r,0,7);g.fillStyle=col;g.fill();g.lineWidth=q===MR.sel?3:2;g.strokeStyle="#fff";g.stroke();
+    g.fillStyle="#fff";g.font="700 9px system-ui,sans-serif";g.fillText(String(q.p.id).slice(-4),a,b+3.2)});
+  const np=MR.puntos.filter(q=>q.p.estado==="pendiente").length,nr=MR.puntos.filter(q=>q.p.estado==="ruta").length;
+  const e1=$("#mr-np"),e2=$("#mr-nr"),e3=$("#mr-sin");if(e1)e1.textContent="("+np+")";if(e2)e2.textContent="("+nr+")";if(e3)e3.textContent=MR.sin?MR.sin+" sin ubicar en el mapa":"";
+  const inf=$("#mr-info");if(!inf)return;if(!MR.sel){inf.hidden=true;return}
+  const p=MR.sel.p,[a,b]=P(MR.sel.x,MR.sel.y);inf.hidden=false;
+  inf.innerHTML=`<b>N° ${esc(p.id)}</b> <span class="mr-est ${p.estado}">${p.estado==="ruta"?"En ruta · "+esc(nomChofer(p.chofer)):"Por despachar"}</span><br>${esc(p.dir||"")}<br><span class="gris">${esc((p.fono||"")+" · "+String(p.fecha||"").slice(11,16))}</span><br>${items(p).map(i=>i.cant+" × "+esc(fmt(i.formato).et)).join(", ")} · <b>${clp(totalP(p))}</b>${MR.sel.conf==="calle"||MR.sel.conf==="comuna"?'<br><span class="gris">Ubicación aproximada (solo por la calle)</span>':""}`;
+  inf.style.left=Math.min(W-250,Math.max(8,a+16))+"px";inf.style.top=Math.min(H-120,Math.max(8,b-20))+"px"}
+function enlazarMapaRuta(){const cv=$("#mr-cv");if(!cv||cv.dataset.ok)return;cv.dataset.ok=1;let arr=null,mov=false;
+  cv.onpointerdown=e=>{arr={x:e.clientX,y:e.clientY,mx:MR.x,my:MR.y};mov=false;cv.setPointerCapture(e.pointerId)};
+  cv.onpointermove=e=>{if(!arr)return;const dx=e.clientX-arr.x,dy=e.clientY-arr.y;if(Math.abs(dx)+Math.abs(dy)>4)mov=true;if(mov){MR.x=arr.mx-dx/MR.s;MR.y=arr.my-dy/MR.s;dibujarMapaRuta()}};
+  cv.onpointerup=e=>{const r=cv.getBoundingClientRect();if(!mov){const px=e.clientX-r.left,py=e.clientY-r.top,W=cv.clientWidth,H=cv.clientHeight;let best=null,bd=20;
+      MR.puntos.filter(q=>MR.ver[q.p.estado]).forEach(q=>{const a=(q.x-MR.x)*MR.s+W/2,b=(q.y-MR.y)*MR.s+H/2,d=Math.hypot(a-px,b-py);if(d<bd){bd=d;best=q}});MR.sel=best;dibujarMapaRuta()}arr=null};
+  cv.onwheel=e=>{e.preventDefault();const r=cv.getBoundingClientRect(),W=cv.clientWidth,H=cv.clientHeight,px=e.clientX-r.left-W/2,py=e.clientY-r.top-H/2,f=e.deltaY<0?1.2:1/1.2;
+    const wx=MR.x+px/MR.s,wy=MR.y+py/MR.s;MR.s=Math.max(.004,Math.min(1.5,MR.s*f));MR.x=wx-px/MR.s;MR.y=wy-py/MR.s;dibujarMapaRuta()};
+  addEventListener("resize",()=>{if(document.getElementById("dl-mapa")?.open)dibujarMapaRuta()})}
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);
+  try{if(mod==="ruta"&&!$("#rt-mapa")){const s=$("#rt-sectorizar");if(s)s.insertAdjacentHTML("afterend",' <button class="btn chico linea" id="rt-mapa" type="button">🗺 Ver mapa</button>');const b=$("#rt-mapa");if(b)b.onclick=abrirMapaRuta}
+    const dl=document.getElementById("dl-mapa");if(dl&&dl.open&&CALLES){prepararMapaRuta();dibujarMapaRuta()}}catch(e){}
+  return r}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5352,6 +5421,51 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 /* Barra superior en una sola fila (el reloj se oculta en pantallas medianas: el computador ya muestra la hora) */
 @media (max-width:1599px){#sis-reloj{display:none!important}}
 @media (max-width:1499px){.sis-top .accion{padding-left:6px!important;padding-right:6px!important;font-size:13px!important}.sis-top .wrap{gap:10px!important}#nube-estado{font-size:12px!important;padding-left:8px!important;padding-right:8px!important}}
+
+/* Pedido: envase ordenado (título con precio arriba, casilla abajo) */
+.sis .ped-main .np-env{display:flex!important;flex-direction:column!important;align-items:center;gap:2px!important;margin-top:4px;width:100%}
+.sis .ped-main .np-envt{font-size:11.5px;color:var(--mu,#667085);font-weight:500;white-space:nowrap}
+.sis .ped-main .np-envt small{font:500 11px "JetBrains Mono",ui-monospace,monospace;color:#98a2b3;margin-left:2px}
+.sis .ped-main .np-env input{width:84px!important;height:28px!important;font-size:14px!important;padding:2px 6px!important}
+.sis .ped-main .np-q{width:84px!important}
+.sis .ped-lado .np-pagos,.sis .ped-lado .radios{row-gap:4px}
+
+.sis .ped-lado .np-pago-l{display:flex;flex-direction:column;gap:4px}
+.sis .ped-lado #np-pago{height:38px;padding:6px 10px;font-size:14px;font-weight:600}
+
+/* Pedido: opción B (botones − y +) */
+.sis .ped-main .np-b{padding:10px 6px 12px!important;gap:5px!important}
+.sis .ped-main .np-b .np-et{font-size:15px!important;font-weight:700}
+.sis .ped-main .np-b .np-pr{font-size:16px!important;margin-bottom:2px}
+.sis .np-step{display:flex;align-items:center;gap:5px}
+.sis .np-step button{width:32px;height:34px;border:1px solid #d0d7e2;border-radius:8px;background:#fff;font:700 18px/1 system-ui,sans-serif;color:#344054;cursor:pointer;display:grid;place-items:center;padding:0}
+.sis .np-step button:hover{background:#f5f8fd;border-color:#a9c3ec;color:#0d3a85}
+.sis .np-step button:active{transform:scale(.95)}
+.sis .ped-main .np-step .np-q{width:52px!important;height:34px!important;font-size:17px!important;padding:2px!important;text-align:center}
+.sis .np-step.chico button{width:26px;height:28px;font-size:15px}
+.sis .ped-main .np-step.chico input{width:46px!important;height:28px!important;font-size:14px!important;padding:2px!important;text-align:center;border-radius:8px}
+.sis .ped-main .np-b .np-envt{font-size:12px;color:var(--mu,#667085);font-weight:500;margin-top:4px}
+.sis .ped-main .np-b .np-envt small{font:500 11.5px "JetBrains Mono",ui-monospace,monospace;color:#98a2b3;margin-left:3px}
+.sis .np-step input::-webkit-outer-spin-button,.sis .np-step input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.sis .np-step input{-moz-appearance:textfield}
+
+/* Mapa de pedidos (Asigna Ruta) */
+#dl-mapa{width:min(1200px,94vw);height:min(820px,90vh);padding:0;border:0;border-radius:14px;box-shadow:0 20px 60px rgba(16,24,40,.35);overflow:hidden}
+#dl-mapa[open]{display:flex;flex-direction:column}
+#dl-mapa::backdrop{background:rgba(16,24,40,.45)}
+.mr-cab{display:flex;align-items:center;gap:14px;padding:10px 14px;border-bottom:1px solid #e4e8ee;flex-wrap:wrap;font-size:13.5px}
+.mr-cab>b{font-size:15px;color:#0a2557}
+.mr-f{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}.mr-f span{color:#667085}
+.mr-d{width:11px;height:11px;border-radius:50%;display:inline-block;flex-shrink:0}.mr-d.pend{background:linear-gradient(90deg,#f79009 50%,#d92d20 50%)}.mr-d.ruta{background:#1d4ed8}
+.mr-sin{color:#b54708;font-size:12.5px}
+.mr-cuerpo{position:relative;flex:1;min-height:0}
+#mr-cv{width:100%;height:100%;display:block;cursor:grab;touch-action:none}#mr-cv:active{cursor:grabbing}
+.mr-zoom{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px}
+.mr-zoom button{width:34px;height:34px;border-radius:8px;border:1px solid #d0d7e2;background:#fff;font:700 18px system-ui;color:#344054;cursor:pointer}
+.mr-info{position:absolute;width:240px;background:#fff;border:1px solid #d0d7e2;border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.45;box-shadow:0 8px 24px rgba(16,24,40,.18)}
+.mr-est{font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;background:#fffaeb;color:#b54708}.mr-est.ruta{background:#eff4ff;color:#1d4ed8}
+.mr-carga{position:absolute;inset:0;display:grid;place-items:center;color:#667085;font-weight:600}
+.mr-pie{margin:0;padding:6px 14px;font-size:11.5px;color:#667085;border-top:1px solid #eef0f3}
 </style>
 </body>
 </html>
