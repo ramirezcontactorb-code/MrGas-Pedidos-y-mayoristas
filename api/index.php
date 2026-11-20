@@ -306,7 +306,7 @@ try {
         if (($b['confirmar'] ?? '') !== 'LIMPIAR') salida(['error' => 'Escriba LIMPIAR para confirmar.'], 400);
         @set_time_limit(300);
         $uid = (int) $adm['uid']; $n = 0;
-        $cols = ['pedidos','bitacora','ventas','gastos','rendiciones','cargas','cargasDist','anticipos','petroleo','peonetas','movimientos','recuentos','ventasAnuladas','programados','reparto','historialPrecios'];
+        $cols = ['facturas','pedidos','bitacora','ventas','gastos','rendiciones','cargas','cargasDist','anticipos','petroleo','peonetas','movimientos','recuentos','ventasAnuladas','programados','reparto','historialPrecios'];
         $p = db(); $p->beginTransaction();
         $q = $p->prepare('SELECT col, id FROM docs WHERE borrado = 0 AND col IN (' . implode(',', array_fill(0, count($cols), '?')) . ')'); $q->execute($cols);
         foreach ($q->fetchAll() as $f) { grabarDoc($f['col'], (string) $f['id'], null, $uid); $n++; }

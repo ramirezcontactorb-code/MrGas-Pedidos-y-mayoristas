@@ -1018,6 +1018,8 @@ const SYNC=[
   {col:"historialPrecios",key:h=>limpiaId(`h${h.cuando}`),noBorrar:true},
   {col:"ventasAnuladas",key:v=>limpiaId(`va${v.local}-${v.grupo||v.id}-${v.formato}-${v.anulada}`),noBorrar:true},
   {col:"programados",key:x=>limpiaId(`pg${x.id}`)},
+  {col:"facturas",key:x=>limpiaId(`f${x.id}`)},
+  {col:"empresas",key:x=>limpiaId(`e${x.id}`),noBorrar:false},
   {col:"choferes",key:c=>String(c.id),dato:c=>{const {carga,vacios,sector,apoyo,...b}=c;return b}}];
 const ESTADO_GLOBAL=["migraciones","precios","preciosMayor","preciosEnvase","preciosConvenio","listas","empresa","comisiones","historico","mayoristas","presetHoy","autoDesp","listasMay","comisionVale","descQR"];
 const ESTADO_SOLO_ADMIN=["precios","preciosMayor","preciosEnvase","preciosConvenio","listas","empresa","comisiones","historico","listasMay","comisionVale","descQR"];
@@ -1276,6 +1278,7 @@ const MODULOS=[
   {id:"ventachofer",t:"Venta Choferes",s:"Venta del chofer y rendición del día",r:[A,E]},
   {id:"mayorista",t:"Venta Mayorista",s:"Ventas a clientes y su cuenta",r:[A,E]},
   {id:"compras",t:"Compras y Devoluciones",s:"Entradas y salidas",r:[A,E]},
+  {id:"facturas",t:"Facturas",s:"Facturas pedidas por clientes",r:[A,E]},
   {id:"chofer",t:"Pedidos Chofer",s:"Entregas en ruta",r:[A,E,C]},
   {id:"bodega",t:"Control de Bodega",s:"Stock, móviles y recuento",r:[A,E]},
   {id:"config",t:"Configuraciones",s:"Choferes, sectores, precios y usuarios",r:[A]},
@@ -1288,7 +1291,7 @@ const ACCIONES=[
   {id:"sucursal",t:"Cambio de<br>Sucursal",r:[A]},
   {id:"salir",t:"Salir del<br>Sistema",r:[A,E,C]}
 ];
-const MOD_PERM=["pedidos","ruta","choferes","sectorizar","mayorista","ventachofer","cuadratura","bodega","compras","informes"];
+const MOD_PERM=["pedidos","ruta","choferes","sectorizar","mayorista","ventachofer","cuadratura","bodega","compras","facturas","informes"];
 /* Permisos detallados (versión 2, marcada con "_v2"):
    "pedidos" = ver y trabajar · "pedidos:ver" = solo ver · acciones y apps aparte */
 const PERM_GRUPOS=[
@@ -1320,6 +1323,7 @@ const misSucs=()=>!yo?[]:esAdmin()?D.locales.map(l=>l.id):((yo.sucursales&&yo.su
 var infPor=null,respOk=false;
 const puede=id=>{
   if(id==="mayorista"&&D.precios&&D.precios.sinMayorista)return false; // desactivada en Configuraciones
+  if(id==="facturas"&&D.precios&&D.precios.sinFacturas)return false; // desactivada en Configuraciones
   if(id==="informes"&&infPor&&yo&&yo.rol==="encargado")return true;
   if(id==="sucursal")return D.locales.length>1&&(esAdmin()||misSucs().length>1);
   if(id==="sectorizar"&&(!yo||yo.rol!=="encargado"||!esV2(yo.permisos)))return !!yo&&esAdmin();
@@ -1946,7 +1950,7 @@ const V={
     const entHoy=ps.filter(p=>p.estado==="entregado"&&(p.entregado||"").startsWith(hoy)).length,nom=String(yo.nombre||"").split(" ")[0];
     const card=(attr,ico,t,d,go="Abrir")=>`<${attr.startsWith("href")?"a":"button"} class="modulo" ${attr}><span class="ico">${svg(ico)}</span><b>${t}</b><span class="sub">${d}</span><span class="mgo">${go}<span aria-hidden="true">→</span></span></${attr.startsWith("href")?"a":"button"}>`;
     return `<div class="phead-mr"><div class="eyebrow-mr">Sucursal ${esc(nomLocal(suc))}</div><h1>${saludo}, ${esc(nom)}</h1><p class="sub">${fechaLarga(hoy)}</p></div>
-      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","ventachofer","local","choferes","bodega","informes","config"],FUERA=["sectorizar","cuadratura","compras"];
+      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","ventachofer","local","choferes","bodega","facturas","informes","config"],FUERA=["sectorizar","cuadratura","compras"];
         const ids=[...ORDEN,...MODULOS.map(m=>m.id).filter(id=>!ORDEN.includes(id)&&!FUERA.includes(id))];
         return ids.map(id=>{if(id==="local")return esAdmin()||(yo.rol==="encargado"&&Array.isArray(yo.permisos)&&yo.permisos.includes("app.local"))?card('href="local/"',"ventachofer","Venta Local","Venta y rendición de los locales"):"";
           if(id==="erp")return yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","Venta Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):"";
@@ -2373,6 +2377,8 @@ const V={
     return cabeza("Configuraciones")+tabs+(esAdmin()?`<form class="caja" id="f-mods" style="max-width:520px;margin-bottom:16px"><h3>Módulos</h3>
       <label class="radio"><input type="checkbox" id="md-may" ${D.precios.sinMayorista?"":"checked"}> <b>Venta Mayorista</b> activa</label>
       <p class="nota" style="margin:4px 0 0">Si la desactiva, «Venta Mayorista» desaparece del menú para todos, junto con Clientes, Precios Mayoristas y Comisión Vales en Configuraciones. Los datos no se borran: al activarla de nuevo vuelve todo como estaba.</p>
+      <label class="radio" style="margin-top:12px"><input type="checkbox" id="md-fac" ${D.precios.sinFacturas?"":"checked"}> <b>Facturas</b> activa</label>
+      <p class="nota" style="margin:4px 0 0">Si la desactiva, «Facturas» desaparece del menú y en Pedidos de Gas no se muestra «Solicita factura». Los datos no se borran.</p>
       <p class="aviso ok" id="md-ok" hidden></p></form>`:"")+`<form class="caja" id="f-config" style="max-width:520px"><h3>Alertas de stock</h3>
       <label>Stock mínimo por formato<input class="num" type="number" min="0" id="pr-minimo" value="${D.precios.minimo}"></label>
       <p class="nota" style="margin:0">Cuando la bodega tenga menos cilindros que este número, se marca en rojo en Control de Bodega. Los precios de envases se cambian en la pestaña «Precio Envases».</p>
@@ -2762,6 +2768,8 @@ const L={
     $$("[data-delsec]").forEach(b=>b.onclick=()=>confirmar(b,()=>{D.sectores=D.sectores.filter(x=>x.id!==+b.dataset.delsec);guardar();pintarSistema()}));
     {const m=$("#md-may");if(m)m.onchange=()=>{if(m.checked)delete D.precios.sinMayorista;else D.precios.sinMayorista=true;
       log("sistema",m.checked?"Venta Mayorista activada":"Venta Mayorista desactivada","");guardar();pintarSistema();const o=$("#md-ok");if(o){o.textContent=m.checked?"Venta Mayorista activada.":"Venta Mayorista desactivada.";o.hidden=false}}}
+    {const m=$("#md-fac");if(m)m.onchange=()=>{if(m.checked)delete D.precios.sinFacturas;else D.precios.sinFacturas=true;
+      log("sistema",m.checked?"Facturas activadas":"Facturas desactivadas","");guardar();pintarSistema();const o=$("#md-ok");if(o){o.textContent=m.checked?"Facturas activadas.":"Facturas desactivadas.";o.hidden=false}}}
     $("#f-config").onsubmit=e=>{e.preventDefault();D.precios.minimo=Math.max(0,+$("#pr-minimo").value||0);guardar();$("#pr-ok").hidden=false}},
   admin(){
     $("#nueva-suc").onclick=()=>{const id=nuevoId(D.locales);D.locales.push({id,nombre:"Nueva sucursal",dir:"",comuna:"",fono:"",encargado:"Por asignar",horario:"",abierto:false,stock:st(0,0,0,0)});editSuc=id;guardar();pintarPublico();pintarSistema()};
@@ -4905,7 +4913,7 @@ function compactarRend(){const rr=document.querySelector(".rerp");if(!rr||rr.dat
   return r}}
 
 /* ===== Respaldos y reset → Limpiar datos para empezar a usar el sistema (pide la contraseña del administrador) ===== */
-function limpiarDatosLocal(){["pedidos","ventas","gastos","rendiciones","cargas","cargasDist","anticipos","petroleo","peonetas","movimientos","recuentos","ventasAnuladas","programados","bitacora","historialPrecios"].forEach(k=>{if(Array.isArray(D[k]))D[k]=[]});
+function limpiarDatosLocal(){["facturas","pedidos","ventas","gastos","rendiciones","cargas","cargasDist","anticipos","petroleo","peonetas","movimientos","recuentos","ventasAnuladas","programados","bitacora","historialPrecios"].forEach(k=>{if(Array.isArray(D[k]))D[k]=[]});
   const z=()=>Object.fromEntries(FORMATOS.map(f=>[f.id,0]));(D.locales||[]).forEach(l=>{l.stock=z();l.vacios=z();l.prestados=z();if(l.comodato)l.comodato=z()});(D.choferes||[]).forEach(c=>{c.carga=z();c.vacios=z()})}
 {const lc=L.config;L.config=function(){const r=lc.apply(this,arguments);
   try{if(cfgTab==="respaldos"&&esAdmin()&&!document.getElementById("f-limpiar")){const z=document.querySelector(".cfg-main");if(z){
@@ -4923,6 +4931,161 @@ function limpiarDatosLocal(){["pedidos","ventas","gastos","rendiciones","cargas"
         else{const u=(D.usuarios||[]).find(x=>x.user===yo.user);if(u&&u.pass&&u.pass!==pass){throw new Error("La contraseña del administrador no es correcta.")}
           limpiarDatosLocal();log("sistema","Limpieza de datos","Se borraron los datos de prueba y el stock quedó en cero.");guardar();pintarSistema();aviso("Datos limpios","Ya puede empezar a usar el sistema.")}}
       catch(x){er.textContent=x.message;er.hidden=false;b.disabled=false;b.textContent="Limpiar datos"}}}}}catch(e){console.error(e)}
+  return r}}
+
+/* ===================== FACTURAS: pedidos donde el cliente pidió factura, y si ya se emitió ===================== */
+IC.facturas=IC.factura;
+let facTab="pend",facBusca="";
+const facEst=p=>p.facturaEst&&p.facturaEst.estado==="emitida"?"emitida":"pendiente";
+function facLista(){return (D.pedidos||[]).filter(p=>p.factura&&p.estado!=="anulado"&&misSucs().includes(p.local))
+  .sort((a,b)=>String(b.fecha||"").localeCompare(String(a.fecha||"")))}
+V.facturas=function(){const L=facLista(),pend=L.filter(p=>facEst(p)==="pendiente"),emit=L.filter(p=>facEst(p)==="emitida");
+  const ed=!soloVer("facturas"),q=facBusca.trim().toLowerCase();
+  let ver=facTab==="pend"?pend:facTab==="emit"?emit:L;
+  if(q)ver=ver.filter(p=>[p.id,nomCli(p),p.fono,p.factura.rut,p.factura.razon,(p.facturaEst||{}).num].join(" ").toLowerCase().includes(q));
+  const tabs=`<div class="tabs" role="tablist">${[["pend",`Por facturar (${pend.length})`],["emit",`Facturadas (${emit.length})`],["todas","Todas"]].map(([k,v])=>`<button type="button" role="tab" data-ftab="${k}" aria-selected="${facTab===k}">${v}</button>`).join("")}</div>`;
+  const fila=p=>{const f=p.factura,e=p.facturaEst||{},em=facEst(p)==="emitida";
+    return `<tr><td class="num"><b>N° ${p.id}</b><br><span class="nota" style="margin:0">${esc(fF(String(p.fecha||"").slice(0,10)))}</span></td>
+      <td><b>${esc(f.razon||"Sin razón social")}</b><br><span class="nota" style="margin:0">RUT ${esc(f.rut||"—")}${f.giro?" · "+esc(f.giro):""}</span></td>
+      <td>${esc(nomCli(p))}<br><span class="nota" style="margin:0">${esc([f.dir||p.dir,f.comuna||p.comuna].filter(Boolean).join(", "))}</span></td>
+      <td class="der num">${clp(totalP(p))}</td><td><span class="pill ${p.estado}">${ESTADOS[p.estado]||p.estado}</span></td>
+      <td>${em?`<span class="pill entregado">Facturada</span><br><span class="nota" style="margin:0">N° ${esc(e.num||"—")} · ${esc(fF(String(e.fecha||"").slice(0,10)))}${e.por?" · "+esc(e.por):""}</span>`:'<span class="pill bajo">Por facturar</span>'}</td>
+      <td class="fac-acc"><button class="btn chico linea" type="button" data-fcopiar="${p.id}" title="Copiar datos para la factura">⧉ Copiar datos</button>
+        ${ed?(em?`<button class="btn chico linea" type="button" data-fdeshacer="${p.id}">Deshacer</button>`:`<button class="btn chico" type="button" data-femitir="${p.id}">Marcar facturada</button>`):""}</td></tr>`};
+  const monto=pend.reduce((s,p)=>s+totalP(p),0);
+  return cabeza("Facturas",`<label class="fac-busca">Buscar<input id="fac-q" value="${esc(facBusca)}" placeholder="N° pedido, RUT, razón social…"></label>`)+
+    `<div class="kpis"><div class="kpi"><span>Por facturar</span><b class="num" style="color:${pend.length?"#d92d20":"inherit"}">${pend.length}</b></div><div class="kpi"><span>Monto por facturar</span><b class="num">${clp(monto)}</b></div><div class="kpi"><span>Facturadas</span><b class="num">${emit.length}</b></div></div>`+
+    tabs+`<div class="tabla-wrap"><table class="fac-t"><thead><tr><th>Pedido</th><th>Datos de facturación</th><th>Cliente</th><th class="der">Total</th><th>Pedido</th><th>Factura</th><th></th></tr></thead><tbody>
+    ${ver.map(fila).join("")||`<tr><td colspan="7" class="vacio">${facTab==="pend"?"No hay facturas pendientes. ¡Todo al día!":"Sin facturas en esta lista."}</td></tr>`}</tbody></table></div>
+    <p class="nota">Aquí aparecen los pedidos donde se marcó <b>«Solicita factura»</b> al ingresarlos en Pedidos de Gas. Los por facturar quedan siempre a la vista hasta marcarlos como facturados.</p>`};
+L.facturas=function(){
+  $$("[data-ftab]").forEach(b=>b.onclick=()=>{facTab=b.dataset.ftab;pintarSistema()});
+  const q=$("#fac-q");if(q){q.oninput=()=>{facBusca=q.value;const pos=q.selectionStart;pintarSistema();const n=$("#fac-q");if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}}}
+  const P=id=>(D.pedidos||[]).find(p=>String(p.id)===String(id));
+  $$("[data-fcopiar]").forEach(b=>b.onclick=()=>{const p=P(b.dataset.fcopiar);if(!p)return;const f=p.factura;
+    const txt=[`Razón social: ${f.razon||""}`,`RUT: ${f.rut||""}`,`Giro: ${f.giro||""}`,`Dirección: ${f.dir||p.dir||""}${(f.comuna||p.comuna)?", "+(f.comuna||p.comuna):""}`,`Pedido N° ${p.id} · ${resumenP?resumenP(p):""} · Total ${clp(totalP(p))}`].join("\n");
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>aviso("Datos copiados","Péguelos en el sistema de facturación."),()=>aviso("Datos de la factura",txt.replace(/\n/g," · ")))});
+  $$("[data-femitir]").forEach(b=>b.onclick=()=>{const p=P(b.dataset.femitir);if(!p)return;
+    let dl=document.getElementById("dl-fac");if(!dl){dl=document.createElement("dialog");dl.id="dl-fac";dl.className="dl-estado";document.body.appendChild(dl)}
+    dl.innerHTML=`<form><h3 style="margin:0 0 4px">Marcar como facturada</h3><p class="nota" style="margin:0 0 10px">Pedido N° ${p.id} · ${esc(p.factura.razon||nomCli(p))} · ${clp(totalP(p))}</p>
+      <label>N° de factura<input id="fac-num" required autocomplete="off" placeholder="Ej: 1234"></label>
+      <div class="acc" style="margin-top:12px;justify-content:flex-end"><button class="btn linea" type="button" data-cerrar>Cancelar</button><button class="btn" type="submit">Guardar</button></div></form>`;
+    dl.showModal();dl.querySelector("[data-cerrar]").onclick=()=>dl.close();setTimeout(()=>{const i=$("#fac-num");if(i)i.focus()},50);
+    dl.querySelector("form").onsubmit=e=>{e.preventDefault();const num=$("#fac-num").value.trim();if(!num)return;
+      p.facturaEst={estado:"emitida",num,fecha:ahora(),por:yo.nombre};
+      log("pedidos","Factura emitida",`Pedido N° ${p.id} · ${p.factura.razon||nomCli(p)} · Factura N° ${num}`,{local:p.local,pedido:p.id});guardar();dl.close();pintarSistema();aviso("Factura registrada",`Pedido N° ${p.id} quedó facturado (N° ${num}).`)}});
+  $$("[data-fdeshacer]").forEach(b=>b.onclick=()=>confirmar(b,()=>{const p=P(b.dataset.fdeshacer);if(!p)return;const n=(p.facturaEst||{}).num;p.facturaEst=null;
+    log("pedidos","Factura deshecha",`Pedido N° ${p.id} · vuelve a «por facturar»${n?" (era N° "+n+")":""}`,{local:p.local,pedido:p.id});guardar();pintarSistema()}))};
+
+/* ===================== FACTURAS 2: facturas sin pedido + base de empresas (RUT) ===================== */
+const rutLimpio=r=>String(r||"").replace(/[^0-9kK]/g,"").toUpperCase();
+function empresaPorRut(r){const k=rutLimpio(r);return k?(D.empresas||[]).find(e=>rutLimpio(e.rut)===k):null}
+function guardarEmpresa(o){if(!rutLimpio(o.rut)&&!o.razon)return null;D.empresas=D.empresas||[];let e=empresaPorRut(o.rut);
+  if(!e){e={id:Date.now()+Math.floor(Math.random()*1000),rut:o.rut||"",razon:o.razon||"",giro:"",dir:"",comuna:"",email:"",fono:""};D.empresas.push(e)}
+  ["rut","razon","giro","dir","comuna","email","fono"].forEach(k=>{if(o[k])e[k]=o[k]});return e}
+/* las empresas de pedidos con factura pasan solas a la base */
+function empresasDePedidos(){let n=0;(D.pedidos||[]).forEach(p=>{const f=p.factura;if(f&&rutLimpio(f.rut)&&!empresaPorRut(f.rut)){guardarEmpresa({rut:f.rut,razon:f.razon,giro:f.giro,dir:f.dir||p.dir,comuna:f.comuna||p.comuna,fono:p.fono});n++}});return n}
+function facItems(){const ped=facLista().map(p=>({t:"ped",o:p,id:"p"+p.id,fecha:String(p.fecha||""),f:p.factura,total:totalP(p),cli:nomCli(p),det:(typeof resumenP==="function"?resumenP(p):""),ref:"Pedido N° "+p.id}));
+  const man=(D.facturas||[]).filter(x=>misSucs().includes(x.local??suc)).map(x=>({t:"man",o:x,id:"m"+x.id,fecha:String(x.fecha||""),f:x,total:+x.total||0,cli:x.razon||"",det:x.detalle||"",ref:"Sin pedido"}));
+  return [...ped,...man].sort((a,b)=>b.fecha.localeCompare(a.fecha))}
+const facEst2=x=>x.o.facturaEst&&x.o.facturaEst.estado==="emitida"?"emitida":"pendiente";
+let empBusca="",empEdit=null;
+V.facturas=function(){const ed=!soloVer("facturas");if(ed&&empresasDePedidos())guardar();
+  const L=facItems(),pend=L.filter(x=>facEst2(x)==="pendiente"),emit=L.filter(x=>facEst2(x)==="emitida"),q=facBusca.trim().toLowerCase();
+  const tabs=`<div class="tabs" role="tablist">${[["pend",`Por facturar (${pend.length})`],["emit",`Facturadas (${emit.length})`],["todas","Todas"],["emp",`Empresas (${(D.empresas||[]).length})`]].map(([k,v])=>`<button type="button" role="tab" data-ftab="${k}" aria-selected="${facTab===k}">${v}</button>`).join("")}</div>`;
+  const kpis=`<div class="kpis"><div class="kpi"><span>Por facturar</span><b class="num" style="color:${pend.length?"#d92d20":"inherit"}">${pend.length}</b></div><div class="kpi"><span>Monto por facturar</span><b class="num">${clp(pend.reduce((s,x)=>s+x.total,0))}</b></div><div class="kpi"><span>Facturadas</span><b class="num">${emit.length}</b></div></div>`;
+  const acc=ed?`<button class="btn" type="button" id="fac-nueva">＋ Nueva factura</button>`:"";
+  const busca=`<label class="fac-busca">Buscar<input id="fac-q" value="${esc(facBusca)}" placeholder="RUT, razón social, N° pedido…"></label>`;
+  if(facTab==="emp"){
+    const E=(D.empresas||[]).filter(e=>!q||[e.rut,e.razon,e.giro,e.comuna].join(" ").toLowerCase().includes(q)).sort((a,b)=>String(a.razon).localeCompare(String(b.razon)));
+    const ee=empEdit!=null?(D.empresas||[]).find(e=>e.id===empEdit)||{}:null;
+    const form=ed?`<form class="caja emp-form" id="f-emp2"><h3>${ee&&ee.id?"Editar empresa":"Agregar empresa"}</h3>
+      <div class="emp-g"><label>RUT<input id="em-rut" required value="${esc((ee||{}).rut||"")}" placeholder="76.123.456-7"></label><label>Razón social<input id="em-razon" required value="${esc((ee||{}).razon||"")}"></label><label>Giro<input id="em-giro" value="${esc((ee||{}).giro||"")}"></label>
+      <label>Dirección<input id="em-dir" value="${esc((ee||{}).dir||"")}"></label><label>Comuna<input id="em-comuna" list="lista-comunas2" value="${esc((ee||{}).comuna||"")}"></label><label>Correo<input id="em-email" type="email" value="${esc((ee||{}).email||"")}"></label><label>Teléfono<input id="em-fono" value="${esc((ee||{}).fono||"")}"></label></div>
+      <datalist id="lista-comunas2">${(typeof COMUNAS!=="undefined"?COMUNAS:[]).map(c=>`<option value="${c}">`).join("")}</datalist>
+      <div class="acc"><button class="btn" type="submit">${ee&&ee.id?"Guardar cambios":"Agregar empresa"}</button>${ee&&ee.id?'<button class="btn linea" type="button" id="em-cancel">Cancelar</button>':""}</div></form>`:"";
+    return cabeza("Facturas",busca+acc)+kpis+tabs+form+`<div class="tabla-wrap"><table class="fac-t"><thead><tr><th>RUT</th><th>Razón social</th><th>Giro</th><th>Dirección</th><th>Contacto</th><th></th></tr></thead><tbody>
+      ${E.map(e=>`<tr><td class="num"><b>${esc(e.rut)}</b></td><td><b>${esc(e.razon)}</b></td><td>${esc(e.giro||"")}</td><td>${esc([e.dir,e.comuna].filter(Boolean).join(", "))}</td><td>${esc([e.email,e.fono].filter(Boolean).join(" · "))}</td>
+        <td class="fac-acc"><button class="btn chico linea" type="button" data-ecopiar="${e.id}">⧉ Copiar</button>${ed?`<button class="btn chico linea" type="button" data-efac="${e.id}">＋ Factura</button><button class="btn chico linea" type="button" data-eedit="${e.id}">Editar</button><button class="x-rojo" type="button" data-edel="${e.id}" aria-label="Eliminar ${esc(e.razon)}">✕</button>`:""}</td></tr>`).join("")||'<tr><td colspan="6" class="vacio">Todavía no hay empresas. Agregue la primera arriba; también se agregan solas al facturar.</td></tr>'}
+      </tbody></table></div>`}
+  let ver=facTab==="pend"?pend:facTab==="emit"?emit:L;
+  if(q)ver=ver.filter(x=>[x.ref,x.cli,x.f.rut,x.f.razon,(x.o.facturaEst||{}).num,x.det].join(" ").toLowerCase().includes(q));
+  const fila=x=>{const f=x.f,e=x.o.facturaEst||{},em=facEst2(x)==="emitida";
+    return `<tr><td class="num"><b>${esc(x.ref)}</b><br><span class="nota" style="margin:0">${esc(fF(x.fecha.slice(0,10)))}</span></td>
+      <td><b>${esc(f.razon||"Sin razón social")}</b><br><span class="nota" style="margin:0">RUT ${esc(f.rut||"—")}${f.giro?" · "+esc(f.giro):""}</span></td>
+      <td>${esc(x.det||"")}${x.t==="ped"?`<br><span class="nota" style="margin:0">${esc(x.cli)}</span>`:""}</td>
+      <td class="der num">${clp(x.total)}</td>
+      <td>${em?`<span class="pill entregado">Facturada</span><br><span class="nota" style="margin:0">N° ${esc(e.num||"—")} · ${esc(fF(String(e.fecha||"").slice(0,10)))}${e.por?" · "+esc(e.por):""}</span>`:'<span class="pill bajo">Por facturar</span>'}</td>
+      <td class="fac-acc"><button class="btn chico linea" type="button" data-fcop="${x.id}">⧉ Copiar datos</button>
+        ${ed?(em?`<button class="btn chico linea" type="button" data-fdes="${x.id}">Deshacer</button>`:`<button class="btn chico" type="button" data-femi="${x.id}">Marcar facturada</button>`):""}${ed&&x.t==="man"?`<button class="x-rojo" type="button" data-fdel="${x.id}" aria-label="Eliminar factura">✕</button>`:""}</td></tr>`};
+  return cabeza("Facturas",busca+acc)+kpis+tabs+`<div class="tabla-wrap"><table class="fac-t"><thead><tr><th>Origen</th><th>Datos de facturación</th><th>Detalle</th><th class="der">Total</th><th>Factura</th><th></th></tr></thead><tbody>
+    ${ver.map(fila).join("")||`<tr><td colspan="6" class="vacio">${facTab==="pend"?"No hay facturas pendientes. ¡Todo al día!":"Sin facturas en esta lista."}</td></tr>`}</tbody></table></div>
+    <p class="nota">Aparecen los pedidos con <b>«Solicita factura»</b> y las facturas agregadas aquí con <b>«Nueva factura»</b>. Las por facturar quedan siempre a la vista hasta marcarlas como facturadas.</p>`};
+function dlNuevaFactura(pre){let dl=document.getElementById("dl-nfac");if(!dl){dl=document.createElement("dialog");dl.id="dl-nfac";dl.className="dl-estado";document.body.appendChild(dl)}
+  const e=pre||{};
+  dl.innerHTML=`<form><h3 style="margin:0 0 4px">Nueva factura</h3><p class="nota" style="margin:0 0 10px">Para ventas que no pasaron por Pedidos. Escriba el RUT o elija una empresa de la base: los datos se completan solos.</p>
+    <div class="emp-g"><label>RUT<input id="nf-rut" list="nf-emps" required value="${esc(e.rut||"")}" placeholder="76.123.456-7" autocomplete="off"></label><label>Razón social<input id="nf-razon" required value="${esc(e.razon||"")}"></label><label>Giro<input id="nf-giro" value="${esc(e.giro||"")}"></label>
+    <label>Dirección<input id="nf-dir" value="${esc(e.dir||"")}"></label><label>Comuna<input id="nf-comuna" value="${esc(e.comuna||"")}"></label><label>Correo<input id="nf-email" type="email" value="${esc(e.email||"")}"></label>
+    <label class="g2">Detalle<input id="nf-det" placeholder="Ej: 4 cilindros 15 kg, venta en local"></label><label>Total (CLP)<input id="nf-total" type="number" min="0" class="num" required></label><label>Fecha<input id="nf-fecha" type="date" value="${hoyStr()}"></label></div>
+    <datalist id="nf-emps">${(D.empresas||[]).map(x=>`<option value="${esc(x.rut)}">${esc(x.razon)}</option>`).join("")}</datalist>
+    <div class="nf-ya"><label class="radio"><input type="checkbox" id="nf-ya"> Ya está facturada</label><label>N° de factura<input id="nf-num" disabled placeholder="Ej: 1234"></label></div>
+    <p class="error" id="nf-err" hidden></p>
+    <div class="acc" style="margin-top:12px;justify-content:flex-end"><button class="btn linea" type="button" data-cerrar>Cancelar</button><button class="btn" type="submit">Guardar factura</button></div></form>`;
+  dl.showModal();dl.querySelector("[data-cerrar]").onclick=()=>dl.close();
+  const g=id=>dl.querySelector(id),llenar=()=>{const x=empresaPorRut(g("#nf-rut").value);if(!x)return;[["razon","#nf-razon"],["giro","#nf-giro"],["dir","#nf-dir"],["comuna","#nf-comuna"],["email","#nf-email"]].forEach(([k,s])=>{if(x[k])g(s).value=x[k]});g("#nf-rut").value=x.rut};
+  g("#nf-rut").oninput=llenar;g("#nf-rut").onchange=llenar;g("#nf-ya").onchange=()=>{g("#nf-num").disabled=!g("#nf-ya").checked;if(g("#nf-ya").checked)g("#nf-num").focus()};
+  setTimeout(()=>g(e.rut?"#nf-det":"#nf-rut").focus(),50);
+  dl.querySelector("form").onsubmit=ev=>{ev.preventDefault();const v=id=>g(id).value.trim(),er=g("#nf-err");er.hidden=true;
+    if(g("#nf-ya").checked&&!v("#nf-num")){er.textContent="Escriba el N° de la factura.";er.hidden=false;return}
+    D.facturas=D.facturas||[];
+    const f={id:Date.now(),local:suc,fecha:(v("#nf-fecha")||hoyStr())+" "+ahora().slice(11),rut:v("#nf-rut"),razon:v("#nf-razon"),giro:v("#nf-giro"),dir:v("#nf-dir"),comuna:v("#nf-comuna"),email:v("#nf-email"),
+      detalle:v("#nf-det"),total:Math.max(0,Math.round(+v("#nf-total")||0)),por:yo.nombre,facturaEst:g("#nf-ya").checked?{estado:"emitida",num:v("#nf-num"),fecha:ahora(),por:yo.nombre}:null};
+    D.facturas.unshift(f);guardarEmpresa(f);
+    log("pedidos","Factura agregada",`${f.razon} · RUT ${f.rut} · ${clp(f.total)}${f.facturaEst?" · N° "+f.facturaEst.num:" · por facturar"}`,{local:suc});guardar();dl.close();
+    facTab=f.facturaEst?"emit":"pend";pintarSistema();aviso("Factura guardada",`${f.razon}: ${clp(f.total)}.`)}}
+L.facturas=function(){
+  $$("[data-ftab]").forEach(b=>b.onclick=()=>{facTab=b.dataset.ftab;empEdit=null;pintarSistema()});
+  const q=$("#fac-q");if(q){q.oninput=()=>{facBusca=q.value;const pos=q.selectionStart;pintarSistema();const n=$("#fac-q");if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}}}
+  const nb=$("#fac-nueva");if(nb)nb.onclick=()=>dlNuevaFactura();
+  const X=id=>facItems().find(x=>x.id===id);
+  const copiar=(f,extra)=>{const txt=[`Razón social: ${f.razon||""}`,`RUT: ${f.rut||""}`,`Giro: ${f.giro||""}`,`Dirección: ${[f.dir,f.comuna].filter(Boolean).join(", ")}`,f.email?`Correo: ${f.email}`:"",extra||""].filter(Boolean).join("\n");
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>aviso("Datos copiados","Péguelos en el sistema de facturación."),()=>aviso("Datos de la factura",txt.replace(/\n/g," · ")))};
+  $$("[data-fcop]").forEach(b=>b.onclick=()=>{const x=X(b.dataset.fcop);if(x)copiar({...x.f,dir:x.f.dir||(x.t==="ped"?x.o.dir:""),comuna:x.f.comuna||(x.t==="ped"?x.o.comuna:"")},`${x.ref}${x.det?" · "+x.det:""} · Total ${clp(x.total)}`)});
+  $$("[data-femi]").forEach(b=>b.onclick=()=>{const x=X(b.dataset.femi);if(!x)return;
+    let dl=document.getElementById("dl-fac");if(!dl){dl=document.createElement("dialog");dl.id="dl-fac";dl.className="dl-estado";document.body.appendChild(dl)}
+    dl.innerHTML=`<form><h3 style="margin:0 0 4px">Marcar como facturada</h3><p class="nota" style="margin:0 0 10px">${esc(x.ref)} · ${esc(x.f.razon||x.cli)} · ${clp(x.total)}</p>
+      <label>N° de factura<input id="fac-num" required autocomplete="off" placeholder="Ej: 1234"></label>
+      <div class="acc" style="margin-top:12px;justify-content:flex-end"><button class="btn linea" type="button" data-cerrar>Cancelar</button><button class="btn" type="submit">Guardar</button></div></form>`;
+    dl.showModal();dl.querySelector("[data-cerrar]").onclick=()=>dl.close();setTimeout(()=>{const i=$("#fac-num");if(i)i.focus()},50);
+    dl.querySelector("form").onsubmit=e=>{e.preventDefault();const num=$("#fac-num").value.trim();if(!num)return;
+      x.o.facturaEst={estado:"emitida",num,fecha:ahora(),por:yo.nombre};guardarEmpresa(x.f);
+      log("pedidos","Factura emitida",`${x.ref} · ${x.f.razon||x.cli} · Factura N° ${num}`,{local:x.o.local,pedido:x.t==="ped"?x.o.id:undefined});guardar();dl.close();pintarSistema();aviso("Factura registrada",`${x.ref} quedó facturado (N° ${num}).`)}});
+  $$("[data-fdes]").forEach(b=>b.onclick=()=>confirmar(b,()=>{const x=X(b.dataset.fdes);if(!x)return;const n=(x.o.facturaEst||{}).num;x.o.facturaEst=null;
+    log("pedidos","Factura deshecha",`${x.ref} · vuelve a «por facturar»${n?" (era N° "+n+")":""}`,{local:x.o.local});guardar();pintarSistema()}));
+  $$("[data-fdel]").forEach(b=>b.onclick=()=>confirmar(b,()=>{const x=X(b.dataset.fdel);if(!x)return;D.facturas=(D.facturas||[]).filter(y=>y!==x.o);
+    log("pedidos","Factura eliminada",`${x.f.razon} · ${clp(x.total)}`,{local:x.o.local});guardar();pintarSistema()}));
+  // empresas
+  const E=id=>(D.empresas||[]).find(e=>String(e.id)===String(id));
+  $$("[data-ecopiar]").forEach(b=>b.onclick=()=>{const e=E(b.dataset.ecopiar);if(e)copiar(e)});
+  $$("[data-efac]").forEach(b=>b.onclick=()=>{const e=E(b.dataset.efac);if(e)dlNuevaFactura(e)});
+  $$("[data-eedit]").forEach(b=>b.onclick=()=>{empEdit=+b.dataset.eedit;pintarSistema();window.scrollTo(0,0)});
+  $$("[data-edel]").forEach(b=>b.onclick=()=>confirmar(b,()=>{D.empresas=(D.empresas||[]).filter(e=>String(e.id)!==b.dataset.edel);guardar();pintarSistema()}));
+  const c=$("#em-cancel");if(c)c.onclick=()=>{empEdit=null;pintarSistema()};
+  const fe=$("#f-emp2");if(fe)fe.onsubmit=ev=>{ev.preventDefault();const v=id=>$(id).value.trim();
+    const o={rut:v("#em-rut"),razon:v("#em-razon"),giro:v("#em-giro"),dir:v("#em-dir"),comuna:v("#em-comuna"),email:v("#em-email"),fono:v("#em-fono")};
+    if(empEdit!=null){const e=E(empEdit);if(e)Object.assign(e,o)}else{if(empresaPorRut(o.rut)){aviso("Ya existe","Esa empresa ya está en la base: se actualizaron sus datos.")}guardarEmpresa(o)}
+    empEdit=null;guardar();pintarSistema()}};
+/* Pedidos de Gas: el RUT de «Solicita factura» se completa desde la base de empresas */
+{const lp=L.pedidos;L.pedidos=function(){const r=lp?lp.apply(this,arguments):undefined;
+  try{const rut=$("#np-rut");if(rut&&!document.getElementById("np-emps")){rut.setAttribute("list","np-emps");rut.setAttribute("autocomplete","off");
+    rut.insertAdjacentHTML("afterend",`<datalist id="np-emps">${(D.empresas||[]).map(x=>`<option value="${esc(x.rut)}">${esc(x.razon)}</option>`).join("")}</datalist>`);
+    const llenar=()=>{const x=empresaPorRut(rut.value);if(!x)return;[["razon","#np-razon"],["giro","#np-giro"],["dir","#np-fdir"],["comuna","#np-fcomuna"]].forEach(([k,s])=>{const i=$(s);if(i&&x[k])i.value=x[k]});rut.value=x.rut};
+    rut.addEventListener("input",llenar);rut.addEventListener("change",llenar)}}catch(e){}
+  return r}}
+
+/* Facturas desactivada: sin «Solicita factura» en Pedidos de Gas */
+{const lp=L.pedidos;L.pedidos=function(){const r=lp?lp.apply(this,arguments):undefined;
+  try{if(D.precios&&D.precios.sinFacturas){const c=$("#np-factura");if(c){c.checked=false;const l=c.closest("label");if(l)l.hidden=true;const f=$("#np-fact");if(f)f.hidden=true}}}catch(e){}
   return r}}
 </script>
 <style id="tema-erp">
@@ -6008,6 +6171,15 @@ body.vl-abierta{overflow:hidden}
 .sis .rd-lv .rerp .chips .chip{background:#f5f8fd;border-color:#d0d7e2}
 
 .sis .lim-caja{margin-top:20px;border-color:#fecdca;background:#fffbfa;max-width:900px}.sis .lim-caja h3{color:#b42318}
+
+.sis .fac-t td{vertical-align:top}.sis .fac-acc{white-space:nowrap;text-align:right}.sis .fac-acc .btn{margin-left:4px}
+.sis .fac-busca{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}.sis .fac-busca input{width:260px}
+
+.sis .emp-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.sis .emp-g .g2{grid-column:span 1}
+#dl-nfac{width:min(820px,94vw);max-width:min(820px,94vw)}#dl-nfac form{min-width:0;width:100%}
+#dl-nfac .nf-ya{display:flex;align-items:end;gap:16px;margin-top:10px}#dl-nfac .nf-ya .radio{margin:0 0 12px;display:flex!important;flex-direction:row!important;align-items:center;gap:6px;white-space:nowrap}#dl-nfac .nf-ya .radio input{width:auto}#dl-nfac .nf-ya label:last-child{width:200px}#dl-nfac .emp-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sis .emp-form{margin-bottom:14px}
+@media (max-width:800px){.sis .emp-g,#dl-nfac .emp-g{grid-template-columns:minmax(0,1fr)}}
 </style>
 </body>
 </html>

@@ -2,7 +2,7 @@
 // MR Gas · funciones comunes del servidor (conexión, sesión, permisos)
 declare(strict_types=1);
 
-const COLS_PERMITIDAS = ['pedidos','bitacora','ventas','gastos','rendiciones','cargas','cargasDist','anticipos','petroleo',
+const COLS_PERMITIDAS = ['facturas','empresas','pedidos','bitacora','ventas','gastos','rendiciones','cargas','cargasDist','anticipos','petroleo',
     'peonetas','clientes','choferes','movimientos','recuentos','historialPrecios','ventasAnuladas','programados','estado','reparto','camiones'];
 // Documentos de "estado" que solo cambia el administrador
 const ESTADO_SOLO_ADMIN = ['precios','preciosMayor','preciosEnvase','preciosConvenio','listas','empresa','comisiones','historico','listasMay','comisionVale','descQR'];
@@ -13,7 +13,7 @@ const PERMISO_COL = [
     'rendiciones' => ['cuadratura','ventachofer','mayorista'], 'cargas' => ['cuadratura','ventachofer'], 'cargasDist' => ['cuadratura','mayorista'], 'anticipos' => ['cuadratura','ventachofer'], 'peonetas' => ['cuadratura','ventachofer'],
     'ventas' => ['caja','cuadratura'], 'gastos' => ['caja','cuadratura'], 'ventasAnuladas' => ['caja','cuadratura'],
     'movimientos' => ['compras','bodega'], 'recuentos' => ['bodega'],
-    'pedidos' => ['pedidos','ruta','chofer','app.repartidores'], 'reparto' => ['mayorista','ruta','pedidos','app.repartidores'], 'camiones' => ['mayorista','ruta'], 'clientes' => ['pedidos','ruta'], 'petroleo' => ['petroleo','cuadratura'],
+    'pedidos' => ['pedidos','ruta','chofer','app.repartidores','facturas'], 'facturas' => ['facturas','pedidos'], 'empresas' => ['facturas','pedidos'], 'reparto' => ['mayorista','ruta','pedidos','app.repartidores'], 'camiones' => ['mayorista','ruta'], 'clientes' => ['pedidos','ruta'], 'petroleo' => ['petroleo','cuadratura'],
 ];
 
 // Dónde buscar la configuración. Lo recomendado es FUERA de public_html (un nivel arriba),
@@ -192,9 +192,11 @@ function meta(string $col, string $id, array $d): array {
     $local = isset($d['local']) && $d['local'] !== null && $d['local'] !== '' ? (int) $d['local'] : null;
     $fecha = $d['fecha'] ?? $d['cuando'] ?? null;
     $chofer = isset($d['chofer']) && $d['chofer'] !== null && $d['chofer'] !== '' ? (int) $d['chofer'] : null;
-    if ($col === 'estado' || $col === 'choferes' || $col === 'clientes' || $col === 'peonetas') { $local = null; $fecha = null; }
+    if ($col === 'estado' || $col === 'choferes' || $col === 'clientes' || $col === 'peonetas' || $col === 'empresas') { $local = null; $fecha = null; }
     if ($col === 'estado' && str_starts_with($id, 'stk-')) $chofer = (int) substr($id, 4);
     $vivo = ($col === 'pedidos' && in_array($d['estado'] ?? '', ['pendiente', 'ruta'], true))
+        || ($col === 'pedidos' && !empty($d['factura']) && ($d['estado'] ?? '') !== 'anulado' && (($d['facturaEst']['estado'] ?? '') !== 'emitida'))
+        || ($col === 'facturas' && (($d['facturaEst']['estado'] ?? '') !== 'emitida'))
         || ($col === 'reparto' && !in_array($d['estado'] ?? '', ['Entregado', 'Cancelado'], true)) ? 1 : 0;
     if ($col === 'camiones') $fecha = null;
     return ['local' => $local, 'fecha' => is_string($fecha) ? substr($fecha, 0, 19) : null, 'chofer' => $chofer, 'vivo' => $vivo];
