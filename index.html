@@ -1006,7 +1006,7 @@ function estadoNube(ok){if(ok!==undefined)NUBE.enLinea=ok&&navigator.onLine;cons
   e.textContent=NUBE.enLinea?"Conectado al servidor":"Sin conexión · se guarda al volver";e.classList.toggle("off",!NUBE.enLinea)}
 
 /* ---- qué se comparte ---- */
-const CLAVE={cargas:x=>`c${x.local}-${x.k}`,cargasDist:x=>`d${x.local}-${x.k}`,anticipos:x=>`a${x.local}-${x.k}`,peonetas:x=>`pe${x.id}`,clientes:x=>`cl${x.fono}`,petroleo:x=>`p${x.local}-${x.k}`,rendiciones:r=>`${r.tipo}-${r.ref}-${r.fecha}-${r.local}`,ventas:v=>`v${v.local}-${v.grupo||v.id}-${v.formato}`,gastos:g=>`g${g.local}-${g.k||g.id}`};
+const CLAVE={cargas:x=>`c${x.local}-${x.k}`,cargasDist:x=>`d${x.local}-${x.k}`,anticipos:x=>`a${x.local}-${x.k}`,peonetas:x=>`pe${x.id}`,clientes:x=>`cl${x.fono}`,petroleo:x=>`p${x.local}-${x.k}`,rendiciones:r=>`${r.tipo}-${r.ref}-${r.fecha}-${r.local}${r.venta!=null?"-v"+r.venta:""}`,ventas:v=>`v${v.local}-${v.grupo||v.id}-${v.formato}`,gastos:g=>`g${g.local}-${g.k||g.id}`};
 const idDoc=(col,o)=>CLAVE[col](o).replace(/[^\w-]/g,"_");
 const limpiaId=s=>String(s).replace(/[^\w-]/g,"_");
 const SYNC=[
@@ -1471,9 +1471,9 @@ function vistaRend(r,fechaSel){
       <div class="barra" style="margin:0"><h3>1. Lo vendido</h3><label class="guia">N° guía física<input id="rd-guia" value="${esc(r.guia)}"></label></div>
       ${ent?`<div class="aviso entregas"><span>${({local:"Ventas grabadas en Venta Local",mayorista:"Cargas grabadas en Venta Recargas",movil:"Pedidos telefónicos entregados"})[r.tipo]}: <b>${ent.tarros?resumenVentas(ent.ventas)+(ent.envTot?" · con envase: "+resumenVentas(ent.env):""):"ninguna"}</b></span>${ent.tarros?'<button class="btn chico linea" id="rd-usar" type="button">Usar estas cantidades</button>':""}</div>`:""}
       <div class="tabla-wrap"><table class="vt"><thead><tr><th></th>${FORMATOS.map(f=>`<th class="der">${f.et}</th>`).join("")}</tr></thead><tbody>
-        ${infoMovil(r)}<tr><td>${({mayorista:"Precio distribuidor",movil:"Precio chofer",local:"Precio"})[r.tipo]}</td>${FORMATOS.map(f=>`<td class="der"><input class="num" type="number" min="0" data-rprecio="${f.id}" value="${r.precios[f.id]}" aria-label="Precio ${f.et}"></td>`).join("")}</tr>
+        ${infoMovil(r)}<tr><td>${({mayorista:"Precio distribuidor",movil:"Precio chofer",local:"Precio"})[r.tipo]}</td>${FORMATOS.map(f=>`<td class="der"><input class="num" type="number" min="0" data-rprecio="${f.id}" value="${r.precios[f.id]}" aria-label="Precio ${f.et}" ${r.tipo==="movil"?"disabled title=\"Sale de Configuraciones\"":""}></td>`).join("")}</tr>
         <tr><td>Cantidad vendida</td>${FORMATOS.map(f=>`<td class="der"><input class="num" type="number" min="0" data-rcant="${f.id}" value="${r.ventas[f.id]}" aria-label="Cantidad ${f.et}"></td>`).join("")}</tr>
-        ${r.envases?`<tr><td>Precio envase</td>${FORMATOS.map(f=>`<td class="der"><input class="num" type="number" min="0" data-renvp="${f.id}" value="${(r.precioEnv||{})[f.id]||0}" aria-label="Precio envase ${f.et}"></td>`).join("")}</tr>
+        ${r.envases?`<tr><td>Precio envase</td>${FORMATOS.map(f=>`<td class="der"><input class="num" type="number" min="0" data-renvp="${f.id}" value="${(r.precioEnv||{})[f.id]||0}" aria-label="Precio envase ${f.et}" ${r.tipo==="movil"?"disabled title=\"Sale de Configuraciones\"":""}></td>`).join("")}</tr>
         <tr><td>Venta con envase</td>${FORMATOS.map(f=>`<td class="der"><input class="num" type="number" min="0" data-renv="${f.id}" value="${r.envases[f.id]||0}" aria-label="Con envase ${f.et}"></td>`).join("")}</tr>`:""}
         <tr><td><b>Total</b></td>${FORMATOS.map(f=>`<td class="der num"><b>${clp(r.ventas[f.id]*r.precios[f.id]+(r.envases?(r.envases[f.id]||0)*((r.precioEnv||{})[f.id]||0):0))}</b></td>`).join("")}</tr>
       ${devolverMovil(r)}</tbody></table></div>
@@ -3435,7 +3435,7 @@ L.mayorista=function(){
     fa.onsubmit=e=>{e.preventDefault();const id=+$("#ab-cli").value,monto=Math.round(+$("#ab-monto").value||0),fecha=$("#ab-fecha").value||hoyStr(),m=cliMay(id);
       if(!m||monto<=0){aviso("Faltan datos","Elija el cliente y escriba el monto.");return}
       if(!puedeEditarFecha(fecha)){aviso("Día cerrado","Solo un administrador puede registrar abonos en días anteriores.");return}
-      const r=getRend("mayorista",id,fecha,true),med=$("#ab-medio").value,det=$("#ab-det").value.trim();
+      const r=getRendMayV(id,fecha,null,true),med=$("#ab-medio").value,det=$("#ab-det").value.trim();
       r.pagos.push({por:porMi(),id:nuevoId(r.pagos),tipo:med,monto,detalle:["Abono",det].filter(Boolean).join(" · "),hora:ahora(),abono:true,campos:{}});
       nubeGuardar("rendiciones",r);log("cuadratura","Abono mayorista",`${m.nombre} · ${TIPOS_PAGO[med]} ${clp(monto)}`);guardar();pintarSistema();aviso("Abono registrado",`${m.nombre}: ${clp(monto)}. Saldo ahora: ${clp(cuentaMay(m).saldo)}.`)};
     $$("[data-vermov]").forEach(b=>b.onclick=()=>{mayFiltro.cli=b.dataset.vermov;pintarSistema();setTimeout(()=>{const t=$("#mv-cli");if(t)t.scrollIntoView({block:"start"})},50)});
@@ -3554,7 +3554,7 @@ const GASTO_T=["Combustible","Alimentación","Mantención","Peaje","Estacionamie
 const CAJA_K={efectivo:"ing",vale:"val",valecil:"val",cheque:"ban",transferencia:"ban",transbank:"ban",deposito:"ban",qr:"res",descuento:"res",gasto:"res",petroleo:"res",credito:"res",creditodoc:"res"};
 
 function vistaRendERP(r,fechaSel){
-  const c=calcRend(r),ant=saldoAnterior(r.tipo,r.ref,r.fecha),ed=puedeEditarFecha(r.fecha),MY=r.tipo==="mayorista",adm=esAdmin();
+  const c=calcRend(r),ant=r.tipo==="mayorista"?0:saldoAnterior(r.tipo,r.ref,r.fecha),ed=puedeEditarFecha(r.fecha),MY=r.tipo==="mayorista",adm=esAdmin();
   const ent=r.tipo==="movil"?entregasDe(r.ref,r.fecha):cargaDistDe(r.ref,r.fecha);
   const pe=r.precioEnv||{},en=r.envases||st();
   const totF=f=>(r.ventas[f.id]||0)*(r.precios[f.id]||0)+(en[f.id]||0)*(pe[f.id]||0);
@@ -3584,10 +3584,11 @@ function vistaRendERP(r,fechaSel){
    <div class="rc-izq">
     <div class="tabla-wrap"><table class="rv">
       <thead><tr><th class="l"></th>${FORMATOS.map(f=>`<th>${f.tipo==="h"?"H15":f.kg}</th>`).join("")}</tr></thead><tbody>
-      ${fila(MY?"PRECIO CLIENTE":"PRECIO CHOFER",f=>adm?`<input class="ei pr" type="number" min="0" data-rprecio="${f.id}" value="${r.precios[f.id]||0}" aria-label="Precio ${f.et}">`:clp(r.precios[f.id]||0))}
+      ${fila(MY?"PRECIO CLIENTE":"PRECIO CHOFER",f=>adm&&r.tipo!=="movil"?`<input class="ei pr" type="number" min="0" data-rprecio="${f.id}" value="${r.precios[f.id]||0}" aria-label="Precio ${f.et}">`:clp(r.precios[f.id]||0))}
       ${fila("VENTA (Cantidad)",f=>ninp("rcant",f,r.ventas[f.id],"Cantidad"),"cant")}
       ${r.envases?fila("VENTA CON ENVASE",f=>ninp("renv",f,en[f.id],"Con envase")):""}
-      ${r.envases&&adm?fila("PRECIO ENVASE",f=>`<input class="ei pr" type="number" min="0" data-renvp="${f.id}" value="${pe[f.id]||0}" aria-label="Precio envase ${f.et}">`):""}
+      ${r.envases&&r.tipo==="movil"?fila("PRECIO ENVASE",f=>clp(pe[f.id]||0)):""}
+      ${r.envases&&adm&&r.tipo!=="movil"?fila("PRECIO ENVASE",f=>`<input class="ei pr" type="number" min="0" data-renvp="${f.id}" value="${pe[f.id]||0}" aria-label="Precio envase ${f.et}">`):""}
       ${fila("TOTAL",f=>clp(totF(f)),"tot")}
     </tbody></table></div>
     <div class="rleft2">
@@ -4024,7 +4025,7 @@ V.mayorista=function(){
   let main;
   if(!mays.length&&mayTab!=="cuenta")main=v0().replace(/<div class="tabs" role="tablist">[\s\S]*?<\/div>/,"");
   else if(mayTab==="cuenta")main=v0().replace(/<div class="tabs" role="tablist">[\s\S]*?<\/div>/,"");
-  else if(mayTab==="rend"){cuadTab="mayorista";cuadSel=mayCli;const r=getRend("mayorista",mayCli,fechaCuad,true);syncRendMay(mayCli,fechaCuad);main=vistaRend(r,fechaSel)}
+  else if(mayTab==="rend"){cuadTab="mayorista";cuadSel=mayCli;elegirVentaMay();const r=getRend("mayorista",mayCli,fechaCuad,true);syncRendMayV(r);{const h=vistaRend(r,fechaSel),bar=barraVentasMay();main=h.includes('<div class="vr-sum"')?h.replace('<div class="vr-sum"',bar+'<div class="vr-sum"'):h.replace('<fieldset class="bloqueo"',bar+'<fieldset class="bloqueo"')}}
   else main=vistaVentaMay(mays,fechaSel);
   return `<div class="vc-lay">${side}<div class="vc-main">${main}</div></div>`};
 function vistaVentaMay(mays,fechaSel){
@@ -4058,10 +4059,10 @@ function vistaVentaMay(mays,fechaSel){
    ${vs.length?vs.map((x,i)=>`<tr class="${x.anulada?"anul":""}"><td class="num">${i+1}</td><td class="num">${esc(String(x.hora||"").slice(0,5))}</td><td>${esc(x.user||"")}</td>
      ${FORMATOS.map(f=>`<td class="c num">${+x.venta[f.id]||"–"}</td>`).join("")}<td class="c num">${FORMATOS.reduce((a,f)=>a+((x.env||{})[f.id]||0),0)||"–"}</td>
      <td>${esc(x.guia||"")}${x.canje===false?'<br><span class="nota" style="margin:0">envases prestados</span>':""}</td><td class="der num">${x.dcto?clp(x.dcto):"–"}</td><td class="der num"><b>${clp(valorDist(x))}</b></td>
-     <td>${x.anulada?'<span class="pill anulado">Anulada</span>':`<div class="acc"><button class="btn chico linea" type="button" data-vmimp="${x.k}" title="Imprimir">🖨</button>${ed?`<button class="btn chico linea rojo" type="button" data-anmay="${x.k}">Anular</button>`:""}</div>`}</td></tr>`).join("")
+     <td>${x.anulada?'<span class="pill anulado">Anulada</span>':`<div class="acc">${estadoVentaMay(x)}<button class="btn chico linea" type="button" data-vmrend="${x.k}">Rendir</button><button class="btn chico linea" type="button" data-vmimp="${x.k}" title="Imprimir">🖨</button>${ed?`<button class="btn chico linea rojo" type="button" data-anmay="${x.k}">Anular</button>`:""}</div>`}</td></tr>`).join("")
      :`<tr><td colspan="${FORMATOS.length+8}" class="vc-vacio">Aún no hay ventas hoy</td></tr>`}
    ${act.length?`<tr class="fila-tot"><td colspan="3"><b>Total del día (${act.length} venta${act.length>1?"s":""})</b></td>${FORMATOS.map(f=>`<td class="c num"><b>${act.reduce((a,x)=>a+(+x.venta[f.id]||0),0)||"–"}</b></td>`).join("")}<td class="c num">${act.reduce((a,x)=>a+FORMATOS.reduce((b,f)=>b+((x.env||{})[f.id]||0),0),0)||"–"}</td><td></td><td class="der num">${clp(act.reduce((a,x)=>a+(+x.dcto||0),0))}</td><td class="der num"><b>${clp(act.reduce((a,x)=>a+valorDist(x),0))}</b></td>
-     <td>${r&&r.guardada?(Math.round(k.saldo)===0?'<span class="pill entregado">Rendido</span>':`<span class="pill bajo">Debe ${clp(k.saldo)}</span>`):'<span class="pill ruta">Por rendir</span>'}</td></tr>`:""}
+     <td>${(()=>{const S=saldosMay(mayCli),d=act.reduce((s,x)=>{const rv=rendDeVenta(x);return s+(rv?(S.ef.get(rv)??0):valorDist(x))},0);return Math.round(d)<=0?'<span class="pill entregado">Todo pagado</span>':`<span class="pill bajo">Debe ${clp(d)}</span>`})()}</td></tr>`:""}
   </tbody></table></div>`;
 }
 function imprimirVentaMay(x){const c=cliMay(x.mayorista),emp=D.empresa||{},w=window.open("","_blank","width=380,height=600");if(!w)return aviso("Imprimir","El navegador bloqueó la ventana. Permita ventanas emergentes.");
@@ -4099,27 +4100,29 @@ L.mayorista=function(){
     const x={k:Date.now(),local:suc,fecha:fechaCuad,hora:ahora().slice(11),mayorista:c.id,guia:$("#vm-obs").value.trim(),tb:"",chofer:null,
       venta,env,precioEnv,dcto,prestamo,devolucion:st(),precios,canje,user:yo.nombre};
     D.cargasDist=D.cargasDist||[];D.cargasDist.unshift(x);aplicarDist(x,1);nubeGuardar("cargasDist",x);
-    const r=(D.rendiciones||[]).find(y=>y.tipo==="mayorista"&&y.ref===c.id&&y.fecha===fechaCuad);if(r&&r.guardada){r.guardada=null}
-    syncRendMay(c.id,fechaCuad);
+    getRendMayV(c.id,fechaCuad,x.k,true);
     log("bodega","Venta mayorista",`${c.nombre} · ${cilTxt(venta)}${dcto?" · desc. "+clp(dcto):""} · ${clp(valorDist(x))}`);guardar();pintarSistema();
     aviso("Venta grabada",`${c.nombre}: ${clp(valorDist(x))}. Total del día: ${clp((D.cargasDist||[]).filter(y=>y.mayorista===c.id&&y.fecha===fechaCuad&&!y.anulada).reduce((s,y)=>s+valorDist(y),0))}.`)};
   const anular=k=>{const x=D.cargasDist.find(y=>String(y.k)===String(k));if(!x||x.anulada)return;x.anulada=true;aplicarDist(x,-1);nubeGuardar("cargasDist",x);
-    const r=(D.rendiciones||[]).find(y=>y.tipo==="mayorista"&&y.ref===x.mayorista&&y.fecha===x.fecha);if(r&&r.guardada)r.guardada=null;syncRendMay(x.mayorista,x.fecha);
+    syncRendMay(x.mayorista,x.fecha);
     log("bodega","Venta mayorista anulada",`${(cliMay(x.mayorista)||{}).nombre||""} · ${cilTxt(x.venta)} (los cilindros vuelven a bodega)`);guardar();pintarSistema()};
   $$("[data-anmay]").forEach(b=>b.onclick=()=>confirmar(b,()=>anular(b.dataset.anmay)));
   const ultima=()=>(D.cargasDist||[]).filter(y=>y.mayorista===mayCli&&y.fecha===fechaCuad&&!y.anulada).sort((a,b)=>b.k-a.k)[0];
   const an=$("#vm-anular");if(an)an.onclick=()=>confirmar(an,()=>{const u=ultima();if(u)anular(u.k)});
   $$("[data-vmimp]").forEach(b=>b.onclick=()=>imprimirVentaMay(D.cargasDist.find(y=>String(y.k)===b.dataset.vmimp)));
   const im=$("#vm-imp");if(im)im.onclick=()=>{const u=ultima();if(u)imprimirVentaMay(u)};
-  $("#vm-pago").onclick=()=>{mayTab="rend";pintarSistema();window.scrollTo(0,0)};
+  $("#vm-pago").onclick=()=>{const u=ultima();mayVenta=u?u.k:null;mayVentaFija=true;mayTab="rend";pintarSistema();window.scrollTo(0,0)};
+  $$("[data-vmrend]").forEach(b=>b.onclick=()=>{mayVenta=+b.dataset.vmrend;mayVentaFija=true;mayTab="rend";pintarSistema();window.scrollTo(0,0)});
   $("#vm-volver").onclick=()=>ir("menu");
 };}
 // Rendición mayorista: si el cliente tiene ventas, las cantidades vienen de ellas (se cambian en Venta Mayorista)
 {const v0=vistaRendERP;vistaRendERP=function(r,f){let h=v0(r,f);if(r.tipo!=="mayorista")return h;
-  const vs=(D.cargasDist||[]).filter(x=>x.mayorista===r.ref&&x.fecha===r.fecha&&!x.anulada).sort((a,b)=>(+a.k||0)-(+b.k||0));if(!vs.length)return h;
+  const todas=(D.cargasDist||[]).filter(x=>x.mayorista===r.ref&&x.fecha===r.fecha&&!x.anulada).sort((a,b)=>(+a.k||0)-(+b.k||0));
+  const vs=todas.filter(x=>r.venta!=null?String(x.k)===String(r.venta):!rendDeVenta(x));
+  h=h.replace(/<div class="aviso entregas">[\s\S]*?<\/div>/,"");if(!vs.length)return h;
   h=h.replace(/ data-(rcant|renv)=/g,' disabled data-$1=').replace(/<button class="btn chico linea" id="rd-usar"[^>]*>[^<]*<\/button>/,"");
-  const lista=vs.map((x,i)=>`<span class="vr-v"><b>${i+1}</b> ${esc(String(x.hora||"").slice(0,5))} · ${esc(cilTxt(x.venta))} · ${clp(valorDist(x))}</span>`).join("");
-  return h.replace('<fieldset class="bloqueo"',`<div class="vr-sum"><span>Venta del día = suma de <b>${vs.length}</b> venta${vs.length>1?"s":""}:</span>${lista}<button type="button" class="btn chico linea" data-ctab="menu">Agregar o quitar ventas</button></div><fieldset class="bloqueo"`)}}
+  const lista=vs.map(x=>`<span class="vr-v"><b>${todas.indexOf(x)+1}</b> ${esc(String(x.hora||"").slice(0,5))} · ${esc(cilTxt(x.venta))} · ${clp(valorDist(x))}</span>`).join("");
+  return h.replace('<fieldset class="bloqueo"',`<div class="vr-sum"><span>${r.venta!=null?"Esta rendición es solo de la venta":`Ventas sin rendición propia (${vs.length})`}:</span>${lista}<button type="button" class="btn chico linea" data-ctab="menu">Agregar o quitar ventas</button></div><fieldset class="bloqueo"`)}}
 
 /* ===================== CONTROL DE BODEGA rediseñado: bodega (llenos / vacíos) y carga de cada camión ===================== */
 {const v0=V.bodega,l0=L.bodega;
@@ -4505,6 +4508,74 @@ function enlazarMapaRuta(){const cv=$("#mr-cv");if(!cv||cv.dataset.ok)return;cv.
   try{if(mod==="ruta"&&!$("#rt-mapa")){const s=$("#rt-sectorizar");if(s)s.insertAdjacentHTML("afterend",' <button class="btn chico linea" id="rt-mapa" type="button">🗺 Ver mapa</button>');const b=$("#rt-mapa");if(b)b.onclick=abrirMapaRuta}
     const dl=document.getElementById("dl-mapa");if(dl&&dl.open&&CALLES){prepararMapaRuta();dibujarMapaRuta()}}catch(e){}
   return r}}
+
+/* Rendición de choferes: precio chofer = Precio Domicilio y precio envase = Precio Envases (no se editan).
+   La rendición de hoy toma siempre los precios vigentes; las de días pasados guardan los de ese día. */
+{const g0=getRend;getRend=function(tipo,ref,fecha,crear){const r=g0.apply(this,arguments);
+  try{if(r&&r.tipo==="movil"&&r.fecha===hoyStr()){FORMATOS.forEach(f=>{const v=D.precios[f.id];if(v!=null&&r.precios[f.id]!==v)r.precios[f.id]=v});
+    if(r.envases){r.precioEnv=r.precioEnv||{};FORMATOS.forEach(f=>{const v=(D.preciosEnvase||{})[f.id]||0;if(r.precioEnv[f.id]!==v)r.precioEnv[f.id]=v})}}}catch(e){}
+  return r}}
+
+/* ===== Venta mayorista: cada venta se rinde por separado (como el ERP Local) =====
+   Una rendición por venta (r.venta = k de la venta). Los abonos y pagos sin venta van a la rendición del día sin venta.
+   Las ventas antiguas que no tienen rendición propia siguen en la rendición del día (como antes). */
+let mayVenta=null,mayVentaFija=false;
+const rendDeVenta=x=>(D.rendiciones||[]).find(r=>r.tipo==="mayorista"&&r.venta!=null&&String(r.venta)===String(x.k));
+function getRendMayV(mid,fecha,vk,crear){D.rendiciones=D.rendiciones||[];const key=vk==null?"":String(vk);
+  let r=D.rendiciones.find(x=>x.tipo==="mayorista"&&x.ref===mid&&x.fecha===fecha&&String(x.venta??"")===key);
+  if(!r&&crear){const base=preciosCliMay(mid),precios={},c=cliMay(mid);FORMATOS.forEach(f=>precios[f.id]=base[f.id]);
+    r={id:nuevoId(D.rendiciones),tipo:"mayorista",ref:mid,venta:vk==null?null:vk,nombre:c?c.nombre:"",fecha,local:suc,guia:"",precios,ventas:st(),cargos:[],pagos:[],obs:"",usuario:yo.nombre,creada:ahora(),envases:st(),precioEnv:{...(D.preciosEnvase||{})}};
+    D.rendiciones.push(r);syncRendMayV(r);nubeGuardar("rendiciones",r);guardar()}
+  return r}
+function syncRendMayV(r){if(!r||r.tipo!=="mayorista")return;let vs;
+  if(r.venta!=null){const x=(D.cargasDist||[]).find(y=>String(y.k)===String(r.venta));vs=x&&!x.anulada?[x]:[];if(x){r.guia=r.guia||x.guia||"";FORMATOS.forEach(f=>{if((x.precios||{})[f.id]!=null)r.precios[f.id]=x.precios[f.id]});if(x.precioEnv)r.precioEnv={...r.precioEnv,...x.precioEnv}}}
+  else vs=(D.cargasDist||[]).filter(x=>x.mayorista===r.ref&&x.fecha===r.fecha&&!x.anulada&&!rendDeVenta(x));
+  const o=st(),e=st();let dcto=0;vs.forEach(x=>{dcto+=+x.dcto||0;FORMATOS.forEach(f=>{o[f.id]+=x.venta[f.id]||0;e[f.id]+=(x.env||{})[f.id]||0})});
+  r.ventas=o;r.envases=e;r.pagos=r.pagos.filter(p=>p.auto!=="may");
+  if(dcto>0)r.pagos.push({id:(r.pagos.reduce((m,p)=>Math.max(m,+p.id||0),0))+1,tipo:"descuento",monto:dcto,detalle:"Descuentos dados en Venta Mayorista",hora:ahora(),auto:"may"});
+  nubeGuardar("rendiciones",r)}
+syncRendMay=function(mid,fecha){(D.rendiciones||[]).filter(x=>x.tipo==="mayorista"&&x.ref===mid&&x.fecha===fecha).forEach(syncRendMayV)};
+{const g0=getRend;getRend=function(tipo,ref,fecha,crear){if(tipo!=="mayorista")return g0.apply(this,arguments);return getRendMayV(ref,fecha,mayVenta,crear)}}
+function ventasDiaMay(){return (D.cargasDist||[]).filter(x=>x.mayorista===mayCli&&x.fecha===fechaCuad&&!x.anulada).sort((a,b)=>(+a.k||0)-(+b.k||0))}
+function elegirVentaMay(){const vs=ventasDiaMay();
+  if(mayVentaFija&&(mayVenta==null||vs.some(x=>String(x.k)===String(mayVenta))))return;mayVentaFija=false;
+  vs.forEach(x=>{if(!rendDeVenta(x))getRendMayV(mayCli,fechaCuad,x.k,true)});
+  const S=saldosMay(mayCli),deb=vs.find(x=>{const r=rendDeVenta(x);return r&&(S.ef.get(r)||0)>0});mayVenta=deb?deb.k:vs.length?vs[vs.length-1].k:null}
+function estadoVentaMay(x){const r=rendDeVenta(x);if(!r)return '<span class="pill ruta">Por rendir</span>';const sd=Math.round(calcRend(r).saldo);
+  return sd<=0?'<span class="pill entregado">Pagada</span>':r.pagos.some(p=>!p.auto)?`<span class="pill bajo">Debe ${clp(sd)}</span>`:'<span class="pill ruta">Por rendir</span>'}
+function barraVentasMay(){const vs=ventasDiaMay(),gen=getRendMayV(mayCli,fechaCuad,null,false),c=cliMay(mayCli),S=saldosMay(mayCli),cta=c?cuentaMay(c):{saldo:0};
+  const pend=(D.rendiciones||[]).filter(r=>r.tipo==="mayorista"&&r.ref===mayCli&&r.fecha<fechaCuad&&(S.ef.get(r)||0)>0);
+  const chip=(k,t,sub,on,an)=>`<button type="button" class="mv-ch ${on?"on":""}" data-mvsel="${k}">${t}${sub?`<small>${sub}</small>`:""}</button>`;
+  return `<div class="mv-bar"><span class="mv-lbl">VENTAS DE ${esc((c||{}).nombre||"").toUpperCase()} · ${fF(fechaCuad)}</span>
+    ${vs.map((x,i)=>{const r=rendDeVenta(x),sd=r?(S.ef.get(r)??0):valorDist(x);return chip(x.k,`Venta ${i+1} · ${esc(String(x.hora||"").slice(0,5))}`,sd<=0?((S.cubierto.get(r)||0)?"pagada con abono":"pagada"):"debe "+clp(sd),String(mayVenta)===String(x.k))}).join("")||'<span class="nota" style="margin:0">Sin ventas este día</span>'}
+    ${chip("sin","Abonar / pagos sin venta",gen?clp(calcRend(gen).pagado):"",mayVenta==null)}
+    <span class="mv-hist ${Math.round(cta.saldo)>0?"debe":Math.round(cta.saldo)<0?"favor":""}">Saldo histórico: <b>${Math.round(cta.saldo)>0?"debe "+clp(cta.saldo):Math.round(cta.saldo)<0?"a favor "+clp(-cta.saldo):"al día"}</b></span></div>
+  ${pend.length?`<p class="nota mv-nota">Para descontar deudas anteriores, registre el pago en «Abonar / pagos sin venta»: se aplica a la deuda más antigua.</p>`:""}`}
+{const l0=L.mayorista;L.mayorista=function(){l0.apply(this,arguments);if(mayTab!=="rend")return;
+  $$("[data-mvsel]").forEach(b=>b.onclick=()=>{mayVenta=b.dataset.mvsel==="sin"?null:+b.dataset.mvsel;mayVentaFija=true;pintarSistema()});
+  $$("[data-mvdeuda]").forEach(b=>b.onclick=()=>{const [f,v]=b.dataset.mvdeuda.split("|");fechaCuad=f;mayVenta=v===""?null:+v;mayVentaFija=true;pintarSistema()});
+  const rs=$("#rd-sel");if(rs)rs.onchange=()=>{mayCli=+rs.value;mayVentaFija=false;pintarSistema()};
+  const fc=$("#f-cuad");if(fc)fc.onchange=e=>{fechaCuad=e.target.value||hoyStr();mayVentaFija=false;pintarSistema()}}}
+/* cuenta del cliente: suma de todas sus rendiciones + ventas antiguas sin rendición */
+cuentaMay=function(m){const vs=(D.cargasDist||[]).filter(x=>x.mayorista===m.id&&!x.anulada),rs=(D.rendiciones||[]).filter(r=>r.tipo==="mayorista"&&r.ref===m.id);
+  let comp=0,pag=0,com=0,ult="";rs.forEach(r=>{const c=calcRend(r);comp+=c.venta+c.cargos;pag+=c.pagado;com+=c.com});
+  vs.forEach(x=>{if(x.fecha>ult)ult=x.fecha;const cub=rendDeVenta(x)||rs.some(r=>r.venta==null&&r.fecha===x.fecha);if(!cub)comp+=valorDist(x)});
+  return {m,comp,pag:pag+com,com,saldo:comp-pag-com,ult}};
+
+/* ===== Mayoristas: la deuda se acumula en el saldo histórico y los abonos la van descontando =====
+   Los abonos (y lo pagado de más) forman un crédito que se aplica a las ventas con deuda, de la más antigua a la más nueva. */
+function saldosMay(mid){const rs=(D.rendiciones||[]).filter(r=>r.tipo==="mayorista"&&r.ref===mid).sort((a,b)=>(a.fecha+(a.creada||"")).localeCompare(b.fecha+(b.creada||"")));
+  const raw=new Map(rs.map(r=>[r,Math.round(calcRend(r).saldo)]));let cred=0;raw.forEach(v=>{if(v<0)cred-=v});const ef=new Map(),cubierto=new Map();
+  rs.forEach(r=>{const v=raw.get(r);if(v<=0){ef.set(r,0);return}const usa=Math.min(v,cred);cred-=usa;ef.set(r,v-usa);cubierto.set(r,usa)});
+  const deuda=[...ef.values()].reduce((a,b)=>a+b,0);return {ef,cubierto,raw,credito:cred,deuda}}
+function saldoEfMay(r){if(!r)return 0;const S=saldosMay(r.ref);return S.ef.has(r)?S.ef.get(r):Math.round(calcRend(r).saldo)}
+estadoVentaMay=function(x){const r=rendDeVenta(x);if(!r)return '<span class="pill ruta">Por rendir</span>';const S=saldosMay(r.ref),sd=S.ef.get(r)??0,cub=S.cubierto.get(r)||0;
+  if(sd<=0)return cub?'<span class="pill entregado" title="Pagada con abonos">Pagada (abono)</span>':'<span class="pill entregado">Pagada</span>';
+  return r.pagos.some(p=>!p.auto)||cub?`<span class="pill bajo">Debe ${clp(sd)}</span>`:`<span class="pill ruta">Por rendir · ${clp(sd)}</span>`};
+
+/* barra «Deudas pendientes» del mayorista: usa los saldos ya descontados con los abonos */
+{const d0=deudasRend;deudasRend=function(r){if(r.tipo!=="mayorista")return d0(r);const S=saldosMay(r.ref),list=[];
+  S.ef.forEach((v,x)=>{if(v>0&&x!==r&&x.fecha<r.fecha)list.push({f:x.fecha,orig:S.raw.get(x),pend:v})});list.sort((a,b)=>a.f.localeCompare(b.f));return {list,favor:S.credito}}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5466,6 +5537,18 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .mr-est{font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;background:#fffaeb;color:#b54708}.mr-est.ruta{background:#eff4ff;color:#1d4ed8}
 .mr-carga{position:absolute;inset:0;display:grid;place-items:center;color:#667085;font-weight:600}
 .mr-pie{margin:0;padding:6px 14px;font-size:11.5px;color:#667085;border-top:1px solid #eef0f3}
+
+.sis .mv-bar,.sis .mv-pend{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0 0 10px;padding:6px 10px;border:1px solid #c3d4ef;border-left:3px solid #1a66d6;border-radius:8px;background:#f5f8fd}
+.sis .mv-pend{border-color:#fecdca;border-left-color:#d92d20;background:#fef3f2}
+.sis .mv-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;color:#0d3a85;margin-right:4px}
+.sis .mv-ch{font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;border:1px solid #c3d4ef;background:#fff;color:#101828;cursor:pointer}
+.sis .mv-ch small{font-weight:500;color:#667085;margin-left:6px}
+.sis .mv-ch.on{background:#1a66d6;border-color:#1a66d6;color:#fff}.sis .mv-ch.on small{color:#fff;opacity:.85}
+
+.sis .mv-hist{margin-left:auto;font-size:12.5px;color:#344054;padding:4px 10px;border-radius:8px;background:#fff;border:1px solid #e4e8ee}
+.sis .mv-hist.debe b{color:#b42318}.sis .mv-hist.favor b{color:#067647}
+
+.sis .mv-nota{margin:-4px 0 10px!important;font-size:12px}
 </style>
 </body>
 </html>
