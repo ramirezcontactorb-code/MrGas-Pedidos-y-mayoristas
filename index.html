@@ -3324,7 +3324,7 @@ function volverAtras(){
 document.addEventListener("keydown",e=>{if(e.altKey&&e.key==="ArrowLeft"&&yo&&location.hash==="#panel"){e.preventDefault();volverAtras()}});
 
 /* ===================== PESTAÑAS DE CONFIGURACIONES (Sectorizar vive aquí) ===================== */
-const cfgTabsTodas=()=>[...(esAdmin()?[["precioBase","Precio Base"]]:[]),["precios","Precio a Domicilio"],...(esAdmin()?[["preciosLocal","Precio Local"]]:[]),["envases","Precio Envases"],["clientesMay","Clientes"],["descQR","Descuento QR"],["preciosMay","Precios Mayoristas"],["comVale","Comisión Vales"],["histPrecios","Historial de Precios"],["histCambios","Historial de Cambios"],["usuarios","Usuarios"],["choferes","Choferes"],["sectorizar","Sectorizar"],["sucursal","Sucursal"],["general","Stock y envases"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
+const cfgTabsTodas=()=>[...(esAdmin()?[["precioBase","Precio Base"]]:[]),["precios","Precio a Domicilio"],...(esAdmin()?[["preciosLocal","Precio Local"],["sucLocal","Sucursales ERP Local"]]:[]),["envases","Precio Envases"],["clientesMay","Clientes"],["descQR","Descuento QR"],["preciosMay","Precios Mayoristas"],["comVale","Comisión Vales"],["histPrecios","Historial de Precios"],["histCambios","Historial de Cambios"],["usuarios","Usuarios"],["choferes","Choferes"],["sectorizar","Sectorizar"],["sucursal","Sucursal"],["general","Stock y envases"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
 const CFG_MAY_TABS=["clientesMay","preciosMay","comVale"];
 const cfgTabsLista=()=>(!yo?[]:esAdmin()?cfgTabsTodas():cfgTabsTodas().filter(([k])=>CFG_PERM[k]&&tieneExtra(CFG_PERM[k]))).filter(([k])=>!(D.precios&&D.precios.sinMayorista&&CFG_MAY_TABS.includes(k)));
 const cfgTabsHtml=sel=>`<!--CFGTABS-->`;
@@ -4170,7 +4170,7 @@ L.bodega=function(){l0();
 }
 
 /* ===================== CONFIGURACIONES con el formato del ERP Local ===================== */
-const CFG_IC={precioBase:"precios",preciosLocal:"precios",precios:"precios",envases:"factura",clientesMay:"usuarios",descQR:"precios",preciosMay:"precios",comVale:"cuadratura",histPrecios:"manual",histCambios:"manual",usuarios:"usuarios",choferes:"choferes",sectorizar:"ruta",sucursal:"sucursal",general:"bodega",respaldos:"config"};
+const CFG_IC={sucLocal:"sucursal",precioBase:"precios",preciosLocal:"precios",precios:"precios",envases:"factura",clientesMay:"usuarios",descQR:"precios",preciosMay:"precios",comVale:"cuadratura",histPrecios:"manual",histCambios:"manual",usuarios:"usuarios",choferes:"choferes",sectorizar:"ruta",sucursal:"sucursal",general:"bodega",respaldos:"config"};
 // Precio del Gas
 CFG_MAY.precios={v(){const p=D.precios,prog=(D.programados||[]).slice().sort((a,b)=>a.desde.localeCompare(b.desde));
   return `<div class="cfg-dos"><form class="cfgp" id="f-pr"><h3>Precio a domicilio</h3>
@@ -4302,7 +4302,7 @@ function porMi(){return yo?(yo.nombre||yo.user||""):""}
 function porTag(o){return esAdmin()&&o&&o.por?`<small class="por-tag" title="Agregado por ${esc(o.por)}${o.hora?" · "+esc(String(o.hora).slice(0,16)):""}">${esc(o.por)}</small>`:""}
 
 /* ===== Permisos del ERP Local (se dan aquí, en el ERP Matriz) ===== */
-const LOCAL_SUCS=['Cervantes','El Tranque','Maipo','Padre Damián','Olivos','Jr Coyhaique','Jr Parcelas','Chillán'];
+let LOCAL_SUCS=['Cervantes','El Tranque','Maipo','Padre Damián','Olivos','Jr Coyhaique','Jr Parcelas','Chillán'],LOCAL_CFG=null;
 const lslug=n=>n.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,'_');
 const LOCAL_PERMS=[["Ventas",[["venta","Venta Local"],["anular","Anular ventas"],["rend","Rendición del local"],["mayor","Venta mayorista y su rendición"],["mcta","Ver cuenta clientes mayoristas"]]],
   ["Bodega",[["bodega","Ver resumen de bodega"],["bmov","Ingreso de carga"],["bvmov","Ver movimientos de bodega"],["bedit","Modificar stock"]]],
@@ -4330,7 +4330,7 @@ function resumenLocal(p){if(!Array.isArray(p)||!p.includes("app.local"))return "
 /* ===== Precio base (uno solo para todo) y precios del ERP Local ===== */
 const LID={c5:"5",c11:"11",c15:"15",c45:"45",h15a:"H15A"};
 const LOC_DEF={"5":{venta:12900,envase:28000},"11":{venta:22600,envase:51000},"15":{venta:30400,envase:40000},"45":{venta:90500,envase:98000},"H15A":{venta:27000,envase:0}};
-const LOC_INDEP=["Chillán"];
+let LOC_INDEP=["Chillán"];
 const locCompartidas=()=>LOCAL_SUCS.filter(x=>!LOC_INDEP.includes(x));
 const VTIPOS_L=["De la compañía","Otras compañías","Vale Digital","Digital Otras compañías"],VSIZES_L=["5","11","15","45","H"],QRS_L=["11","15"];
 async function locLeer(paths){const r=await fetch("local/api/docs.php?a=leer&paths="+encodeURIComponent(paths.join(",")),{credentials:"same-origin",cache:"no-store"});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo leer el ERP Local");return j.docs}
@@ -4396,6 +4396,38 @@ CFG_MAY.preciosLocal={v(){
         else await locPrecios({sucs:{[lslug(locGrupo)]:{venta,envase,mayor,comision:comN,qr:qrN}}});
         log("precios","Precios del ERP Local",comp?"Sucursales: "+locCompartidas().join(", "):locGrupo);guardar();
         aviso("Precios guardados",`Se actualizaron en el ERP Local (${comp?locCompartidas().length+" sucursales":locGrupo}).`);pintarSistema()}
+      catch(x){er.textContent=x.message;er.hidden=false}finally{b.disabled=false}}}};
+
+/* ===== Sucursales del ERP Local (cuántas, activas y con precios propios) ===== */
+let sucLocCargando=false,sucLocNueva=[];
+function aplicarSucLocal(l){if(!Array.isArray(l)||!l.length)return;LOCAL_CFG=l.map(x=>({nombre:x.nombre,indep:!!x.indep,activa:x.activa!==false}));
+  LOCAL_SUCS=LOCAL_CFG.map(x=>x.nombre);LOC_INDEP=LOCAL_CFG.filter(x=>x.indep).map(x=>x.nombre)}
+async function cargarSucLocal(){if(sucLocCargando||LOCAL_CFG||!NUBE.activo||!yo||!esAdmin())return;sucLocCargando=true;
+  try{const r=await fetch("local/api/docs.php?a=sucursales",{credentials:"same-origin",cache:"no-store"});const j=await r.json();if(r.ok){aplicarSucLocal(j.list);if(mod==="config")pintarSistema()}}catch(e){}finally{sucLocCargando=false}}
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{cargarSucLocal()}catch(e){}return r}}
+CFG_MAY.sucLocal={v(){const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC_INDEP.includes(n),activa:true}))).concat(sucLocNueva);
+  return `<section class="cfgp" id="s-sucl" style="max-width:860px"><h3>Sucursales del ERP Local</h3>
+    <p class="cfgp-nota">Aquí decides cuántas sucursales tiene el ERP Local. <b>Precios iguales</b>: usa el Precio Base y los precios de «Precio Local» de todas. <b>Precios propios</b>: se cambian aparte (como Chillán). Una sucursal no se borra, porque puede tener ventas y stock: se <b>desactiva</b> y deja de aparecer.</p>
+    <div class="tabla-wrap cfgt"><table><thead><tr><th>Sucursal</th><th class="c">Precios</th><th class="c">Activa</th></tr></thead><tbody>
+    ${L.map((x,i)=>`<tr class="${x.activa?"":"apagada"}"><td><b>${esc(x.nombre)}</b>${i>=L.length-sucLocNueva.length?' <span class="pill">nueva</span>':""}</td>
+      <td class="c"><select data-sli="${i}"><option value="0" ${x.indep?"":"selected"}>Iguales a las demás</option><option value="1" ${x.indep?"selected":""}>Propios (independientes)</option></select></td>
+      <td class="c"><input type="checkbox" data-sla="${i}" ${x.activa?"checked":""} aria-label="Activa ${esc(x.nombre)}"></td></tr>`).join("")}
+    </tbody></table></div>
+    <div class="cfgp-fila" style="margin-top:12px"><label class="g2">Nueva sucursal<input id="sl-nom" maxlength="40" placeholder="Ej: Rancagua"></label><button class="btn linea" type="button" id="sl-add">＋ Agregar</button></div>
+    <div class="cfgp-btn"><button class="btn" type="button" id="sl-guardar">Guardar sucursales</button></div><p class="error" id="sl-err" hidden style="text-align:center"></p>
+    ${NUBE.activo?"":'<p class="nota">Se guarda cuando el sistema está publicado en el servidor.</p>'}</section>`},
+  l(){const z=$("#s-sucl");if(!z)return;
+    const leer=()=>{const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC_INDEP.includes(n),activa:true}))).concat(sucLocNueva);
+      return L.map((x,i)=>({nombre:x.nombre,indep:$(`[data-sli="${i}"]`).value==="1",activa:$(`[data-sla="${i}"]`).checked}))};
+    $("#sl-add").onclick=()=>{const n=$("#sl-nom").value.trim().replace(/\s+/g," "),er=$("#sl-err");er.hidden=true;if(!n)return;
+      if(!/^[\p{L}\p{N} -]+$/u.test(n)){er.textContent="Use solo letras, números, espacios o guion.";er.hidden=false;return}
+      const todas=leer();if(todas.some(x=>lslug(x.nombre)===lslug(n))){er.textContent="Esa sucursal ya existe.";er.hidden=false;return}
+      const prev=todas;LOCAL_CFG=prev.slice(0,prev.length-sucLocNueva.length);sucLocNueva=prev.slice(prev.length-sucLocNueva.length).concat([{nombre:n,indep:false,activa:true}]);pintarSistema()};
+    $("#sl-guardar").onclick=async()=>{const er=$("#sl-err");er.hidden=true;const list=leer();const b=$("#sl-guardar");b.disabled=true;
+      try{const r=await fetch("local/api/docs.php?a=sucursales",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({list})});const j=await r.json().catch(()=>({}));
+        if(!r.ok)throw new Error(j.error||"No se pudo guardar");sucLocNueva=[];aplicarSucLocal(j.list);
+        log("sistema","Sucursales del ERP Local",j.list.map(x=>x.nombre+(x.indep?" (precios propios)":"")+(x.activa?"":" (inactiva)")).join(", "));guardar();
+        pintarSistema();aviso("Sucursales guardadas","El ERP Local ya usa esta lista. Los usuarios que lo tengan abierto la verán al recargar la página.")}
       catch(x){er.textContent=x.message;er.hidden=false}finally{b.disabled=false}}}};
 </script>
 <style id="tema-erp">
@@ -5277,6 +5309,9 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 @media (max-width:1250px){.sis .pl-dos{grid-template-columns:minmax(0,1fr)}}
 
 .sis .cfg-dos.abajo.solo{grid-template-columns:minmax(0,1fr)}
+
+.sis #s-sucl tr.apagada td{color:#98a2b3}.sis #s-sucl select{padding:6px 8px}
+.sis #s-sucl .pill{background:#ecfdf3;color:#067647;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:600}
 </style>
 </body>
 </html>

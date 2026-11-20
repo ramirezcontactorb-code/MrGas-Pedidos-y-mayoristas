@@ -1010,10 +1010,18 @@ let MGU=null,MG_LOGIN=false;
 const MG_API='api/docs.php';
 function mgPantalla(t,d){document.body.innerHTML=`<div class="login-wrap"><div class="login"><div class="lbrand"><div class="sq">MR</div><div><b>ERP Local</b><small>MR Gas</small></div></div>
   <h2>${t}</h2><p class="hint">${d}</p><button class="btn primary" onclick="location.reload()">Reintentar</button></div></div>`;}
+/* sucursales configuradas en el ERP Matriz (cuántas hay, cuáles están activas y cuáles tienen precios propios) */
+function mgSucs(l){if(!Array.isArray(l)||!l.length)return;
+  SUCS_TODAS.splice(0,SUCS_TODAS.length,...l.map(x=>x.nombre));
+  SUCS_OFF.splice(0,SUCS_OFF.length,...l.filter(x=>x.activa===false).map(x=>x.nombre));
+  SUCS.splice(0,SUCS.length,...SUCS_TODAS.filter(s=>!SUCS_OFF.includes(s)));
+  INDEP.splice(0,INDEP.length,...l.filter(x=>x.indep).map(x=>x.nombre));
+  try{const u=JSON.parse(sessionStorage.getItem('gl_user'));if(u&&!SUCS.includes(u.suc)){sessionStorage.removeItem('gl_user');S.user=null;S.view='login';}}catch(e){}}
 async function mgGate(){
   if(!/^https?:$/.test(location.protocol))return true; /* vista previa sin servidor */
   let j=null;try{const r=await fetch(MG_API+'?a=estado',{credentials:'same-origin',cache:'no-store'});j=await r.json();}catch(e){}
   if(!j||j.error){mgPantalla('Sin conexión','No se pudo conectar con el servidor. Revise internet y vuelva a intentar.');return false;}
+  mgSucs(j.sucursales);
   if(j.quien){MGU={modo:j.quien.modo,user:j.quien.perfil.user};USERS=[mgUsuario(j.quien.perfil)];return true;}
   /* sin sesión: login propio del ERP Local (la clave la revisa el servidor) */
   MG_LOGIN=true;S.user=null;S.view='login';try{sessionStorage.removeItem('gl_user');}catch(e){}

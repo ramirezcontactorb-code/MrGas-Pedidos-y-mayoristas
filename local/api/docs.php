@@ -36,8 +36,16 @@ function quien(): ?array {
     }
     return null;
 }
+// Sucursales del ERP Local: se configuran desde el ERP Matriz (documento app/sucursales)
+const SUCS_INICIALES = ['Cervantes', 'El Tranque', 'Maipo', 'Padre Damián', 'Olivos', 'Jr Coyhaique', 'Jr Parcelas', 'Chillán'];
+function sucursalesLocal(): array {
+    $st = db()->prepare("SELECT data FROM local_docs WHERE path = 'app/sucursales'"); $st->execute();
+    $d = json_decode((string) $st->fetchColumn(), true);
+    if (is_array($d['list'] ?? null) && $d['list']) return $d['list'];
+    return array_map(fn($n) => ['nombre' => $n, 'indep' => $n === 'Chillán', 'activa' => true], SUCS_INICIALES);
+}
 function slugLocal(string $s): string {
-    $s = strtolower(strtr($s, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u','ñ'=>'n','Ñ'=>'n']));
+    $s = strtolower(strtr($s, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u','ñ'=>'n','Ñ'=>'n','ü'=>'u','Ü'=>'u']));
     return preg_replace('/\s+/', '_', $s);
 }
 // Qué documentos puede guardar cada uno (además de lo que la pantalla ya controla)
@@ -54,7 +62,7 @@ $marca = fn($v) => str_pad((string) $v, 16, '0', STR_PAD_LEFT); // "updated_at" 
 try {
     tablaLocal();
     $a = $_GET['a'] ?? '';
-    if ($a === 'estado') { $q = quien(); salida(['quien' => $q ? ['modo' => $q['modo'], 'perfil' => $q['perfil']] : null]); }
+    if ($a === 'estado') { $q = quien(); salida(['quien' => $q ? ['modo' => $q['modo'], 'perfil' => $q['perfil']] : null, 'sucursales' => sucursalesLocal()]); }
     if ($a === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         limitar('local', 8, 900);
         $b = json_decode(file_get_contents('php://input') ?: '{}', true) ?: [];
@@ -93,6 +101,30 @@ try {
             $v = $st->fetchColumn(); $out[$pth] = $v === false ? null : json_decode($v);
         }
         salida(['docs' => $out]);
+    }
+    if ($a === 'sucursales' && $_SERVER['REQUEST_METHOD'] === 'GET') salida(['list' => sucursalesLocal()]);
+    if ($a === 'sucursales' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        if ($q['perfil']['rol'] !== 'admin') salida(['error' => 'Solo el administrador puede cambiar las sucursales.'], 403);
+        $b = json_decode(file_get_contents('php://input') ?: '{}', true) ?: [];
+        $ant = array_column(sucursalesLocal(), null, 'nombre');
+        $l = []; $vistos = [];
+        foreach ((array) ($b['list'] ?? []) as $x) {
+            $n = trim(preg_replace('/\s+/u', ' ', (string) ($x['nombre'] ?? '')));
+            if ($n === '' || mb_strlen($n) > 40 || !preg_match('/^[\p{L}\p{N} -]+$/u', $n)) salida(['error' => 'Nombre de sucursal no válido: «' . $n . '». Use solo letras, números, espacios o guion.'], 400);
+            $k = slugLocal($n);
+            if (isset($vistos[$k])) salida(['error' => 'La sucursal «' . $n . '» está repetida.'], 400);
+            $vistos[$k] = 1;
+            $l[] = ['nombre' => $n, 'indep' => !empty($x['indep']), 'activa' => !array_key_exists('activa', $x) || !empty($x['activa'])];
+        }
+        foreach ($ant as $n => $x) if (!isset($vistos[slugLocal($n)])) salida(['error' => 'No se puede borrar «' . $n . '» porque puede tener datos. Desactívela.'], 400);
+        if (!array_filter($l, fn($x) => $x['activa'])) salida(['error' => 'Debe quedar al menos una sucursal activa.'], 400);
+        $p = db(); $p->beginTransaction();
+        $p->exec("UPDATE contadores SET valor = valor + 1 WHERE nombre = 'local'");
+        $ver = (int) $p->query("SELECT valor FROM contadores WHERE nombre = 'local'")->fetchColumn();
+        $p->prepare(esSqlite() ? 'INSERT OR REPLACE INTO local_docs (path, data, ver) VALUES (?, ?, ?)'
+            : 'INSERT INTO local_docs (path, data, ver) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), ver = VALUES(ver)')->execute(['app/sucursales', json_encode(['list' => $l], JSON_UNESCAPED_UNICODE), $ver]);
+        $p->commit();
+        salida(['ok' => true, 'list' => $l]);
     }
     if ($a === 'precios' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($q['perfil']['rol'] !== 'admin') salida(['error' => 'Solo el administrador puede cambiar precios del ERP Local.'], 403);
