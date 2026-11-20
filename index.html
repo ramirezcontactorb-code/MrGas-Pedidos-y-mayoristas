@@ -2362,9 +2362,7 @@ const V={
       <p class="nota" style="margin:4px 0 0">Si la desactiva, «Venta Mayorista» desaparece del menú para todos, junto con Clientes, Precios Mayoristas y Comisión Vales en Configuraciones. Los datos no se borran: al activarla de nuevo vuelve todo como estaba.</p>
       <p class="aviso ok" id="md-ok" hidden></p></form>`:"")+`<form class="caja" id="f-config" style="max-width:520px"><h3>Alertas de stock</h3>
       <label>Stock mínimo por formato<input class="num" type="number" min="0" id="pr-minimo" value="${D.precios.minimo}"></label>
-      <h3 style="margin-top:8px">Precio de venta de envases</h3>
-      <div class="fila">${FORMATOS.map(f=>`<label>Envase ${f.et} (CLP)<input class="num" type="number" min="0" id="pe-${f.id}" value="${(D.preciosEnvase||{})[f.id]||0}"></label>`).join("")}</div>
-      <p class="nota" style="margin:0">Cuando una sucursal tenga menos cilindros que este número, se marca en rojo en Control de Bodega. Los precios se cambian en la pestaña «Precio Domicilio».</p>
+      <p class="nota" style="margin:0">Cuando la bodega tenga menos cilindros que este número, se marca en rojo en Control de Bodega. Los precios de envases se cambian en la pestaña «Precio Envases».</p>
       <button class="btn" type="submit">Guardar</button><p class="aviso ok" id="pr-ok" hidden>Configuración guardada.</p></form>
       <form class="caja" id="f-sectores" style="max-width:900px;margin-top:20px"><h3>Sectores de reparto</h3>
         <p class="nota" style="margin:0">Cada sector agrupa comunas. En Asigna Ruta, "Sectorizar pedidos" usa esta lista para poner el sector y sugerir el móvil.</p>
@@ -2751,7 +2749,7 @@ const L={
     $$("[data-delsec]").forEach(b=>b.onclick=()=>confirmar(b,()=>{D.sectores=D.sectores.filter(x=>x.id!==+b.dataset.delsec);guardar();pintarSistema()}));
     {const m=$("#md-may");if(m)m.onchange=()=>{if(m.checked)delete D.precios.sinMayorista;else D.precios.sinMayorista=true;
       log("sistema",m.checked?"Venta Mayorista activada":"Venta Mayorista desactivada","");guardar();pintarSistema();const o=$("#md-ok");if(o){o.textContent=m.checked?"Venta Mayorista activada.":"Venta Mayorista desactivada.";o.hidden=false}}}
-    $("#f-config").onsubmit=e=>{e.preventDefault();D.precios.minimo=Math.max(0,+$("#pr-minimo").value||0);D.preciosEnvase=D.preciosEnvase||{};FORMATOS.forEach(f=>D.preciosEnvase[f.id]=Math.max(0,+$("#pe-"+f.id).value||0));guardar();$("#pr-ok").hidden=false}},
+    $("#f-config").onsubmit=e=>{e.preventDefault();D.precios.minimo=Math.max(0,+$("#pr-minimo").value||0);guardar();$("#pr-ok").hidden=false}},
   admin(){
     $("#nueva-suc").onclick=()=>{const id=nuevoId(D.locales);D.locales.push({id,nombre:"Nueva sucursal",dir:"",comuna:"",fono:"",encargado:"Por asignar",horario:"",abierto:false,stock:st(0,0,0,0)});editSuc=id;guardar();pintarPublico();pintarSistema()};
     $$("[data-editsuc]").forEach(b=>b.onclick=()=>{editSuc=+b.dataset.editsuc;pintarSistema();window.scrollTo(0,0)});
@@ -3331,7 +3329,7 @@ function volverAtras(){
 document.addEventListener("keydown",e=>{if(e.altKey&&e.key==="ArrowLeft"&&yo&&location.hash==="#panel"){e.preventDefault();volverAtras()}});
 
 /* ===================== PESTAÑAS DE CONFIGURACIONES (Sectorizar vive aquí) ===================== */
-const cfgTabsTodas=()=>[...(esAdmin()?[["precioBase","Precio Base"]]:[]),["precios","Precio Domicilio"],["preciosMay","Precios Mayoristas"],...(esAdmin()?[["preciosLocal","Precio Local"]]:[]),["envases","Precio Envases"],["clientesMay","Clientes"],["descQR","Descuento QR"],["comVale","Comisión Vales"],["histPrecios","Historial de Precios"],["histCambios","Historial de Cambios"],["usuarios","Usuarios"],["choferes","Choferes"],["sectorizar","Sectorizar"],["sucursal","Sucursal"],...(esAdmin()?[["sucLocal","Sucursales ERP Local"]]:[]),["general","Stock y envases"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
+const cfgTabsTodas=()=>[...(esAdmin()?[["precioBase","Precio Base"]]:[]),["precios","Precio Domicilio"],["preciosMay","Precios Mayoristas"],...(esAdmin()?[["preciosLocal","Precio Local"]]:[]),["envases","Precio Envases"],["clientesMay","Clientes"],["comVale","Comisión Vales"],["histPrecios","Historial de Precios"],["histCambios","Historial de Cambios"],["usuarios","Usuarios"],["choferes","Choferes"],["sectorizar","Sectorizar"],...(esAdmin()?[["sucLocal","Sucursales"]]:[["sucursal","Sucursal"]]),["general","General"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
 const CFG_MAY_TABS=["clientesMay","preciosMay","comVale"];
 const cfgTabsLista=()=>(!yo?[]:esAdmin()?cfgTabsTodas():cfgTabsTodas().filter(([k])=>CFG_PERM[k]&&tieneExtra(CFG_PERM[k]))).filter(([k])=>!(D.precios&&D.precios.sinMayorista&&CFG_MAY_TABS.includes(k)));
 const cfgTabsHtml=sel=>`<!--CFGTABS-->`;
@@ -4186,7 +4184,7 @@ L.bodega=function(){l0();
 }
 
 /* ===================== CONFIGURACIONES con el formato del ERP Local ===================== */
-const CFG_IC={sucLocal:"sucursal",precioBase:"precios",preciosLocal:"precios",precios:"precios",envases:"factura",clientesMay:"usuarios",descQR:"precios",preciosMay:"precios",comVale:"cuadratura",histPrecios:"manual",histCambios:"manual",usuarios:"usuarios",choferes:"choferes",sectorizar:"ruta",sucursal:"sucursal",general:"bodega",respaldos:"config"};
+const CFG_IC={sucLocal:"sucursal",precioBase:"precios",preciosLocal:"precios",precios:"precios",envases:"precios",clientesMay:"usuarios",descQR:"precios",preciosMay:"precios",comVale:"cuadratura",histPrecios:"manual",histCambios:"manual",usuarios:"usuarios",choferes:"choferes",sectorizar:"ruta",sucursal:"sucursal",general:"bodega",respaldos:"config"};
 // Precio del Gas
 CFG_MAY.precios={v(){const p=D.precios,prog=(D.programados||[]).slice().sort((a,b)=>a.desde.localeCompare(b.desde));
   return `<div style="max-width:900px"><form class="cfgp" id="f-pr"><h3>Precio domicilio</h3>
@@ -4212,7 +4210,7 @@ CFG_MAY.envases={v(){const PE=D.preciosEnvase||{};return `<form class="cfgp" id=
     </tbody></table></div><div class="cfgp-btn"><button class="btn" type="submit">Guardar precios de envases</button></div></form>`},
   l(){const f=$("#f-env");if(!f)return;f.onsubmit=e=>{e.preventDefault();D.preciosEnvase=D.preciosEnvase||{};let n=0;
     $$("[data-penv]").forEach(i=>{const k=i.dataset.penv,v=Math.max(0,Math.round(+i.value||0)),a=D.preciosEnvase[k]||0;if(v!==a){histMay("Precio envase",k,a,v);D.preciosEnvase[k]=v;n++}});
-    if(!n){aviso("Sin cambios","No cambió ningún precio.");return}guardar();pintarSistema();aviso("Precios de envases guardados",`${n} precio(s) actualizado(s).`)}}};
+    if(!n){aviso("Sin cambios","No cambió ningún precio.");return}guardar();pintarSistema();aviso("Precios de envases guardados",`${n} precio(s) actualizado(s).`);envALocal()}}};
 // Historiales
 const histFila=x=>`<tr><td class="num">${esc(fF(x.fecha))} <span class="gris">${esc((x.fecha||"").slice(11,16))}</span></td><td>${esc(x.user||"")}</td><td><b>${esc(x.accion||"")}</b></td><td>${esc(x.detalle||"")}</td></tr>`;
 CFG_MAY.histPrecios={v(){const H=D.historialPrecios||[],B=(D.bitacora||[]).filter(x=>x.area==="precios").slice(0,200);
@@ -4389,10 +4387,10 @@ CFG_MAY.preciosLocal={v(){
     const com=(comp?g.comision:d.comision)||d.comision||{},qr=(comp?g.qr:d.qr)||d.qr||{};
     const fila=(f,campo,ro)=>{const id=LID[f.id],v=campo==="mayor"?may(id):pv(id,campo);return `<td class="pn"><span>$</span><input type="number" min="0" data-lc="${campo}|${id}" value="${v||0}" ${ro?"disabled":""}></td>`};
     z.innerHTML=`<div style="max-width:760px"><div>
-      <h3 class="sub" style="margin-top:4px">Venta al público, envases y mayorista</h3>
-      <div class="tabla-wrap cfgt"><table><thead><tr><th>Cilindro</th><th class="c">Venta al público</th><th class="c">Envase</th><th class="c">Base mayorista</th></tr></thead><tbody>
-      ${FORMATOS.map(f=>`<tr><td><b>${etC(f)}</b></td>${fila(f,"venta",false)}${fila(f,"envase",false)}${fila(f,"mayor",comp)}</tr>`).join("")}</tbody></table></div>
-      <p class="cfgp-nota" style="margin-top:6px">${comp?"La venta al público se guarda en todas estas sucursales. Al guardar el <b>Precio Base</b>, la venta al público vuelve a quedar igual al precio base. La base mayorista sale del Precio Base. Envase 0 = no se vende.":esc(locGrupo)+" tiene precios propios: aquí se cambian todos."}</p>
+      <h3 class="sub" style="margin-top:4px">Precio de venta al público</h3>
+      <div class="tabla-wrap cfgt"><table><thead><tr><th>Cilindro</th><th class="c">Venta al público</th></tr></thead><tbody>
+      ${FORMATOS.map(f=>`<tr><td><b>${etC(f)}</b></td>${fila(f,"venta",false)}</tr>`).join("")}</tbody></table></div>
+      <p class="cfgp-nota" style="margin-top:6px">${comp?"La venta al público se guarda en todas estas sucursales. Al guardar el <b>Precio Base</b>, vuelve a quedar igual al precio base. El precio de envases es uno para todos y se cambia en «Precio Envases».":esc(locGrupo)+" tiene precio de venta propio. El precio de envases es uno para todos y se cambia en «Precio Envases»."}</p>
       <h3 class="sub">Descuento QR (por unidad)</h3>
       <div class="tabla-wrap cfgt angosta"><table><tbody>${QRS_L.map(x=>`<tr><td><b>Cilindro ${x} kg</b></td><td class="pn"><span>$</span><input type="number" min="0" data-lq="${x}" value="${qr[x]||0}"></td></tr>`).join("")}</tbody></table></div></div>
 </div>
@@ -4400,8 +4398,9 @@ CFG_MAY.preciosLocal={v(){
     $("#pl-guardar").onclick=async()=>{const er=$("#pl-err");er.hidden=true;const b=$("#pl-guardar");b.disabled=true;
       const venta={},envase={},mayor={};$$("[data-lc]").forEach(i=>{if(i.disabled)return;const [c,id]=i.dataset.lc.split("|"),v=Math.max(0,Math.round(+i.value||0));({venta,envase,mayor})[c][id]=v});
       const qrN={};$$("[data-lq]").forEach(i=>qrN[i.dataset.lq]=Math.max(0,Math.round(+i.value||0)));
+      Object.assign(envase,envLocal());
       try{if(comp){const sucs={};locCompartidas().forEach(x=>sucs[lslug(x)]={venta,envase});await locPrecios({global:{qr:qrN},sucs})}
-        else await locPrecios({sucs:{[lslug(locGrupo)]:{venta,envase,mayor,qr:qrN}}});
+        else await locPrecios({sucs:{[lslug(locGrupo)]:{venta,envase,qr:qrN}}});
         log("precios","Precios del ERP Local",comp?"Sucursales: "+locCompartidas().join(", "):locGrupo);guardar();
         aviso("Precios guardados",`Se actualizaron en el ERP Local (${comp?locCompartidas().length+" sucursales":locGrupo}).`);pintarSistema()}
       catch(x){er.textContent=x.message;er.hidden=false}finally{b.disabled=false}}}};
@@ -4801,6 +4800,27 @@ function resCSV(){const [d1,d2]=rangoRes(),q=v=>`"${String(v??"").replace(/"/g,'
 
 /* ===== Informes → Venta Local: el informe que antes tenía el ERP Local ===== */
 {const v1=V.informes;V.informes=function(){if(infTab==="vlocal"){if(!esAdmin())infTab="resumen";else return cabeza("Informes",'<span class="nota" style="margin:0">Informe de las sucursales del ERP Local</span>')+tabsInf()+'<iframe id="inf-local" class="inf-local" src="local/?solo=inf" title="Informe de Venta Local"></iframe>'}return v1.apply(this,arguments)}}
+
+/* ===== Configuraciones → Sucursales: matriz y ERP Local en una sola lista ===== */
+{const s0=CFG_MAY.sucLocal,v0=s0.v,l0=s0.l;
+  s0.v=function(){let h=v0.call(this);
+    const a=V.admin(),i=a.indexOf('<form class="caja" id="f-suc"'),j=a.indexOf('<h3 style="margin-bottom:12px">Sucursales</h3>'),form=i>=0&&j>i?a.slice(i,j):"";
+    const filas=D.locales.map(x=>`<tr class="suc-mz"><td><b>${esc(x.nombre)}</b> <span class="pill">Matriz</span><small class="suc-d">Pedidos, choferes y bodega</small></td>
+      <td class="c nota">Precio Domicilio</td><td class="c nota">Bodega principal</td><td class="c"><span class="estado ${x.abierto?"abierto":"cerrado"}">${x.abierto?"Abierta":"Cerrada"}</span></td>
+      <td class="c"><button class="btn chico linea" type="button" data-editsuc="${x.id}">Editar datos</button></td></tr>`).join("");
+    h=h.replace("<h3>Sucursales del ERP Local</h3>","<h3>Sucursales</h3>")
+     .replace(/<p class="cfgp-nota">Aquí decides cuántas sucursales tiene el ERP Local\./,'<p class="cfgp-nota">Todas las sucursales en una sola lista: la <b>Casa Matriz</b> (pedidos, choferes y bodega) y los locales de <b>Venta Local</b>.')
+     .replace('<th class="c">Eliminar</th>','<th class="c">Acciones</th>')
+     .replace("<tbody>","<tbody>"+filas)
+     .replace('<section class="cfgp" id="s-sucl" style="max-width:860px">','<section class="cfgp" id="s-sucl" style="max-width:920px">'+(form?form.replace('<form class="caja" id="f-suc" style="margin-bottom:24px">','<form class="caja" id="f-suc" style="margin-bottom:16px">'):""));
+    return h+'<button type="button" id="nueva-suc" hidden></button>'};
+  s0.l=function(){const r=l0.apply(this,arguments);try{L.admin()}catch(e){}return r}}
+{const vc=V.config;V.config=function(){if(cfgTab==="sucursal"&&esAdmin())cfgTab="sucLocal";if(cfgTab==="descQR")cfgTab=esAdmin()?"preciosLocal":"precios";return vc.apply(this,arguments)}}
+
+/* Precio de envases: uno solo para la matriz y todas las sucursales del ERP Local */
+function envLocal(){const o={};FORMATOS.forEach(f=>{const id=LID[f.id];if(id)o[id]=Math.max(0,Math.round(+((D.preciosEnvase||{})[f.id])||0))});return o}
+async function envALocal(){if(!NUBE.activo||!esAdmin())return;const e=envLocal(),sucs={};LOCAL_SUCS.forEach(x=>sucs[lslug(x)]={envase:e});
+  try{await locPrecios({sucs})}catch(x){aviso("Envases del ERP Local","No se pudieron actualizar en el ERP Local: "+x.message)}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5828,6 +5848,8 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 @media print{.sis .res-top,.sis [data-copiar],.sis #res-xls{display:none!important}}
 
 .sis .inf-local{display:block;width:100%;height:calc(100vh - 190px);min-height:520px;border:1px solid #e4e8ee;border-radius:12px;background:#fff}
+
+.sis #s-sucl td:first-child{min-width:200px}.sis #s-sucl .suc-d{display:block;font-size:12px;color:#667085;margin-top:2px}.sis #s-sucl tr.suc-mz td{background:#f7f9fc}
 </style>
 </body>
 </html>
