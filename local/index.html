@@ -1043,6 +1043,32 @@ function mgUsuario(p){const per=Array.isArray(p.permisos)?p.permisos:[];
   const lp=per.filter(c=>c.startsWith('loc.')).map(c=>c.slice(4));
   const sucs=SUCS.filter(x=>per.includes('lsuc.'+slug(x))),loc=lp.filter(k=>!GLOBALP.includes(k)),ps={};sucs.forEach(x=>ps[x]=loc.slice());
   return {u:p.user,nombre:p.nombre,rol:'vendedor',perms:lp.filter(k=>GLOBALP.includes(k)&&k!=='users'),ps,verInf:lp.includes('inf'),mvmig:1,ctamig:1,p:''};}
+/* El ERP Local queda solo con Venta Local, su Rendición e Informes */
+const MG_OCULTOS=['mayor','mcta','bodega','bmov','bvmov','bedit','precios','com','phist','theme','users'];
+{const c0=can;can=function(k){if(MGU&&MG_OCULTOS.includes(k))return false;return c0(k);};}
+/* Una sola bodega: si la sucursal está unida a la bodega de la matriz, el stock es el de la matriz
+   y cada venta del local descuenta (o devuelve) allá. */
+let MGB=null;
+const mgSnap=()=>({stock:Object.fromEntries(db.products.map(p=>[p.id,+p.stock||0])),vacios:{...(db.vacios||{})},prestados:{...(db.prestados||{})}});
+function mgAplicarBodega(){if(!MGB||!db||!S.user||MGB.suc!==S.user.suc)return;
+  db.products.forEach(p=>{if(MGB.base.stock[p.id]!=null)p.stock=MGB.base.stock[p.id]});
+  db.vacios={...db.vacios,...MGB.base.vacios};db.prestados={...db.prestados,...MGB.base.prestados};}
+async function mgLeerBodega(){if(!MGU||!S.user||!READY)return;const suc=S.user.suc;
+  try{const r=await fetch(MG_API+'?a=bodega&suc='+encodeURIComponent(slug(suc)),{credentials:'same-origin',cache:'no-store'});const j=await r.json();
+    if(!r.ok||j.bodega==null){if(MGB&&MGB.suc===suc)MGB=null;return;}
+    const nuevo={stock:j.stock,vacios:j.vacios,prestados:j.prestados},cambio=!MGB||MGB.suc!==suc||JSON.stringify(MGB.base)!==JSON.stringify(nuevo);
+    MGB={suc,bodega:j.bodega,nombre:j.nombre,base:nuevo};if(cambio&&S.user&&S.user.suc===suc&&db){mgAplicarBodega();onRemote();}}catch(e){}}
+setInterval(()=>{if(!document.hidden)mgLeerBodega();},6000);
+{const s0=save;save=function(){
+  if(MGB&&db&&S.user&&MGB.suc===S.user.suc){const now=mgSnap(),d={stock:{},vacios:{},prestados:{}};let hay=false;
+    ['stock','vacios','prestados'].forEach(k=>{const ids=new Set([...Object.keys(now[k]),...Object.keys(MGB.base[k]||{})]);
+      ids.forEach(id=>{const v=(+now[k][id]||0)-(+(MGB.base[k]||{})[id]||0);if(v){d[k][id]=v;hay=true;}});});
+    if(hay){MGB.base=now;const suc=MGB.suc;
+      fetch(MG_API+'?a=bodega&suc='+encodeURIComponent(slug(suc)),{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)})
+        .then(r=>r.json()).then(j=>{if(j&&j.bodega!=null&&MGB&&MGB.suc===suc){MGB.base={stock:j.stock,vacios:j.vacios,prestados:j.prestados};mgAplicarBodega();}})
+        .catch(()=>toast('No se pudo descontar el stock en la bodega de la matriz. Revise la conexión.','err'));}}
+  return s0.apply(this,arguments);};}
+{const r0=rebuild;rebuild=function(suc,st){const x=r0.apply(this,arguments);if(MGB&&MGB.suc===suc&&S.user&&S.user.suc===suc){mgAplicarBodega();}return x;};}
 /* usuarios, permisos y claves se manejan en el ERP Matriz */
 {const f0=fixUsers;fixUsers=function(l){return MGU?l:f0(l);};}
 {const g0=go;go=function(v){if(v==='users'&&MGU)return toast('Los usuarios y permisos se manejan en ERP Matriz → Configuraciones → Usuarios.');return g0(v);};}
@@ -1062,6 +1088,8 @@ function mgAutoLogin(){
   try{sessionStorage.setItem('gl_user',JSON.stringify(S.user));}catch(e){}
   db=load(S.user.suc);setTimeout(()=>{try{presPing();}catch(e){}},0);
 }
+{const o0=onReady;onReady=function(){const x=o0.apply(this,arguments);setTimeout(mgLeerBodega,0);return x;};}
+{const c1=cambioSuc;cambioSuc=function(){MGB=null;const x=c1.apply(this,arguments);setTimeout(mgLeerBodega,600);return x;};}
 async function boot(){
   if(!(await mgGate()))return;
   fixUsers(USERS);

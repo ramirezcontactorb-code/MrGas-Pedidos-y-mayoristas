@@ -4408,17 +4408,18 @@ CFG_MAY.preciosLocal={v(){
 
 /* ===== Sucursales del ERP Local (cuántas, activas y con precios propios) ===== */
 let sucLocCargando=false,sucLocNueva=[],sucLocBorrar=new Set();
-function aplicarSucLocal(l){if(!Array.isArray(l)||!l.length)return;LOCAL_CFG=l.map(x=>({nombre:x.nombre,indep:!!x.indep,activa:x.activa!==false}));
+function aplicarSucLocal(l){if(!Array.isArray(l)||!l.length)return;LOCAL_CFG=l.map(x=>({nombre:x.nombre,indep:!!x.indep,activa:x.activa!==false,bodega:x.bodega??null}));
   LOCAL_SUCS=LOCAL_CFG.map(x=>x.nombre);LOC_INDEP=LOCAL_CFG.filter(x=>x.indep).map(x=>x.nombre)}
 async function cargarSucLocal(){if(sucLocCargando||LOCAL_CFG||!NUBE.activo||!yo||!esAdmin())return;sucLocCargando=true;
   try{const r=await fetch("local/api/docs.php?a=sucursales",{credentials:"same-origin",cache:"no-store"});const j=await r.json();if(r.ok){aplicarSucLocal(j.list);if(mod==="config")pintarSistema()}}catch(e){}finally{sucLocCargando=false}}
 {const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{cargarSucLocal()}catch(e){}return r}}
 CFG_MAY.sucLocal={v(){const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC_INDEP.includes(n),activa:true}))).concat(sucLocNueva);
   return `<section class="cfgp" id="s-sucl" style="max-width:860px"><h3>Sucursales del ERP Local</h3>
-    <p class="cfgp-nota">Aquí decides cuántas sucursales tiene el ERP Local. <b>Precios iguales</b>: usa el Precio Base y los precios de «Precio Local» de todas. <b>Precios propios</b>: se cambian aparte (como Chillán). <b>Desactivar</b> la oculta y guarda sus datos. <b>Eliminar</b> (✕) la quita del todo; si tiene ventas o stock, se pide confirmar y esos datos se borran.</p>
-    <div class="tabla-wrap cfgt"><table><thead><tr><th>Sucursal</th><th class="c">Precios</th><th class="c">Activa</th><th class="c">Eliminar</th></tr></thead><tbody>
+    <p class="cfgp-nota">Aquí decides cuántas sucursales tiene el ERP Local. <b>Precios iguales</b>: usa el Precio Base y los precios de «Precio Local» de todas. <b>Precios propios</b>: se cambian aparte (como Chillán). <b>Bodega</b>: «Misma que Casa Matriz» si es el mismo lugar; sus ventas descuentan de esa bodega y el stock no se suma dos veces (al unirla, su stock actual se pasa a la matriz). <b>Desactivar</b> la oculta y guarda sus datos. <b>Eliminar</b> (✕) la quita del todo; si tiene ventas o stock, se pide confirmar y esos datos se borran.</p>
+    <div class="tabla-wrap cfgt"><table><thead><tr><th>Sucursal</th><th class="c">Precios</th><th class="c">Bodega</th><th class="c">Activa</th><th class="c">Eliminar</th></tr></thead><tbody>
     ${L.map((x,i)=>`<tr class="${x.activa?"":"apagada"} ${sucLocBorrar.has(x.nombre)?"borrar":""}"><td><b>${esc(x.nombre)}</b>${i>=L.length-sucLocNueva.length?' <span class="pill">nueva</span>':""}${sucLocBorrar.has(x.nombre)?' <span class="pill rojo">se eliminará</span>':""}</td>
       <td class="c"><select data-sli="${i}"><option value="0" ${x.indep?"":"selected"}>Iguales a las demás</option><option value="1" ${x.indep?"selected":""}>Propios (independientes)</option></select></td>
+      <td class="c"><select data-slb="${i}" title="Si es la misma bodega de una sucursal de la matriz, su venta local descuenta de esa bodega"><option value="">Propia</option>${D.locales.map(l=>`<option value="${l.id}" ${x.bodega===l.id?"selected":""}>Misma que ${esc(l.nombre)}</option>`).join("")}</select></td>
       <td class="c"><input type="checkbox" data-sla="${i}" ${x.activa?"checked":""} aria-label="Activa ${esc(x.nombre)}"></td>
       <td class="c">${sucLocBorrar.has(x.nombre)?`<button class="btn chico linea" type="button" data-sld="${i}">Deshacer</button>`:`<button class="x-rojo" type="button" data-sld="${i}" aria-label="Eliminar ${esc(x.nombre)}">✕</button>`}</td></tr>`).join("")}
     </tbody></table></div>
@@ -4427,7 +4428,7 @@ CFG_MAY.sucLocal={v(){const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC
     ${NUBE.activo?"":'<p class="nota">Se guarda cuando el sistema está publicado en el servidor.</p>'}</section>`},
   l(){const z=$("#s-sucl");if(!z)return;
     const leer=()=>{const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC_INDEP.includes(n),activa:true}))).concat(sucLocNueva);
-      return L.map((x,i)=>({nombre:x.nombre,indep:$(`[data-sli="${i}"]`).value==="1",activa:$(`[data-sla="${i}"]`).checked}))};
+      return L.map((x,i)=>({nombre:x.nombre,indep:$(`[data-sli="${i}"]`).value==="1",activa:$(`[data-sla="${i}"]`).checked,bodega:($(`[data-slb="${i}"]`)||{}).value?+$(`[data-slb="${i}"]`).value:null}))};
     const fijar=()=>{const t=leer(),n=sucLocNueva.length;LOCAL_CFG=t.slice(0,t.length-n);sucLocNueva=t.slice(t.length-n)};
     $$("[data-sld]").forEach(b=>b.onclick=()=>{fijar();const L=LOCAL_CFG.concat(sucLocNueva),x=L[+b.dataset.sld];if(!x)return;
       const nueva=sucLocNueva.includes(x);if(nueva){sucLocNueva=sucLocNueva.filter(y=>y!==x)}else if(sucLocBorrar.has(x.nombre))sucLocBorrar.delete(x.nombre);else sucLocBorrar.add(x.nombre);pintarSistema()});
@@ -4611,7 +4612,7 @@ function sinVentasMay(fechaSel){const c=cliMay(mayCli),S=saldosMay(mayCli),mays=
 /* ===== Control de Bodega: stock de cada sucursal del ERP Local ===== */
 async function stockSucursales(){const z=$("#bd-sucs");if(!z)return;
   try{const r=await fetch("local/api/docs.php?a=sucursales",{credentials:"same-origin",cache:"no-store"});const j=await r.json();if(!r.ok)throw new Error(j.error);
-    const sucs=j.list.filter(x=>x.activa!==false).map(x=>x.nombre);const docs=await locLeer(sucs.map(n=>"suc/"+lslug(n)));if(!$("#bd-sucs"))return;
+    const sucs=j.list.filter(x=>x.activa!==false&&(x.bodega==null)).map(x=>x.nombre);const docs=await locLeer(sucs.map(n=>"suc/"+lslug(n)));if(!$("#bd-sucs"))return;
     const filas=sucs.map(n=>{const d=docs["suc/"+lslug(n)]||{},pr=d.products||[],ll={},va={},pe={};
       FORMATOS.forEach(f=>{const id=LID[f.id],p=pr.find(x=>x.id===id);ll[f.id]=p?(+p.stock||0):0;va[f.id]=+((d.vacios||{})[id]||0);pe[f.id]=+((d.prestados||{})[id]||0)});return {n,ll,va,pe,sin:!docs["suc/"+lslug(n)]}});
     const l=ensureLoc(loc(suc)),mat={n:l.nombre+" (Matriz)",ll:{...l.stock},va:{...l.vacios},pe:{...l.prestados},mz:1};
@@ -4622,8 +4623,8 @@ async function stockSucursales(){const z=$("#bd-sucs");if(!z)return;
       FORMATOS.forEach(f=>{const c=document.querySelector(`[data-tt="${f.id}"] b`);if(c)c.textContent=(T.ll[f.id]||0)+(T.va[f.id]||0)+(T.pe[f.id]||0);
         [["bl","ll"],["bv","va"],["bp","pe"]].forEach(([a,k])=>{const e=document.querySelector(`[data-${a}="${f.id}"]`);if(!e)return;const v=T[k][f.id]||0,b=e.querySelector("b");if(b){b.textContent=v;b.classList.toggle("neg",v<0)}if(a==="bl")e.classList.toggle("bajo",!!min&&v<min)})});
       [["bd-k-ll","ll"],["bd-k-va","va"],["bd-k-pe","pe"]].forEach(([id,k])=>{const e=document.getElementById(id);if(e)e.textContent=tot(T[k])});
-      const tit=document.querySelector(".bd-bod h3");if(tit&&!tit.dataset.suma){tit.dataset.suma=1;tit.insertAdjacentHTML("beforeend",` <small class="nota" style="margin:0;font-weight:500">matriz + ${filas.length} sucursal${filas.length===1?"":"es"}</small>`)}
-      const u=$("#bd-univ-t");if(u)u.innerHTML=`Llenos, vacíos y prestados = bodega matriz + ${filas.length} sucursal${filas.length===1?"":"es"} del ERP Local. Stock total: <b class="num">${gt}</b>. Los camiones van aparte.`}
+      const tit=document.querySelector(".bd-bod h3");if(tit&&!tit.dataset.suma&&filas.length){tit.dataset.suma=1;tit.insertAdjacentHTML("beforeend",` <small class="nota" style="margin:0;font-weight:500">matriz + ${filas.length} sucursal${filas.length===1?"":"es"}</small>`)}
+      const u=$("#bd-univ-t");if(u)u.innerHTML=!filas.length?`Stock total = bodega matriz (llenos + vacíos + prestados): <b class="num">${gt}</b>. Los camiones van aparte.`:`Llenos, vacíos y prestados = bodega matriz + ${filas.length} sucursal${filas.length===1?"":"es"} del ERP Local. Stock total: <b class="num">${gt}</b>. Los camiones van aparte.`}
     z.innerHTML=`<div class="bd-sh"><h3>Stock de cada sucursal</h3><span class="nota" style="margin:0">llenos por cilindro · vacíos y prestados en total</span><button class="btn chico linea" type="button" id="bd-sucs-rec">Actualizar</button></div>
     <div class="tabla-wrap"><table class="bd-st"><thead><tr><th>Sucursal</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15":f.kg+" kg"}</th>`).join("")}<th class="c">Llenos</th><th class="c">Vacíos</th><th class="c">Prestados</th><th class="c">Total</th></tr></thead><tbody>
     ${todas.map(x=>`<tr class="${x.mz?"mz":""}"><td class="nom"${x.sin?' title="Todavía no tiene datos en el ERP Local"':""}><b>${esc(x.n.replace(" (Matriz)",""))}</b>${x.mz?' <small class="nota" style="margin:0">matriz</small>':""}</td>${FORMATOS.map(f=>{const v=+x.ll[f.id]||0;return `<td class="c num ${min&&v<min&&!x.sin?"bajo":""}">${v}</td>`}).join("")}

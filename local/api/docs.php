@@ -44,6 +44,38 @@ function sucursalesLocal(): array {
     if (is_array($d['list'] ?? null) && $d['list']) return $d['list'];
     return array_map(fn($n) => ['nombre' => $n, 'indep' => $n === 'Chillán', 'activa' => true], SUCS_INICIALES);
 }
+// Una sola bodega: la sucursal del ERP Local usa el stock de la bodega de la matriz (documento estado/loc-N)
+const LMAP = ['5' => 'c5', '11' => 'c11', '15' => 'c15', '45' => 'c45', 'H15A' => 'h15a'];
+function bodegaDe(string $slug): ?int {
+    foreach (sucursalesLocal() as $x) if (slugLocal($x['nombre']) === $slug) return isset($x['bodega']) && $x['bodega'] !== null ? (int) $x['bodega'] : null;
+    return null;
+}
+function leerLoc(int $id): ?array {
+    $st = db()->prepare("SELECT data FROM docs WHERE col = 'estado' AND id = ? AND borrado = 0"); $st->execute(['loc-' . $id]);
+    $v = $st->fetchColumn(); if ($v === false) return null;
+    return ['obj' => json_decode($v, false), 'arr' => json_decode($v, true)];
+}
+function sumarLoc(int $id, array $d, ?int $autor): ?object {
+    $l = leerLoc($id); if (!$l) return null; $raiz = $l['obj']; $o = isset($raiz->v) && is_object($raiz->v) ? $raiz->v : $raiz;
+    foreach (['stock', 'vacios', 'prestados'] as $k) {
+        $o->$k = $o->$k ?? new stdClass();
+        foreach ((array) ($d[$k] ?? []) as $lid => $v) { $mid = LMAP[(string) $lid] ?? null; if (!$mid || !(int) $v) continue; $o->$k->$mid = (int) ($o->$k->$mid ?? 0) + (int) $v; }
+    }
+    $json = json_encode($raiz, JSON_UNESCAPED_UNICODE);
+    grabarDoc('estado', 'loc-' . $id, json_decode($json, true), $autor, $json);
+    return $o;
+}
+function unirBodega(string $slug, int $id, ?int $autor): void {
+    $st = db()->prepare('SELECT data FROM local_docs WHERE path = ?'); $st->execute(['suc/' . $slug]);
+    $v = $st->fetchColumn(); if ($v === false) return; $d = json_decode($v, false);
+    $suma = ['stock' => [], 'vacios' => (array) ($d->vacios ?? []), 'prestados' => (array) ($d->prestados ?? [])];
+    foreach (($d->products ?? []) as $pr) if (isset($pr->id)) { $suma['stock'][$pr->id] = (int) ($pr->stock ?? 0); $pr->stock = 0; }
+    if (!sumarLoc($id, $suma, $autor)) return;
+    $d->vacios = new stdClass(); $d->prestados = new stdClass();
+    $p = db(); $p->exec("UPDATE contadores SET valor = valor + 1 WHERE nombre = 'local'");
+    $ver = (int) $p->query("SELECT valor FROM contadores WHERE nombre = 'local'")->fetchColumn();
+    $p->prepare('UPDATE local_docs SET data = ?, ver = ? WHERE path = ?')->execute([json_encode($d, JSON_UNESCAPED_UNICODE), $ver, 'suc/' . $slug]);
+}
 function slugLocal(string $s): string {
     $s = strtolower(strtr($s, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u','ñ'=>'n','Ñ'=>'n','ü'=>'u','Ü'=>'u']));
     return preg_replace('/\s+/', '_', $s);
@@ -114,7 +146,7 @@ try {
             $k = slugLocal($n);
             if (isset($vistos[$k])) salida(['error' => 'La sucursal «' . $n . '» está repetida.'], 400);
             $vistos[$k] = 1;
-            $l[] = ['nombre' => $n, 'indep' => !empty($x['indep']), 'activa' => !array_key_exists('activa', $x) || !empty($x['activa'])];
+            $l[] = ['nombre' => $n, 'indep' => !empty($x['indep']), 'activa' => !array_key_exists('activa', $x) || !empty($x['activa']), 'bodega' => isset($x['bodega']) && $x['bodega'] !== '' && $x['bodega'] !== null ? (int) $x['bodega'] : null];
         }
         // Sucursales eliminadas: si tienen datos, hay que confirmar escribiendo el nombre (se borran sus ventas, rendiciones y bodega)
         $confirmadas = array_map('slugLocal', (array) ($b['borrar'] ?? []));
@@ -133,8 +165,28 @@ try {
         $p->prepare(esSqlite() ? 'INSERT OR REPLACE INTO local_docs (path, data, ver) VALUES (?, ?, ?)'
             : 'INSERT INTO local_docs (path, data, ver) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), ver = VALUES(ver)')->execute(['app/sucursales', json_encode(['list' => $l], JSON_UNESCAPED_UNICODE), $ver]);
         foreach ($aBorrar as $k) $p->prepare("DELETE FROM local_docs WHERE path = ? OR path LIKE ?")->execute(['suc/' . $k, 'suc/' . $k . '/%']);
+        // al unir una sucursal a la bodega de la matriz, su stock se suma a la matriz (una sola bodega)
+        foreach ($l as $x) {
+            $antes = $ant[$x['nombre']]['bodega'] ?? null;
+            if ($x['bodega'] !== null && $antes === null) unirBodega(slugLocal($x['nombre']), $x['bodega'], (int) $q['perfil']['uid']);
+        }
         $p->commit();
         salida(['ok' => true, 'list' => $l, 'borradas' => $aBorrar]);
+    }
+    // Bodega compartida con la matriz: leer el stock y aplicar los cambios de las ventas del local
+    if ($a === 'bodega') {
+        $slug = preg_replace('/[^a-z0-9_]/', '', (string) ($_GET['suc'] ?? ''));
+        $bid = bodegaDe($slug);
+        if ($bid === null) salida(['bodega' => null]);
+        if ($q['perfil']['rol'] !== 'admin' && !in_array('lsuc.' . $slug, $q['perfil']['permisos'] ?? [], true)) salida(['error' => 'Sin permiso para esta sucursal.'], 403);
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $b = json_decode(file_get_contents('php://input') ?: '{}', true) ?: [];
+            $p = db(); $p->beginTransaction(); $o = sumarLoc($bid, $b, (int) $q['perfil']['uid']); $p->commit();
+        } else { $l = leerLoc($bid); $o = $l ? (isset($l['obj']->v) && is_object($l['obj']->v) ? $l['obj']->v : $l['obj']) : null; }
+        if (!$o) salida(['error' => 'No se encontró la bodega de la matriz.'], 404);
+        $out = ['bodega' => $bid, 'nombre' => $o->nombre ?? '', 'stock' => [], 'vacios' => [], 'prestados' => []];
+        foreach (LMAP as $lid => $mid) foreach (['stock', 'vacios', 'prestados'] as $k) $out[$k][$lid] = (int) ($o->$k->$mid ?? 0);
+        salida($out);
     }
     if ($a === 'precios' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($q['perfil']['rol'] !== 'admin') salida(['error' => 'Solo el administrador puede cambiar precios del ERP Local.'], 403);
