@@ -1512,7 +1512,7 @@ function vistaRend(r,fechaSel){
   </aside></div></fieldset>`;
 }
 
-function tabsInf(){return `<div class="tabs" role="tablist">${[["catalogo","Informes"],["resumen","Resumen"],["diario","Registro diario del mes"]].map(([k,v])=>`<button type="button" role="tab" data-itab="${k}" aria-selected="${infTab===k}">${v}</button>`).join("")}</div>`}
+function tabsInf(){return `<div class="tabs" role="tablist">${[["resumen","Resumen"],["catalogo","Informes"],["diario","Registro diario del mes"]].map(([k,v])=>`<button type="button" role="tab" data-itab="${k}" aria-selected="${infTab===k}">${v}</button>`).join("")}</div>`}
 const Gr=(arr,k)=>arr.reduce((m,x)=>{const key=k(x);(m[key]=m[key]||[]).push(x);return m},{});
 const itsDe=ps=>ps.flatMap(items);
 const uniDe=its=>its.reduce((s,i)=>s+(i.cant||0),0);
@@ -2438,7 +2438,7 @@ let bvIni=null,bvFin=null;
 let chTab="ruta",chFecha=null,chFiltro="todos",bTab="stock",bIni=null,bFin=null,bChofer=null;
 let cjTab="venta";
 let cargaCh=null,distSel=null,liqDesde=null,liqHasta=null,compTipo="factura",compDesde=null,compHasta=null,compFiltro="";
-let cfgTab="choferes",cfgCh=null,cuadTab="menu",cuadSel=null,pagoTipo="efectivo",infTab="catalogo",infMes=null,infDia=null;
+let cfgTab="choferes",cfgCh=null,cuadTab="menu",cuadSel=null,pagoTipo="efectivo",infTab="resumen",infMes=null,infDia=null;
 let editUser=null,infRep=null,repDesde=null,repHasta=null,petMes=null,ocultarMovil=false,autoRefresco=true;
 let rutaVista="pend",rutaChofer=null,pTab="nuevo",choferSel=null,fechaCuad=null,periodoInf="0",alcanceInf="suc",editSuc=null;
 
@@ -3697,7 +3697,7 @@ CFG_MAY.descQR={v(){D.descQR=D.descQR||{};return `<form class="cfgp" id="f-qr"><
    Si la pantalla no cabe, la tabla más larga se achica y se desplaza dentro de su cuadro. */
 function ajustarPantalla(){const main=document.getElementById("sis-main");if(!main)return;
   main.querySelectorAll(".tabla-wrap[data-fit]").forEach(t=>{t.style.maxHeight="";t.removeAttribute("data-fit")});
-  if(innerWidth<900||innerHeight<500||main.querySelector(".cfgp"))return;
+  if(innerWidth<900||innerHeight<500||main.querySelector(".cfgp,.res-ks"))return;
   for(let i=0;i<5;i++){const over=document.documentElement.scrollHeight-innerHeight;if(over<=2)break;
     const ts=[...main.querySelectorAll(".tabla-wrap")].filter(t=>!t.dataset.fit&&t.offsetHeight>190&&t.offsetParent).sort((a,b)=>b.offsetHeight-a.offsetHeight);if(!ts.length)break;
     const t=ts[0],h=Math.max(170,t.offsetHeight-over-4);t.style.maxHeight=h+"px";t.style.overflow="auto";t.dataset.fit=1}}
@@ -4656,6 +4656,62 @@ function editarStockBodega(){const l=ensureLoc(loc(suc));
   try{if(bTab==="stock"&&!soloVer("bodega")){const h=document.querySelector(".bd-bod h3");if(h&&!document.getElementById("bd-editar")){
     h.insertAdjacentHTML("afterend",'<button class="btn chico linea" type="button" id="bd-editar">✎ Editar stock</button>');document.getElementById("bd-editar").onclick=editarStockBodega}}}catch(e){}
   return r}}
+
+/* ===== Informes → Resumen: cuadros por canal y gráficos de barras ===== */
+let resPer="7",resLocal=null,resLocalKey="",resCargando=false;
+const LID2={"5":"c5","11":"c11","15":"c15","45":"c45","H15A":"h15a"};
+function rangoRes(){const h=hoyStr(),d=new Date(h+"T12:00");
+  if(resPer==="mes")return [h.slice(0,8)+"01",h];if(resPer==="0")return [h,h];d.setDate(d.getDate()-(+resPer-1));return [fechaISO(d),h]}
+async function cargarResLocal(){const [d1,d2]=rangoRes(),k=d1+"|"+d2;if(resCargando||resLocalKey===k||!NUBE.activo)return;resCargando=true;
+  try{const r=await fetch(`local/api/docs.php?a=resumen&desde=${d1}&hasta=${d2}`,{credentials:"same-origin",cache:"no-store"});const j=await r.json();
+    resLocal=r.ok?j.dias||{}:{error:j.error||"sin acceso"};}catch(e){resLocal={error:"sin conexión"}}resLocalKey=k;resCargando=false;if(mod==="informes"&&infTab==="resumen")pintarSistema()}
+function datosResumen(){const [d1,d2]=rangoRes(),ids=misSucs(),dias=[];{const d=new Date(d1+"T12:00"),f=new Date(d2+"T12:00");while(d<=f&&dias.length<62){dias.push(fechaISO(d));d.setDate(d.getDate()+1)}}
+  const z=()=>({monto:0,cil:Object.fromEntries(FORMATOS.map(f=>[f.id,0])),mon:Object.fromEntries(FORMATOS.map(f=>[f.id,0])),env:0,envn:0,desc:0,n:0}),C={local:z(),chofer:z(),may:z()},porDia=Object.fromEntries(dias.map(d=>[d,{local:0,chofer:0,may:0}]));
+  const en=f=>f>=d1&&f<=d2;
+  (D.rendiciones||[]).filter(r=>r.tipo==="movil"&&ids.includes(r.local)&&en(r.fecha)).forEach(r=>{const v=calcRend(r).venta;C.chofer.monto+=v;C.chofer.n++;if(porDia[r.fecha])porDia[r.fecha].chofer+=v;FORMATOS.forEach(f=>{const q=r.ventas[f.id]||0;C.chofer.cil[f.id]+=q;C.chofer.mon[f.id]+=q*(r.precios[f.id]||0);const e=(r.envases||{})[f.id]||0;C.chofer.envn+=e;C.chofer.env+=e*((r.precioEnv||{})[f.id]||0)})});
+  (D.cargasDist||[]).filter(x=>!x.anulada&&ids.includes(x.local)&&en(x.fecha)).forEach(x=>{const v=valorDist(x);C.may.monto+=v;C.may.n++;C.may.desc+=+x.dcto||0;if(porDia[x.fecha])porDia[x.fecha].may+=v;FORMATOS.forEach(f=>{const q=x.venta[f.id]||0;C.may.cil[f.id]+=q;C.may.mon[f.id]+=q*((x.precios||{})[f.id]??precioCliMay(cliMay(x.mayorista),f.id));const e=(x.env||{})[f.id]||0;C.may.envn+=e;C.may.env+=e*((x.precioEnv||{})[f.id]||0)})});
+  D.ventas.filter(v=>ids.includes(v.local)&&en(v.fecha.slice(0,10))).forEach(v=>{const m=montoV(v);C.local.monto+=m;C.local.n++;const d=v.fecha.slice(0,10);if(porDia[d])porDia[d].local+=m;C.local.cil[v.formato]=(C.local.cil[v.formato]||0)+v.cant;C.local.mon[v.formato]=(C.local.mon[v.formato]||0)+v.precio*v.cant;C.local.envn+=v.env||0;C.local.env+=(v.env||0)*(v.precioEnv||0);C.local.desc+=v.dcto||0});
+  if(resLocal&&!resLocal.error)Object.entries(resLocal).forEach(([d,o])=>{C.local.monto+=o.total||0;if(porDia[d])porDia[d].local+=o.total||0;Object.entries(o.cil||{}).forEach(([id,q])=>{const k=LID2[id];if(k)C.local.cil[k]+=q});Object.entries(o.mon||{}).forEach(([id,q])=>{const k=LID2[id];if(k)C.local.mon[k]+=q});C.local.env+=o.env||0;C.local.envn+=o.envn||0;C.local.desc+=o.desc||0;C.local.n+=o.n||0});
+  return {dias,C,porDia,d1,d2}}
+const RES_COL={local:"#1a66d6",chofer:"#12b76a",may:"#f79009"},RES_TXT={local:"Venta local",chofer:"Venta choferes",may:"Venta mayorista"};
+function barrasDias(dias,porDia,canales){const W=760,H=230,pl=56,pb=26,pt=10,max=Math.max(1,...dias.map(d=>canales.reduce((s,k)=>s+porDia[d][k],0))),bw=(W-pl-10)/dias.length;
+  const paso=Math.pow(10,Math.floor(Math.log10(max))),tope=Math.ceil(max/paso)*paso,y=v=>H-pb-(v/tope)*(H-pb-pt);
+  let g="";for(let i=0;i<=4;i++){const v=tope*i/4,yy=y(v);g+=`<line x1="${pl}" x2="${W-6}" y1="${yy}" y2="${yy}" class="gl"/><text x="${pl-6}" y="${yy+4}" text-anchor="end" class="ax">${v>=1e6?(v/1e6).toFixed(1)+"M":v>=1e3?Math.round(v/1e3)+"k":v}</text>`}
+  const cada=Math.ceil(dias.length/12);
+  dias.forEach((d,i)=>{let acc=0;const x=pl+i*bw+bw*.15,w=bw*.7;
+    canales.forEach(k=>{const v=porDia[d][k];if(!v)return;const y1=y(acc+v),y0=y(acc);acc+=v;g+=`<rect x="${x}" y="${y1}" width="${w}" height="${Math.max(0,y0-y1)}" fill="${RES_COL[k]}" rx="2"><title>${fF(d)} · ${RES_TXT[k]}: ${clp(v)}</title></rect>`});
+    if(i%cada===0)g+=`<text x="${x+w/2}" y="${H-8}" text-anchor="middle" class="ax">${d.slice(8,10)}/${d.slice(5,7)}</text>`});
+  return `<svg viewBox="0 0 ${W} ${H}" class="res-svg" role="img" aria-label="Ventas por día">${g}</svg>`}
+function barrasCil(C,canales){const W=760,H=200,pl=70,pr=60,filas=FORMATOS.length,fh=(H-10)/filas,max=Math.max(1,...FORMATOS.map(f=>canales.reduce((s,k)=>s+C[k].cil[f.id],0)));let g="";
+  FORMATOS.forEach((f,i)=>{let acc=0;const y=6+i*fh,h=fh*.62;g+=`<text x="${pl-8}" y="${y+h/2+4}" text-anchor="end" class="lb">${f.tipo==="h"?"H15":f.kg+" kg"}</text>`;
+    canales.forEach(k=>{const v=C[k].cil[f.id];if(!v)return;const x=pl+acc/max*(W-pl-pr),w=v/max*(W-pl-pr);acc+=v;g+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${RES_COL[k]}" rx="2"><title>${f.et} · ${RES_TXT[k]}: ${v}</title></rect>`});
+    g+=`<text x="${pl+acc/max*(W-pl-pr)+6}" y="${y+h/2+4}" class="vl">${acc}</text>`});
+  return `<svg viewBox="0 0 ${W} ${H}" class="res-svg" role="img" aria-label="Cilindros por formato">${g}</svg>`}
+function vistaResumenInf(){cargarResLocal();const R=datosResumen(),C=R.C,canales=["local","chofer",...(D.precios&&D.precios.sinMayorista?[]:["may"])];
+  const tot=canales.reduce((s,k)=>s+C[k].monto,0),cil=k=>FORMATOS.reduce((s,f)=>s+C[k].cil[f.id],0),kg=k=>FORMATOS.reduce((s,f)=>s+C[k].cil[f.id]*f.kg,0);
+  const filtros=`<div class="acc"><label>Período<select id="res-per">${[["0","Hoy"],["7","Últimos 7 días"],["30","Últimos 30 días"],["mes","Este mes"]].map(([v,t])=>`<option value="${v}" ${resPer===v?"selected":""}>${t}</option>`).join("")}</select></label></div>`;
+  const carta=(k)=>`<div class="res-k" style="--c:${RES_COL[k]}"><span>${RES_TXT[k]}</span><b class="num">${clp(C[k].monto)}</b><small>${cil(k)} cilindros · ${kg(k).toLocaleString("es-CL")} kg · ${tot?Math.round(C[k].monto/tot*100):0}%</small></div>`;
+  const aviso=resLocal&&resLocal.error?`<p class="nota" style="margin:0 0 8px">No se pudo leer la venta del ERP Local (${esc(resLocal.error)}).</p>`:(!resLocal&&NUBE.activo?'<p class="nota" style="margin:0 0 8px">Cargando venta del ERP Local…</p>':"");
+  const ley=`<div class="res-ley">${canales.map(k=>`<span><i style="background:${RES_COL[k]}"></i>${RES_TXT[k]}</span>`).join("")}</div>`;
+  return cabeza("Informes",filtros)+tabsInf()+aviso+`<div class="res-ks">${canales.map(carta).join("")}<div class="res-k tot"><span>Total vendido</span><b class="num">${clp(tot)}</b><small>${canales.reduce((s,k)=>s+cil(k),0)} cilindros · ${fF(R.d1)}${R.d1!==R.d2?" al "+fF(R.d2):""}</small></div></div>
+  ${tablaResumen(C,canales)}
+  <div class="res-g"><section class="caja"><div class="res-h"><h3>Ventas por día</h3>${ley}</div>${barrasDias(R.dias,R.porDia,canales)}</section>
+  <section class="caja"><div class="res-h"><h3>Cilindros vendidos por formato</h3>${ley}</div>${barrasCil(C,canales)}</section></div>`}
+{const v0=V.informes;V.informes=function(){if(infTab==="resumen")return vistaResumenInf();return v0.apply(this,arguments)}}
+{const l0=L.informes;L.informes=function(){const r=l0?l0.apply(this,arguments):undefined;const s=$("#res-per");if(s)s.onchange=()=>{resPer=s.value;resLocalKey="";resLocal=null;pintarSistema()};return r}}
+
+function tablaResumen(C,canales){const sum=(fn)=>canales.reduce((s,k)=>s+fn(C[k]),0),un=n=>n?n.toLocaleString("es-CL"):"–";
+  const fila=(t,fn,fm,cls)=>`<tr class="${cls||""}"><td>${t}</td>${canales.map(k=>`<td class="der num">${fm(fn(C[k]))}</td>`).join("")}<td class="der num"><b>${fm(sum(fn))}</b></td></tr>`;
+  const pesos=v=>v?clp(v):"–";
+  return `<section class="caja res-tab"><div class="res-h"><h3>Resumen de ventas</h3><span class="nota" style="margin:0">unidades y montos por formato y canal</span></div>
+  <div class="tabla-wrap"><table><thead><tr><th>Detalle</th>${canales.map(k=>`<th class="der"><i class="res-dot" style="background:${RES_COL[k]}"></i>${RES_TXT[k]}</th>`).join("")}<th class="der">Total</th></tr></thead><tbody>
+  ${FORMATOS.map(f=>`<tr><td><b>${f.tipo==="h"?"H15":f.kg+" kg"}</b></td>${canales.map(k=>`<td class="der num">${un(C[k].cil[f.id])}<small>${C[k].mon[f.id]?clp(C[k].mon[f.id]):""}</small></td>`).join("")}<td class="der num"><b>${un(sum(c=>c.cil[f.id]))}</b><small>${pesos(sum(c=>c.mon[f.id]))}</small></td></tr>`).join("")}
+  ${fila("Cilindros",c=>FORMATOS.reduce((s,f)=>s+c.cil[f.id],0),un,"sub")}
+  ${fila("Kilos de gas",c=>FORMATOS.reduce((s,f)=>s+c.cil[f.id]*f.kg,0),v=>v?v.toLocaleString("es-CL")+" kg":"–")}
+  ${fila("Venta de envases",c=>c.env,pesos)}
+  ${fila("Descuentos",c=>c.desc,v=>v?"−"+clp(v):"–")}
+  ${fila("Total vendido",c=>c.monto,pesos,"tot")}
+  </tbody></table></div></section>`}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5649,6 +5705,25 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 
 .sis .bd-bod{position:relative}.sis #bd-editar{position:absolute;right:16px;top:12px}
 #dl-stock{width:min(820px,94vw)!important;max-width:94vw!important;overflow:auto}#dl-stock form{min-width:0;width:100%}#dl-stock .tabla-wrap{overflow-x:auto}#dl-stock .es-t td,#dl-stock .es-t th{padding:4px 6px}#dl-stock .es-t input{width:82px;text-align:center;padding:6px}
+
+.sis .res-ks{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:12px}
+.sis .res-k{background:#fff;border:1px solid #e4e8ee;border-top:4px solid var(--c);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}
+.sis .res-k span{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#667085}
+.sis .res-k b{font-size:24px;color:#101828}.sis .res-k small{color:#667085;font-size:12px}
+.sis .res-k.tot{border-top-color:#0a2557;background:#f5f8fd}.sis .res-k.tot b{color:#0a2557}
+.sis .res-g{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:12px}
+@media (max-width:1100px){.sis .res-g{grid-template-columns:minmax(0,1fr)}}
+.sis .res-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}.sis .res-h h3{margin:0}
+.sis .res-ley{display:flex;gap:12px;font-size:12px;color:#344054}.sis .res-ley i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.sis .res-svg{width:100%;height:auto;display:block}.sis .res-svg .gl{stroke:#eef0f3}.sis .res-svg .ax{font:11px system-ui,sans-serif;fill:#667085}
+.sis .res-svg .lb{font:600 12px system-ui,sans-serif;fill:#344054}.sis .res-svg .vl{font:600 12px "JetBrains Mono",monospace;fill:#101828}
+
+.sis .res-tab{margin-bottom:12px;padding:12px 16px}
+.sis .res-tab td small{display:block;font-size:11px;color:#667085;font-family:"JetBrains Mono",monospace}
+.sis .res-tab td,.sis .res-tab th{padding:6px 10px}
+.sis .res-tab tr.sub td{border-top:1.5px solid #d0d7e2;font-weight:600}
+.sis .res-tab tr.tot td{background:#f5f8fd;font-weight:700;color:#0a2557;border-top:1.5px solid #c3d4ef}
+.sis .res-dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:0}
 </style>
 </body>
 </html>

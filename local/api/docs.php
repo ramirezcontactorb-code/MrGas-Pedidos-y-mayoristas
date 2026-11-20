@@ -188,6 +188,27 @@ try {
         foreach (LMAP as $lid => $mid) foreach (['stock', 'vacios', 'prestados'] as $k) $out[$k][$lid] = (int) ($o->$k->$mid ?? 0);
         salida($out);
     }
+    // Resumen para Informes del ERP Matriz: ventas del local por día (sin anuladas)
+    if ($a === 'resumen') {
+        $d1 = preg_replace('/[^0-9-]/', '', (string) ($_GET['desde'] ?? '')); $d2 = preg_replace('/[^0-9-]/', '', (string) ($_GET['hasta'] ?? ''));
+        $st = db()->prepare("SELECT path, data FROM local_docs WHERE path LIKE 'suc/%/ventas/%'"); $st->execute();
+        $out = [];
+        foreach ($st as $r) {
+            $f = substr($r['path'], strrpos($r['path'], '/') + 1);
+            if ($f < $d1 || $f > $d2) continue;
+            $suc = explode('/', $r['path'])[1];
+            $d = json_decode($r['data'], true);
+            foreach (($d['list'] ?? []) as $v) {
+                if (!empty($v['anulada'])) continue;
+                $o = &$out[$f]; $o['total'] = ($o['total'] ?? 0) + (int) ($v['total'] ?? 0); $o['n'] = ($o['n'] ?? 0) + 1;
+                foreach (($v['items'] ?? []) as $id => $q) { $o['cil'][$id] = ($o['cil'][$id] ?? 0) + (int) $q; $o['mon'][$id] = ($o['mon'][$id] ?? 0) + (int) $q * (int) ($v['precios'][$id] ?? 0); }
+                foreach (($v['env'] ?? []) as $id => $q) { $o['env'] = ($o['env'] ?? 0) + (int) $q * (int) ($v['penv'][$id] ?? 0); $o['envn'] = ($o['envn'] ?? 0) + (int) $q; }
+                $o['desc'] = ($o['desc'] ?? 0) + (int) ($v['desc'] ?? 0);
+                $o['suc'][$suc] = ($o['suc'][$suc] ?? 0) + (int) ($v['total'] ?? 0); unset($o);
+            }
+        }
+        salida(['dias' => $out]);
+    }
     if ($a === 'precios' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($q['perfil']['rol'] !== 'admin') salida(['error' => 'Solo el administrador puede cambiar precios del ERP Local.'], 403);
         $b = json_decode(file_get_contents('php://input') ?: '{}', false);
