@@ -1310,6 +1310,7 @@ const soloVer=id=>!!yo&&yo.rol==="encargado"&&Array.isArray(yo.permisos)&&yo.per
 const misSucs=()=>!yo?[]:esAdmin()?D.locales.map(l=>l.id):((yo.sucursales&&yo.sucursales.length)?yo.sucursales:[yo.local]).filter(x=>x!=null);
 var infPor=null,respOk=false;
 const puede=id=>{
+  if(id==="mayorista"&&D.precios&&D.precios.sinMayorista)return false; // desactivada en Configuraciones
   if(id==="informes"&&infPor&&yo&&yo.rol==="encargado")return true;
   if(id==="sucursal")return D.locales.length>1&&(esAdmin()||misSucs().length>1);
   if(id==="sectorizar"&&(!yo||yo.rol!=="encargado"||!esV2(yo.permisos)))return !!yo&&esAdmin();
@@ -2356,7 +2357,10 @@ const V={
         <div style="min-width:0"><div class="tabla-wrap"><table><thead><tr><th>Chofer</th><th>Patente</th><th>Teléfono</th>${multi?"<th>Sucursal</th>":""}<th>Estado</th><th></th></tr></thead><tbody>
           ${D.choferes.slice().sort((a,b)=>(a.activo===false)-(b.activo===false)||a.nombre.localeCompare(b.nombre)).map(fila).join("")||'<tr><td colspan="6">Todavía no hay choferes. Agregue el primero.</td></tr>'}</tbody></table></div>
           <p class="nota">${D.choferes.filter(c=>c.activo!==false).length} activos de ${D.choferes.length}. Un chofer desactivado no recibe pedidos, pero se mantiene su historial.</p></div></div>`}
-    return cabeza("Configuraciones")+tabs+`<form class="caja" id="f-config" style="max-width:520px"><h3>Alertas de stock</h3>
+    return cabeza("Configuraciones")+tabs+(esAdmin()?`<form class="caja" id="f-mods" style="max-width:520px;margin-bottom:16px"><h3>Módulos</h3>
+      <label class="radio"><input type="checkbox" id="md-may" ${D.precios.sinMayorista?"":"checked"}> <b>Venta Mayorista</b> activa</label>
+      <p class="nota" style="margin:4px 0 0">Si la desactiva, «Venta Mayorista» desaparece del menú para todos, junto con Clientes, Precios Mayoristas y Comisión Vales en Configuraciones. Los datos no se borran: al activarla de nuevo vuelve todo como estaba.</p>
+      <p class="aviso ok" id="md-ok" hidden></p></form>`:"")+`<form class="caja" id="f-config" style="max-width:520px"><h3>Alertas de stock</h3>
       <label>Stock mínimo por formato<input class="num" type="number" min="0" id="pr-minimo" value="${D.precios.minimo}"></label>
       <h3 style="margin-top:8px">Precio de venta de envases</h3>
       <div class="fila">${FORMATOS.map(f=>`<label>Envase ${f.et} (CLP)<input class="num" type="number" min="0" id="pe-${f.id}" value="${(D.preciosEnvase||{})[f.id]||0}"></label>`).join("")}</div>
@@ -2738,6 +2742,8 @@ const L={
     $("#f-sectores").onsubmit=e=>{e.preventDefault();D.sectores.forEach(x=>{x.nombre=$(`[data-sn="${x.id}"]`).value.trim()||x.nombre;x.comunas=$(`[data-sc="${x.id}"]`).value.split(",").map(c=>c.trim()).filter(Boolean)});guardar();$("#sec-ok").hidden=false};
     $("#sec-nuevo").onclick=()=>{D.sectores.push({id:nuevoId(D.sectores),nombre:"Nuevo sector",comunas:[]});guardar();pintarSistema()};
     $$("[data-delsec]").forEach(b=>b.onclick=()=>confirmar(b,()=>{D.sectores=D.sectores.filter(x=>x.id!==+b.dataset.delsec);guardar();pintarSistema()}));
+    {const m=$("#md-may");if(m)m.onchange=()=>{if(m.checked)delete D.precios.sinMayorista;else D.precios.sinMayorista=true;
+      log("sistema",m.checked?"Venta Mayorista activada":"Venta Mayorista desactivada","");guardar();pintarSistema();const o=$("#md-ok");if(o){o.textContent=m.checked?"Venta Mayorista activada.":"Venta Mayorista desactivada.";o.hidden=false}}}
     $("#f-config").onsubmit=e=>{e.preventDefault();D.precios.minimo=Math.max(0,+$("#pr-minimo").value||0);D.preciosEnvase=D.preciosEnvase||{};FORMATOS.forEach(f=>D.preciosEnvase[f.id]=Math.max(0,+$("#pe-"+f.id).value||0));guardar();$("#pr-ok").hidden=false}},
   admin(){
     $("#nueva-suc").onclick=()=>{const id=nuevoId(D.locales);D.locales.push({id,nombre:"Nueva sucursal",dir:"",comuna:"",fono:"",encargado:"Por asignar",horario:"",abierto:false,stock:st(0,0,0,0)});editSuc=id;guardar();pintarPublico();pintarSistema()};
@@ -2923,7 +2929,7 @@ function enlazarSector(){
 V.sectorizar=vistaSector;L.sectorizar=enlazarSector;
 
 /* ===================== SECTORIZAR POR CALLES (mapa detallado, datos OpenStreetMap) ===================== */
-const FOCO_RM=["Santiago","Estación Central","Recoleta","Independencia","Conchalí","Quinta Normal","Cerrillos","Padre Hurtado","Peñaflor"];
+const FOCO_RM=["Santiago","Estación Central","Recoleta","Independencia","Conchalí","Quinta Normal","Cerrillos","Padre Hurtado","Peñaflor","Alhué","Buin","Calera de Tango","Cerro Navia","Colina","Curacaví","El Bosque","El Monte","Huechuraba","Isla de Maipo","La Cisterna","La Florida","La Granja","La Pintana","La Reina","Lampa","Las Condes","Lo Barnechea","Lo Espejo","Lo Prado","Macul","Maipú","María Pinto","Melipilla","Ñuñoa","Paine","Pedro Aguirre Cerda","Peñalolén","Pirque","Providencia","Pudahuel","Puente Alto","Quilicura","Renca","San Bernardo","San Joaquín","San José de Maipo","San Miguel","San Pedro","San Ramón","Talagante","Tiltil","Vitacura"]; // mismo orden que calles-rm.json (52 comunas de la RM)
 let CALLES=null,CALLES_CARGANDO=null,szTab="calles";
 const LON0=-70.70,LAT0=-33.48,KX=Math.cos(33.48*Math.PI/180)*111320,KY=110540;
 const aMundo=(lon,lat)=>[(lon-LON0)*KX,-(lat-LAT0)*KY],aLonLat=(x,y)=>[x/KX+LON0,-y/KY+LAT0];
@@ -2932,13 +2938,16 @@ const ABREV={sn:"san",stgo:"santiago",avd:"",ave:"",prof:"profesor",ing:"ingenie
 function normCalle(t){const w=sinTilde(t).replace(/[’'´`]/g,"").replace(/[^a-z0-9 ]/g," ").split(/\s+/).filter(Boolean).map(x=>ABREV[x]??x).filter(Boolean);
   const r=w.join(" ");return r==="alameda"||r==="alameda libertador bernardo ohiggins"?"libertador bernardo ohiggins":r}
 function cargarCalles(){if(CALLES)return Promise.resolve(CALLES);if(CALLES_CARGANDO)return CALLES_CARGANDO;
-  const porScript=()=>new Promise((ok,ko)=>{const s=document.createElement("script");s.src="calles-rm.js";s.onload=()=>window.CALLES_RM?ok(window.CALLES_RM):ko(new Error("sin datos"));s.onerror=()=>ko(new Error("sin datos"));document.head.appendChild(s)});
-  const fuente=window.CALLES_RM?Promise.resolve(window.CALLES_RM):fetch("calles-rm.json").then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).catch(porScript);
+  const porScript=()=>new Promise((ok,ko)=>{const s=document.createElement("script");s.src="calles-rm.js?v=rm52";s.onload=()=>window.CALLES_RM?ok(window.CALLES_RM):ko(new Error("sin datos"));s.onerror=()=>ko(new Error("sin datos"));document.head.appendChild(s)});
+  const fuente=window.CALLES_RM?Promise.resolve(window.CALLES_RM):fetch("calles-rm.json?v=rm52").then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).catch(porScript);
   CALLES_CARGANDO=fuente.then(d=>{CALLES=prepCalles(d);
     if(!D.zonas){D.zonas=(d.zonasEjemplo||[]).map((z,i)=>({id:i+1,nombre:z.nombre,sector:z.sector,pts:z.pts}));guardar()}
     geoCache.clear();return CALLES}).catch(e=>{CALLES_CARGANDO=null;throw e});
   return CALLES_CARGANDO}
 function prepCalles(d){
+  /* formato compacto (toda la RM): calles y direcciones agrupadas por nombre */
+  if(d.cg&&!d.calles){d.calles=[];d.cg.forEach(([n,l])=>l.forEach(([cl,cm,a])=>d.calles.push([n,cl,cm,a])))}
+  if(d.dg&&!d.dirs){d.dirs=[];d.dg.forEach(([s,v])=>{let x=0,y=0;for(let i=0;i<v.length;i+=4){x+=v[i+2];y+=v[i+3];d.dirs.push([s,v[i],v[i+1],x,y])}})}
   const bb=pts=>{let a=1e9,b=1e9,c=-1e9,e=-1e9;pts.forEach(([x,y])=>{if(x<a)a=x;if(y<b)b=y;if(x>c)c=x;if(y>e)e=y});return [a,b,c,e]};
   const calles=d.calles.map(([n,cl,cm,a])=>{const ll=decRM(a),pts=ll.map(q=>aMundo(q[0],q[1]));return {n,cl,cm,ll,pts,bb:bb(pts),k:normCalle(n)}});
   const comunas=d.comunas.map(([n,polys])=>{const pp=polys.map(p=>decRM(p).map(q=>aMundo(q[0],q[1])));return {n,pp,bb:bb(pp.flat())}});
@@ -3007,7 +3016,7 @@ function tablaCamiones(act,SEC){const T=topeCamion();return `<div class="caja"><
     <td><details class="apoyo-sel"><summary>${ap.length?ap.map(id=>esc(nomSector(id))).join(", "):"—"}</summary><div>${SEC.filter(x=>x.id!==c.sector).map(x=>`<label class="radio"><input type="checkbox" data-apoyo="${c.id}" value="${x.id}" ${ap.includes(x.id)?"checked":""}><span class="sw" style="background:${colSector(x.id)}"></span>${esc(x.nombre)}</label>`).join("")||'<span class="nota">No hay otros sectores.</span>'}</div></details></td>
     <td class="der"><span class="carga ${n>=T?"llena":n>=T-1?"casi":""} num">${n}/${T}</span></td></tr>`}).join("")||'<tr><td colspan="4">No hay camiones en esta sucursal.</td></tr>'}</tbody></table></div></div>`}
 function vistaCalles(){
-  if(!CALLES)return `<div class="caja sz-cargando" id="sz-carga"><b>Cargando el mapa de calles…</b><span class="nota" style="margin:0">${FOCO_RM.join(", ")}</span></div>`;
+  if(!CALLES)return `<div class="caja sz-cargando" id="sz-carga"><b>Cargando el mapa de calles…</b><span class="nota" style="margin:0">Región Metropolitana · ${FOCO_RM.length} comunas</span></div>`;
   const ps=pedidosSuc(),pend=ps.filter(p=>p.estado==="pendiente"),ruta=ps.filter(p=>p.estado==="ruta"),SEC=D.sectores||[],act=chOrden().filter(c=>c.local===suc),zs=D.zonas||[];
   const opSec=(sel,vacio)=>(vacio?`<option value="">${vacio}</option>`:"")+SEC.map(x=>`<option value="${x.id}" ${x.id===sel?"selected":""}>${esc(x.nombre)}</option>`).join("");
   const zsel=zs.find(z=>z.id===szSel);
@@ -3316,7 +3325,8 @@ document.addEventListener("keydown",e=>{if(e.altKey&&e.key==="ArrowLeft"&&yo&&lo
 
 /* ===================== PESTAÑAS DE CONFIGURACIONES (Sectorizar vive aquí) ===================== */
 const cfgTabsTodas=()=>[["precios","Precio del Gas"],["envases","Precio Envases"],["clientesMay","Clientes"],["descQR","Descuento QR"],["preciosMay","Precios Mayoristas"],["comVale","Comisión Vales"],["histPrecios","Historial de Precios"],["histCambios","Historial de Cambios"],["usuarios","Usuarios"],["choferes","Choferes"],["sectorizar","Sectorizar"],["sucursal","Sucursal"],["general","Stock y envases"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
-const cfgTabsLista=()=>!yo?[]:esAdmin()?cfgTabsTodas():cfgTabsTodas().filter(([k])=>CFG_PERM[k]&&tieneExtra(CFG_PERM[k]));
+const CFG_MAY_TABS=["clientesMay","preciosMay","comVale"];
+const cfgTabsLista=()=>(!yo?[]:esAdmin()?cfgTabsTodas():cfgTabsTodas().filter(([k])=>CFG_PERM[k]&&tieneExtra(CFG_PERM[k]))).filter(([k])=>!(D.precios&&D.precios.sinMayorista&&CFG_MAY_TABS.includes(k)));
 const cfgTabsHtml=sel=>`<!--CFGTABS-->`;
 function enlazarCfgTabs(){$$("[data-cfgtab]").forEach(b=>b.onclick=()=>{const k=b.dataset.cfgtab;cfgCh=null;
   if(k==="sectorizar"){if(mod!=="sectorizar")ir("sectorizar");return}
