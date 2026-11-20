@@ -4166,12 +4166,12 @@ function vistaStockBodega(){
         <button class="btn chico linea" type="button" data-bcargar="${c.id}">Editar carga</button></div></article>`};
   return cabeza("Control de Bodega",`<span class="nota" style="margin:0">${esc(l.nombre)} · ${fechaLarga(hoy)}</span>`)+
   (bajos.length?`<div class="banner" style="background:#fef3f2;color:#b42318">Stock bajo en bodega: ${bajos.map(f=>`${f.et} (${l.stock[f.id]||0})`).join(", ")}. Mínimo: ${min}.</div>`:"")+`
-  <div class="kpis bd-kpis"><div class="kpi"><span>Llenos en bodega</span><b class="num">${tot(l.stock)}</b></div><div class="kpi"><span>Vacíos en bodega</span><b class="num">${tot(l.vacios)}</b></div>
-    <div class="kpi"><span>Llenos en camiones</span><b class="num">${tot(enCam)}</b></div><div class="kpi"><span>Prestados a clientes</span><b class="num">${tot(l.prestados)}</b></div><div class="kpi bd-kt"><span>Stock total</span><b class="num" id="bd-kt-n">${tot(l.stock)+tot(l.vacios)+tot(l.prestados)}</b></div></div>
+  <div class="kpis bd-kpis"><div class="kpi"><span>Llenos en bodega</span><b class="num" id="bd-k-ll">${tot(l.stock)}</b></div><div class="kpi"><span>Vacíos en bodega</span><b class="num" id="bd-k-va">${tot(l.vacios)}</b></div>
+    <div class="kpi"><span>Llenos en camiones</span><b class="num">${tot(enCam)}</b></div><div class="kpi"><span>Prestados a clientes</span><b class="num" id="bd-k-pe">${tot(l.prestados)}</b></div><div class="kpi bd-kt"><span>Stock total</span><b class="num" id="bd-kt-n">${tot(l.stock)+tot(l.vacios)+tot(l.prestados)}</b></div></div>
   <div class="bd-dos"><section class="caja bd-bod"><h3>Stock de bodega</h3><div class="vc-card"><div class="vc-g bd-g" style="--n:${FORMATOS.length}">
     <div class="vc-izq bd-leyenda"><span class="bd-l ll">Llenos</span><span class="bd-l va">Vacíos</span><span class="bd-l pr">Prestados</span><span class="bd-l ca">En camiones</span><span class="bd-l tt">Stock total</span></div>
     ${FORMATOS.map(f=>`<div class="vc-col"><div class="vc-img">${cilBlanco(f)}</div><span class="vc-et"><b>${f.tipo==="h"?"H15":f.kg}</b> ${f.tipo==="h"?"Aluminio":"kg"}</span>
-      <span class="bd-v ll ${(l.stock[f.id]||0)<min?"bajo":""}">${n(l.stock[f.id]||0)}</span><span class="bd-v va">${n(l.vacios[f.id]||0)}</span><span class="bd-v pr">${n(l.prestados[f.id]||0)}</span><span class="bd-v ca">${n(enCam[f.id]||0)}</span><span class="bd-v tt" data-tt="${f.id}">${n((l.stock[f.id]||0)+(l.vacios[f.id]||0)+(l.prestados[f.id]||0))}</span></div>`).join("")}
+      <span class="bd-v ll ${(l.stock[f.id]||0)<min?"bajo":""}" data-bl="${f.id}">${n(l.stock[f.id]||0)}</span><span class="bd-v va" data-bv="${f.id}">${n(l.vacios[f.id]||0)}</span><span class="bd-v pr" data-bp="${f.id}">${n(l.prestados[f.id]||0)}</span><span class="bd-v ca">${n(enCam[f.id]||0)}</span><span class="bd-v tt" data-tt="${f.id}">${n((l.stock[f.id]||0)+(l.vacios[f.id]||0)+(l.prestados[f.id]||0))}</span></div>`).join("")}
   </div></div>
   <div class="bd-univ"><span id="bd-univ-t">Stock total = bodega matriz (llenos + vacíos + prestados): <b class="num">${tot(l.stock)+tot(l.vacios)+tot(l.prestados)}</b>. Los camiones van aparte.</span>
 </div></section>
@@ -4619,8 +4619,11 @@ async function stockSucursales(){const z=$("#bd-sucs");if(!z)return;
     const suma=k=>{const o={};FORMATOS.forEach(f=>o[f.id]=todas.reduce((a,x)=>a+(+x[k][f.id]||0),0));return o};
     const T={ll:suma("ll"),va:suma("va"),pe:suma("pe")};
     {const gt=tot(T.ll)+tot(T.va)+tot(T.pe),k=$("#bd-kt-n");if(k)k.textContent=gt;
-      FORMATOS.forEach(f=>{const c=document.querySelector(`[data-tt="${f.id}"] b`);if(c)c.textContent=(T.ll[f.id]||0)+(T.va[f.id]||0)+(T.pe[f.id]||0)});
-      const u=$("#bd-univ-t");if(u)u.innerHTML=`Stock total = bodega matriz + bodegas de ${filas.length} sucursales del ERP Local (llenos + vacíos + prestados): <b class="num">${gt}</b>. Los camiones van aparte.`}
+      FORMATOS.forEach(f=>{const c=document.querySelector(`[data-tt="${f.id}"] b`);if(c)c.textContent=(T.ll[f.id]||0)+(T.va[f.id]||0)+(T.pe[f.id]||0);
+        [["bl","ll"],["bv","va"],["bp","pe"]].forEach(([a,k])=>{const e=document.querySelector(`[data-${a}="${f.id}"]`);if(!e)return;const v=T[k][f.id]||0,b=e.querySelector("b");if(b){b.textContent=v;b.classList.toggle("neg",v<0)}if(a==="bl")e.classList.toggle("bajo",!!min&&v<min)})});
+      [["bd-k-ll","ll"],["bd-k-va","va"],["bd-k-pe","pe"]].forEach(([id,k])=>{const e=document.getElementById(id);if(e)e.textContent=tot(T[k])});
+      const tit=document.querySelector(".bd-bod h3");if(tit&&!tit.dataset.suma){tit.dataset.suma=1;tit.insertAdjacentHTML("beforeend",` <small class="nota" style="margin:0;font-weight:500">matriz + ${filas.length} sucursal${filas.length===1?"":"es"}</small>`)}
+      const u=$("#bd-univ-t");if(u)u.innerHTML=`Llenos, vacíos y prestados = bodega matriz + ${filas.length} sucursal${filas.length===1?"":"es"} del ERP Local. Stock total: <b class="num">${gt}</b>. Los camiones van aparte.`}
     z.innerHTML=`<div class="bd-sh"><h3>Stock de cada sucursal</h3><span class="nota" style="margin:0">llenos por cilindro · vacíos y prestados en total</span><button class="btn chico linea" type="button" id="bd-sucs-rec">Actualizar</button></div>
     <div class="tabla-wrap"><table class="bd-st"><thead><tr><th>Sucursal</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15":f.kg+" kg"}</th>`).join("")}<th class="c">Llenos</th><th class="c">Vacíos</th><th class="c">Prestados</th><th class="c">Total</th></tr></thead><tbody>
     ${todas.map(x=>`<tr class="${x.mz?"mz":""}"><td class="nom"${x.sin?' title="Todavía no tiene datos en el ERP Local"':""}><b>${esc(x.n.replace(" (Matriz)",""))}</b>${x.mz?' <small class="nota" style="margin:0">matriz</small>':""}</td>${FORMATOS.map(f=>{const v=+x.ll[f.id]||0;return `<td class="c num ${min&&v<min&&!x.sin?"bajo":""}">${v}</td>`}).join("")}
