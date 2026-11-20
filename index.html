@@ -1970,10 +1970,18 @@ const V={
         <div class="fuente"><span class="eyebrow">Fuente</span>${radios("np-fuente",{fono:FUENTES.fono,whatsapp:FUENTES.whatsapp},"fono")}</div>
         <div class="fila"><label>Teléfono<span class="tel-sn"><input id="np-fono" type="tel" required list="lista-fonos" autocomplete="off" placeholder="Escriba el número"><button class="btn chico linea" type="button" id="np-sinnum">Sin número</button></span></label></div>
         <div id="np-cliente" class="cli-card" hidden></div>
-        <div><div class="barra" style="margin:0 0 6px"><span class="eyebrow">Cilindros</span><span class="nota" style="margin:0">H15 = grúa aluminio</span></div>
-          <div class="np-cils" style="--n:${FORMATOS.length}">${FORMATOS.map(f=>`<div class="np-cil np-b" title="${esc(f.nom||f.et)}"><b class="np-et">${f.tipo==="h"?"H15":f.kg+" kg"}</b><span class="np-pr num" data-pr="${f.id}">${clp(precioLista("base",f.id))}</span>
-            <div class="np-step"><button type="button" class="np-m" data-paso="-1" aria-label="Quitar ${f.et}">−</button><input type="number" min="0" inputmode="numeric" class="np-q" data-cant="${f.id}" value="0" aria-label="Cantidad ${f.et}"><button type="button" class="np-p" data-paso="1" aria-label="Agregar ${f.et}">+</button></div>
-            ${PE[f.id]?`<span class="np-envt">Envase <small>${clp(PE[f.id])}</small></span><div class="np-step chico"><button type="button" class="np-m" data-paso="-1" aria-label="Quitar envase ${f.et}">−</button><input type="number" min="0" inputmode="numeric" data-env="${f.id}" value="0" aria-label="Envases ${f.et}"><button type="button" class="np-p" data-paso="1" aria-label="Agregar envase ${f.et}">+</button></div>`:`<span class="np-envp">Sin venta de envase</span>`}</div>`).join("")}</div></div>
+        <div class="vc-card np-vc"><div class="vc-g" style="--n:${FORMATOS.length}">
+          <div class="vc-izq"><span class="vc-plab">Cilindros</span>
+            <div class="vc-tot"><span>TOTAL</span><b class="num" id="np-total">$0</b></div>
+            <label class="vc-dc"><span>DESCUENTO</span><span class="vc-pesos">$ <input id="np-dcto" type="number" min="0" inputmode="numeric" value="0" class="num"></span></label></div>
+          ${FORMATOS.map(f=>{const sb=((loc(suc)||{}).stock||{})[f.id]||0;return `<div class="vc-col" title="${esc(f.nom||f.et)}"><span class="vc-pr num" data-pr="${f.id}">${clp(precioLista("base",f.id))}</span><div class="vc-img">${cilBlanco(f)}</div>
+            <span class="vc-et"><b>${f.tipo==="h"?"H15":f.kg}</b> ${f.tipo==="h"?"Aluminio":"kg"}</span>
+            <input class="vc-in np-q" type="number" min="0" inputmode="numeric" data-cant="${f.id}" value="0" aria-label="Cantidad ${f.et}">
+            <span class="vc-stock ${sb>0?"":"cero"}">Bodega: ${sb}</span></div>`}).join("")}
+        </div>
+        <div class="vc-envh">VENTA DE ENVASES</div>
+        <div class="vc-g env" style="--n:${FORMATOS.length}"><div></div>
+          ${FORMATOS.map(f=>PE[f.id]?`<div class="vc-col"><span class="vc-pr num">${clp(PE[f.id])}</span><input class="vc-in" type="number" min="0" inputmode="numeric" data-env="${f.id}" value="0" aria-label="Envases ${f.et}"></div>`:"<div></div>").join("")}</div></div>
         <div class="dir6"><label class="con-sug">Calle<input id="np-calle" required autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="np-sug" aria-expanded="false" placeholder="Empiece a escribir…"><div class="sug" id="np-sug" role="listbox" hidden></div></label><label>Número<input id="np-num"></label><label>Block<input id="np-block"></label>
         <label>Depto<input id="np-depto"></label><label>Comuna<input id="np-comuna" list="lista-comunas" value="${esc(loc(suc).comuna)}"></label><label>Ciudad<input id="np-ciudad" value="Santiago"></label></div>
         <datalist id="lista-fonos">${(D.clientes||[]).slice().sort((a,b)=>(b.ultimo||"").localeCompare(a.ultimo||"")).slice(0,500).map(c=>`<option value="${esc(c.fonoTxt)}">${esc(c.calle)} ${esc(c.num)}${c.comuna?", "+esc(c.comuna):""}</option>`).join("")}</datalist>
@@ -1987,9 +1995,7 @@ const V={
         <label class="np-pago-l"><span class="eyebrow">Forma de pago</span><select id="np-pago" aria-label="Forma de pago">${Object.entries(PAGOS_PED).map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select></label>
         <label class="radio"><input type="checkbox" id="np-factura"> Solicita factura</label>
         <div id="np-fact" class="grid" style="gap:10px" hidden><label>RUT<input id="np-rut" placeholder="76.000.000-0"></label><label>Razón social<input id="np-razon"></label><label>Giro<input id="np-giro"></label><label>Dirección<input id="np-fdir"></label><label>Comuna<input id="np-fcomuna" list="lista-comunas"></label></div>
-        <label>Descuento (CLP)<input id="np-dcto" type="number" min="0" value="0" class="num"></label>
-        <div class="total"><span>Total</span><b class="num" id="np-total">$0</b></div>
-        <button class="btn" type="submit">Grabar pedido</button>
+                <button class="btn" type="submit">Grabar pedido</button>
         <p class="error" id="np-error" hidden></p>
         <p class="aviso ok" id="np-ok" hidden></p>
       </aside></form>`;
@@ -6222,6 +6228,54 @@ body.vl-abierta{overflow:hidden}
 
 .sis .us-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px}.sis .us-cab h3{margin:0}
 .sis .us-del{color:#d92d20;border-color:#fecdca}
+
+/* ===== Celular: ajustes para pantallas angostas ===== */
+@media (max-width:640px){
+  /* Pedidos de Gas: teléfono y fuente en una columna, cilindros de 2 en 2 */
+  .sis .ped-main .fila-tel{flex-direction:column!important;align-items:stretch!important;gap:8px!important}
+  .sis .ped-main .fila-tel>label{max-width:none!important}
+  .sis .ped-main .fila-tel .fuente{order:-1;padding-bottom:0;white-space:normal}
+  .sis .ped-main .tel-sn input{flex:1 1 auto;min-width:0;width:auto}
+  .sis .np-cils{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .sis .np-cil{border-left:1px solid var(--line,#e7eaf0)!important;border-top:1px solid var(--line,#e7eaf0)}
+  .sis .np-cil:nth-child(odd){border-left:0!important}.sis .np-cil:nth-child(-n+2){border-top:0}
+  .sis .np-step{gap:4px}.sis .np-step button{width:36px;height:38px}
+  .sis .ped-main .np-step .np-q{width:56px!important;height:38px!important}
+  .sis .ped .buscar{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:8px}.sis .ped .buscar label:first-child{grid-column:1/-1}
+  /* Configuraciones: el menú pasa a una franja que se desliza de lado */
+  .sis .cfg-side{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto;gap:4px;padding:6px!important;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .sis .cfg-side::-webkit-scrollbar{display:none}
+  .sis .cfg-side .vc-t{flex:0 0 auto;white-space:nowrap;padding:8px 12px}.sis .cfg-side .vc-t svg{display:none}
+  /* Facturas: cada factura como tarjeta */
+  .sis .fac-t thead{display:none}
+  .sis .fac-t,.sis .fac-t tbody,.sis .fac-t tr,.sis .fac-t td{display:block;width:100%}
+  .sis .fac-t tr{border-bottom:1px solid #e4e8ee;padding:8px 4px}
+  .sis .fac-t td{border:0!important;padding:3px 8px!important;text-align:left!important}
+  .sis .fac-t td.fac-acc{white-space:normal;display:flex;flex-wrap:wrap;gap:6px;padding-top:8px!important}.sis .fac-t td.fac-acc .btn{margin:0}
+  .sis .fac-busca{width:100%}.sis .fac-busca input{width:100%}
+  .sis .fac-mes b{min-width:0}
+  /* encabezado de cada apartado y botones */
+  .sis .cab-mod{flex-wrap:wrap;gap:8px}.sis .cab-mod h1,.sis .cab-mod h2{font-size:22px}
+  .sis .kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .sis .tabs{overflow-x:auto;flex-wrap:nowrap!important;scrollbar-width:none}.sis .tabs button{flex:0 0 auto;white-space:nowrap}
+  .sis .vc-top select.vc-chsel{min-width:0;width:100%}
+  .sis .rd-linea{font-size:12px}.sis .rd-linea .guia{margin-left:0}
+  .sis dialog form{min-width:0!important}
+  #dl-nfac .emp-g,.sis .emp-g{grid-template-columns:minmax(0,1fr)!important}
+  #vl-capa .vl-bar{padding:6px 12px}
+  /* Usuarios: cada usuario como tarjeta */
+  .sis #us-lista-h+.tabla-wrap thead{display:none}
+  .sis #us-lista-h+.tabla-wrap table,.sis #us-lista-h+.tabla-wrap tbody,.sis #us-lista-h+.tabla-wrap tr{display:block;width:100%}
+  .sis #us-lista-h+.tabla-wrap tr{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 12px;border-bottom:1px solid #e4e8ee}
+  .sis #us-lista-h+.tabla-wrap td{display:block;border:0!important;padding:0!important}
+  .sis #us-lista-h+.tabla-wrap td:nth-child(1){font-weight:700;font-size:15px}.sis #us-lista-h+.tabla-wrap td:nth-child(2){grid-column:1;color:#667085;font-size:13px}
+  .sis #us-lista-h+.tabla-wrap td:nth-child(3){grid-column:1;font-size:13px}.sis #us-lista-h+.tabla-wrap td:nth-child(4){grid-column:1/-1;font-size:12.5px;color:#475467}
+  .sis #us-lista-h+.tabla-wrap td:nth-child(5){grid-column:2;grid-row:1}.sis #us-lista-h+.tabla-wrap td:nth-child(6){grid-column:1/-1;padding-top:6px!important}
+  .sis .us-cab .btn{padding:8px 12px}
+}
+
+.sis .np-vc{margin-top:6px;border:1px solid #e4e8ee;border-radius:12px;background:#fff;overflow:hidden}
+.sis .np-vc .vc-in{text-align:center}
 </style>
 </body>
 </html>
