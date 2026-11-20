@@ -1537,6 +1537,18 @@ const REPORTES=[
    (D.rendiciones||[]).filter(r=>r.tipo==="mayorista"&&c.ids.includes(r.local)&&en(r.fecha)).forEach(r=>r.pagos.filter(p=>!p.auto).forEach(p=>F.push([fF(r.fecha),String(p.hora||"").slice(11,16),(p.abono?"Abono · ":"Pago · ")+(TIPOS_PAGO[p.tipo]||p.tipo),nomRef(r),p.detalle||"",0,p.monto+(+p.com||0),r.usuario||"",r.fecha+String(p.hora||"").slice(11)])));
    F.sort((a,b)=>b[8].localeCompare(a[8]));
    return {cols:[["Fecha","t"],["Hora","t"],["Tipo","t"],["Cliente","t"],["Detalle","t"],["Cargo","$"],["Abono","$"],["Usuario","t"]],filas:F.map(f=>f.slice(0,8))}}},
+ {g:"b",id:"b-ventas",t:"Ventas por fecha",ic:"tabla",fn:c=>{const F=[];let tot={},Tkg=0,Tm=0;FORMATOS.forEach(f=>tot[f.id]=0);
+   const dias=[];{const d=new Date(c.desde+"T12:00"),fin=new Date(c.hasta+"T12:00");while(d<=fin&&dias.length<400){dias.push(fechaISO(d));d.setDate(d.getDate()+1)}}
+   dias.reverse().forEach(d=>{const o={};FORMATOS.forEach(f=>o[f.id]=0);let monto=0;
+     D.pedidos.filter(p=>c.ids.includes(p.local)&&p.estado==="entregado"&&(p.entregado||p.fecha).startsWith(d)).forEach(p=>{items(p).forEach(i=>o[i.formato]=(o[i.formato]||0)+i.cant);monto+=totalP(p)});
+     D.ventas.filter(v=>c.ids.includes(v.local)&&v.fecha.startsWith(d)).forEach(v=>{o[v.formato]=(o[v.formato]||0)+v.cant;monto+=montoV(v)});
+     (D.rendiciones||[]).filter(r=>r.tipo==="mayorista"&&c.ids.includes(r.local)&&r.fecha===d).forEach(r=>{FORMATOS.forEach(f=>o[f.id]+=r.ventas[f.id]||0);monto+=calcRend(r).venta});
+     const cil=FORMATOS.reduce((s,f)=>s+o[f.id],0),kg=FORMATOS.reduce((s,f)=>s+o[f.id]*f.kg,0);FORMATOS.forEach(f=>tot[f.id]+=o[f.id]);Tkg+=kg;Tm+=monto;
+     F.push([fF(d),...FORMATOS.map(f=>o[f.id]),cil,kg,monto])});
+   F.push(["Total",...FORMATOS.map(f=>tot[f.id]),FORMATOS.reduce((s,f)=>s+tot[f.id],0),Tkg,Tm]);
+   return {cols:[["Fecha","t"],...FORMATOS.map(f=>[f.et,"n"]),["Cilindros","n"],["Kilos","kg"],["Monto","$"]],filas:F,nota:"Incluye entregas de los móviles, ventas en mesón y ventas a mayoristas."}}},
+ {g:"b",id:"b-historial",t:"Historial de bodega",ic:"tabla",fn:c=>{const ev=(D.bitacora||[]).filter(b=>c.ids.includes(b.local)&&["bodega","ventas"].includes(b.area)&&b.fecha.slice(0,10)>=c.desde&&b.fecha.slice(0,10)<=c.hasta);
+   return {cols:[["Fecha y hora","t"],["Movimiento","t"],["Detalle","t"],["Hecho por","t"]],filas:ev.map(b=>[b.fecha,b.accion,b.detalle,b.user])}}},
  {g:"p",id:"p-detalle",t:"Historial de pedidos",ic:"tabla",fn:c=>({cols:[["N°","t"],["Fecha","t"],["Hora","t"],["Teléfono","t"],["Cliente","t"],["Dirección","t"],["Comuna","t"],["Cilindros","t"],["Total","$"],["Pago","t"],["Fuente","t"],["Sector","t"],["Móvil","t"],["Estado","t"],["Entregado","t"],["Ingresó","t"]],
    filas:c.peds.map(p=>[p.id,fF(p.fecha),p.fecha.slice(11),p.fono,p.nombre,p.dir,p.comuna||"",resumenP(p),totalP(p),MEDIOS[p.medio]||"",FUENTES[p.origen]||"",nomSector(sectorDe(p)),p.chofer?nomChofer(p.chofer):"",ESTADOS[p.estado],(p.entregado||"").slice(11,16),p.usuario||""])})},
  {g:"p",id:"p-simple",t:"Informe pedidos simplificado",ic:"tabla",fn:c=>({cols:[["N°","t"],["Fecha","t"],["Cliente","t"],["Cilindros","t"],["Total","$"],["Estado","t"]],filas:c.peds.map(p=>[p.id,fF(p.fecha)+" "+p.fecha.slice(11),p.nombre,resumenP(p),totalP(p),ESTADOS[p.estado]])})},
@@ -1618,7 +1630,7 @@ function ctxRep(){const ids=alcanceInf==="todas"?misSucs():[suc],c={desde:repDes
 {const i=REPORTES.findIndex(r=>r.id==="r-petroleo");if(i>=0)REPORTES.splice(i,1)}
 function catalogo(){
   const sec=(g,t)=>`<section class="rep-sec"><h3>${t}</h3><div class="rep-grid">${REPORTES.filter(r=>r.g===g).map(r=>`<button type="button" class="rep" data-rep="${r.id}"><span class="ico">${svg(r.ic)}</span><b>${r.t}</b></button>`).join("")}</div></section>`;
-  return cabeza("Informes")+tabsInf()+sec("p","Pedidos telefónicos")+sec("r","Rendiciones y ventas");
+  return cabeza("Informes")+tabsInf()+sec("p","Pedidos telefónicos")+sec("r","Rendiciones y ventas")+sec("b","Bodega");
 }
 const FMT_COL={t:v=>esc(v??""),n:v=>(+v||0).toLocaleString("es-CL"),$:v=>clp(+v||0),kg:v=>(+v||0).toLocaleString("es-CL")+" kg"};
 function verReporte(){
@@ -2148,13 +2160,10 @@ const V={
         const c=chs.find(x=>x.id===bChofer)||chs[0];bChofer=c.id;
         const ins=(pref,vals)=>`<div class="cil-ins">${FORMATOS.map(f=>`<label>${f.et}<input type="number" min="0" class="num" data-${pref}="${f.id}" value="${vals?Math.max(0,vals[f.id]):0}"></label>`).join("")}</div>`;
         html=`<label style="max-width:320px;margin-bottom:18px">Móvil<select id="b-chofer">${chs.map(x=>`<option value="${x.id}" ${x.id===c.id?"selected":""}>${esc(x.nombre)}</option>`).join("")}</select></label>
-        <div class="tabla-wrap" style="margin-bottom:20px"><table class="bod">${cab("Lo que lleva "+esc(c.nombre))}<tbody>${fila("Llenos",c.carga)}${fila("Vacíos",c.vacios)}</tbody></table></div>
-        <div class="grid dos" style="gap:20px">
-          <form class="caja" id="f-cargar"><h3>Cargar móvil</h3><p class="nota" style="margin:0">Llenos que salen de la bodega al móvil. Si deja vacíos al cargar, anótelos también.</p>
-            <span class="eyebrow">Llenos que se cargan</span>${ins("cl",null)}<span class="eyebrow">Vacíos que deja en bodega</span>${ins("cv",null)}<div><button class="btn" type="submit">Registrar carga</button></div></form>
-          <form class="caja" id="f-descargar"><h3>Descargar móvil</h3><p class="nota" style="margin:0">Al final del día: llenos que no vendió y vacíos que trae de vuelta. Viene relleno con lo que lleva.</p>
-            <span class="eyebrow">Llenos que devuelve</span>${ins("dl",c.carga)}<span class="eyebrow">Vacíos que entrega</span>${ins("dv",c.vacios)}<div><button class="btn" type="submit">Registrar descarga</button></div></form>
-        </div>`;
+        <div class="tabla-wrap" style="margin-bottom:20px"><table class="bod">${cab("Lo que lleva "+esc(c.nombre))}<tbody>${fila("Llenos",c.carga)}</tbody></table></div>
+        <form class="caja" id="f-editcarga" style="max-width:900px"><h3>Editar carga de ${esc(c.nombre)}</h3><p class="nota" style="margin:0">Escriba los llenos que lleva el camión ahora (sale a vender solo con llenos). Es solo para corregir la carga: <b>no mueve stock de la bodega</b>. El cambio queda en el Historial.</p>
+          <span class="eyebrow">Llenos en el camión</span>${ins("el",c.carga)}
+          <div class="acc"><button class="btn" type="submit">Guardar carga</button><button class="btn linea" type="button" id="ec-cero">Dejar en cero</button></div></form>`;
       }
     }
     if(bTab==="recuento"){
@@ -2613,6 +2622,12 @@ const L={
     const bc=$("#b-chofer");if(bc)bc.onchange=e=>{bChofer=+e.target.value;pintarSistema()};
     const leer=pref=>{const o={};FORMATOS.forEach(f=>{const i=$(`[data-${pref}="${f.id}"]`);o[f.id]=Math.max(0,i?+i.value||0:0)});return o};
     const txt=o=>FORMATOS.filter(f=>o[f.id]).map(f=>`${o[f.id]}×${f.et}`).join(", ")||"nada";
+    const fe=$("#f-editcarga");if(fe){const ec=$("#ec-cero");if(ec)ec.onclick=()=>$$("[data-el]").forEach(i=>i.value=0);
+      fe.onsubmit=e=>{e.preventDefault();const c=ensureCh(D.choferes.find(x=>x.id===bChofer)),ll=leer("el"),vv={...c.vacios};
+        const dif=k=>(o,n)=>FORMATOS.filter(f=>(o[f.id]||0)!==n[f.id]).map(f=>`${f.et} ${o[f.id]||0}→${n[f.id]}`).join(", ");
+        const cl=dif()(c.carga,ll),cv=dif()(c.vacios,vv);if(!cl&&!cv){aviso("Sin cambios","La carga quedó igual.");return}
+        FORMATOS.forEach(f=>{c.carga[f.id]=ll[f.id]});
+        log("bodega","Carga de camión editada",`${c.nombre}: ${[cl?"llenos "+cl:"",cv?"vacíos "+cv:""].filter(Boolean).join(" · ")}`,{chofer:c.id});guardar();pintarSistema();aviso("Carga guardada",`${c.nombre} lleva ahora ${txt(ll)} llenos.`)}}
     const fc=$("#f-cargar");if(fc)fc.onsubmit=e=>{e.preventDefault();const c=ensureCh(D.choferes.find(x=>x.id===bChofer)),ll=leer("cl"),vv=leer("cv");
       FORMATOS.forEach(f=>{l.stock[f.id]-=ll[f.id];c.carga[f.id]+=ll[f.id];c.vacios[f.id]-=vv[f.id];l.vacios[f.id]+=vv[f.id]});
       log("bodega","Carga de móvil",`${c.nombre}: llenos ${txt(ll)} · vacíos dejados ${txt(vv)}`,{chofer:c.id});guardar();pintarSistema()};
@@ -4127,7 +4142,7 @@ L.mayorista=function(){
 /* ===================== CONTROL DE BODEGA rediseñado: bodega (llenos / vacíos) y carga de cada camión ===================== */
 {const v0=V.bodega,l0=L.bodega;
 V.bodega=function(){
-  const TABS=[["stock","Stock","bodega"],["cargas","Cargar camión","ruta"],["recuento","Cuadratura stock","cuadratura"],["ventas","Ventas por fecha","informes"],["historial","Historial","manual"]];
+  const TABS=[["stock","Stock","bodega"],["cargas","Carga camión","ruta"]];
   if(!TABS.some(t=>t[0]===bTab))bTab="stock";
   const side=`<aside class="vc-side caja">${TABS.map(([k,t,ic])=>`<button type="button" class="vc-t${k==="stock"||k==="cargas"?"":" chico"}" data-btab="${k}" aria-selected="${bTab===k}">${k==="stock"||k==="cargas"?svg(ic):""}<span>${t}</span></button>`).join("")}</aside>`;
   let main;
@@ -4146,9 +4161,9 @@ function vistaStockBodega(){
       <span class="bd-cam-tot"><b class="num">${tl}</b><small>llenos</small></span></div>
       <table class="bd-mini"><thead><tr><th></th>${FORMATOS.map(f=>`<th>${f.tipo==="h"?"H15":f.kg}</th>`).join("")}</tr></thead><tbody>
         <tr><td>Llenos</td>${FORMATOS.map(f=>`<td class="num ${(c.carga[f.id]||0)<0?"neg":(c.carga[f.id]||0)?"":"cero"}">${c.carga[f.id]||0}</td>`).join("")}</tr>
-        <tr><td>Vacíos</td>${FORMATOS.map(f=>`<td class="num ${(c.vacios[f.id]||0)<0?"neg":(c.vacios[f.id]||0)?"":"cero"}">${c.vacios[f.id]||0}</td>`).join("")}</tr></tbody></table>
+</tbody></table>
       <div class="bd-cam-p"><span>${tot(hoyC)?`Cargado hoy: <b>${esc(resumenQ(hoyC))}</b>`:"Hoy sin carga registrada"}${on?"":" · <b>No activo</b>"}</span>
-        <button class="btn chico linea" type="button" data-bcargar="${c.id}">Cargar / descargar</button></div></article>`};
+        <button class="btn chico linea" type="button" data-bcargar="${c.id}">Editar carga</button></div></article>`};
   return cabeza("Control de Bodega",`<span class="nota" style="margin:0">${esc(l.nombre)} · ${fechaLarga(hoy)}</span>`)+
   (bajos.length?`<div class="banner" style="background:#fef3f2;color:#b42318">Stock bajo en bodega: ${bajos.map(f=>`${f.et} (${l.stock[f.id]||0})`).join(", ")}. Mínimo: ${min}.</div>`:"")+`
   <div class="kpis bd-kpis"><div class="kpi"><span>Llenos en bodega</span><b class="num">${tot(l.stock)}</b></div><div class="kpi"><span>Vacíos en bodega</span><b class="num">${tot(l.vacios)}</b></div>
@@ -4159,7 +4174,7 @@ function vistaStockBodega(){
       <span class="bd-v ll ${(l.stock[f.id]||0)<min?"bajo":""}">${n(l.stock[f.id]||0)}</span><span class="bd-v va">${n(l.vacios[f.id]||0)}</span><span class="bd-v pr">${n(l.prestados[f.id]||0)}</span><span class="bd-v ca">${n(enCam[f.id]||0)}</span><span class="bd-v tt" data-tt="${f.id}">${n((l.stock[f.id]||0)+(l.vacios[f.id]||0)+(l.prestados[f.id]||0))}</span></div>`).join("")}
   </div></div>
   <div class="bd-univ"><span id="bd-univ-t">Stock total = bodega matriz (llenos + vacíos + prestados): <b class="num">${tot(l.stock)+tot(l.vacios)+tot(l.prestados)}</b>. Los camiones van aparte.</span>
-    <button class="btn chico linea" type="button" data-btab="recuento">Hacer cuadratura de stock</button></div></section>
+</div></section>
   <div class="bd-der"><section class="bd-cams-h"><h3>Carga de los camiones</h3><span class="nota" style="margin:0">Lo que lleva cada camión ahora. Las entregas y ventas se descuentan de su carga.</span></section>
   <div class="bd-cams">${chs.map(tarjeta).join("")||'<div class="caja"><p>Esta sucursal no tiene camiones. Agréguelos en Configuraciones → Choferes.</p></div>'}</div></div></div>
   ${D.locales.filter(x=>misSucs().includes(x.id)).length>1?`<section class="caja" style="margin-top:12px"><h3>Bodega de ${esAdmin()?"todas las sucursales":"sus sucursales"}</h3><div class="tabla-wrap"><table><thead><tr><th>Sucursal</th>${FORMATOS.map(f=>`<th class="der">${f.et}</th>`).join("")}<th class="der">Total llenos</th><th class="der">Vacíos</th></tr></thead><tbody>
