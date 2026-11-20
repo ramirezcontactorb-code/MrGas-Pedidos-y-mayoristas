@@ -230,7 +230,14 @@ function puedeEscribir(array $u, string $col, string $id, array $m, ?array $nuev
     }
     // encargado
     if ($col === 'estado') {
-        if (in_array($id, ESTADO_SOLO_ADMIN, true)) return in_array($id, ESTADO_PRECIOS, true) && is_array($u['permisos']) && in_array('cfg.precios', $u['permisos'], true);
+        if (in_array($id, ESTADO_SOLO_ADMIN, true)) {
+            if (!in_array($id, ESTADO_PRECIOS, true) || !is_array($u['permisos'])) return false;
+            $p = $u['permisos'];
+            $necesita = ['preciosMayor' => ['cfg.preciosMay'], 'listasMay' => ['cfg.preciosMay'], 'preciosEnvase' => ['cfg.envases'], 'comisionVale' => ['cfg.comVale'],
+                'historico' => ['cfg.precios', 'cfg.preciosMay', 'cfg.envases', 'cfg.comVale']][$id] ?? ['cfg.precios'];
+            if (array_intersect($necesita, $p)) return true;
+            return !in_array('_v3', $p, true) && in_array('cfg.precios', $p, true); // usuarios de antes: cfg.precios servía para todos los precios
+        }
         if (str_starts_with($id, 'loc-')) return in_array((int) substr($id, 4), sucs($u), true);
         return true;
     }

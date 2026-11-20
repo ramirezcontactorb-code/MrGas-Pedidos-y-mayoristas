@@ -1291,21 +1291,30 @@ const ACCIONES=[
 const MOD_PERM=["pedidos","ruta","choferes","sectorizar","mayorista","ventachofer","cuadratura","bodega","compras","informes"];
 /* Permisos detallados (versión 2, marcada con "_v2"):
    "pedidos" = ver y trabajar · "pedidos:ver" = solo ver · acciones y apps aparte */
-const PERM_EXTRA=[["pedidos.anular","Anular pedidos"],["cfg.choferes","Configurar choferes y móviles"],["cfg.clientes","Configurar clientes mayoristas"],["cfg.precios","Cambiar precios (gas, mayoristas, vales y QR)"],["rend.historico","Editar rendiciones de días pasados"]];
+const PERM_GRUPOS=[
+  ["Pedidos",[["pedidos.anular","Anular pedidos"]]],
+  ["Venta Choferes",[["vc.anular","Anular ventas del chofer"],["vc.descuento","Dar descuentos"],["rend.historico","Editar rendiciones de días pasados"]]],
+  ["Venta Mayorista",[["may.anular","Anular ventas mayoristas"],["may.descuento","Dar descuentos"]]],
+  ["Control de Bodega",[["bodega.editar","Editar stock de bodega"]]],
+  ["Configuraciones",[["cfg.precios","Precio Domicilio"],["cfg.preciosMay","Precios Mayoristas"],["cfg.envases","Precio Envases"],["cfg.comVale","Comisión Vales"],["cfg.clientes","Clientes mayoristas"],["cfg.choferes","Choferes y móviles"],["cfg.historial","Ver historial de precios y cambios"]]]];
+const PERM_EXTRA=PERM_GRUPOS.flatMap(g=>g[1]);
+/* permisos nuevos (versión 3): a quien no los tiene marcados se le respeta lo que podía hacer antes */
+const PERM_ANTES={"cfg.preciosMay":"cfg.precios","cfg.envases":"cfg.precios","cfg.comVale":"cfg.precios","cfg.historial":"cfg.precios","vc.anular":"ventachofer","vc.descuento":"ventachofer","may.anular":"mayorista","may.descuento":"mayorista","bodega.editar":"bodega"};
+function permV3(p,c){if(!Array.isArray(p))return true;if(p.includes(c))return true;if(p.includes("_v3"))return false;return !!PERM_ANTES[c]&&p.includes(PERM_ANTES[c])}
 const PERM_APPS=[["app.repartidores","App repartidores (oficina)"],["app.local","ERP Local"]];
-const CFG_PERM={choferes:"cfg.choferes",clientesMay:"cfg.clientes",precios:"cfg.precios",envases:"cfg.precios",preciosMay:"cfg.precios",comVale:"cfg.precios",descQR:"cfg.precios",histPrecios:"cfg.precios"};
+const CFG_PERM={choferes:"cfg.choferes",clientesMay:"cfg.clientes",precios:"cfg.precios",envases:"cfg.envases",preciosMay:"cfg.preciosMay",comVale:"cfg.comVale",descQR:"cfg.precios",histPrecios:"cfg.historial",histCambios:"cfg.historial"};
 const ESTADO_PRECIOS=["precios","preciosMayor","preciosEnvase","preciosConvenio","listas","historico","listasMay","comisionVale","descQR"];
 const PLANTILLAS=[
   ["Telefonista",["pedidos","ruta:ver","app.repartidores"]],
   ["Despachador",["pedidos","pedidos.anular","ruta","choferes","sectorizar","informes:ver","app.repartidores"]],
-  ["Cajero / cuadratura",["pedidos:ver","ruta:ver","ventachofer","cuadratura","mayorista","informes"]],
-  ["Vendedor mayorista",["mayorista","informes:ver","cfg.clientes"]],
-  ["Bodeguero",["ruta:ver","bodega","compras"]],
-  ["Supervisor",["pedidos","pedidos.anular","ruta","choferes","sectorizar","mayorista","ventachofer","cuadratura","bodega","compras","informes","cfg.choferes","cfg.clientes","app.repartidores"]]];
+  ["Cajero / cuadratura",["pedidos:ver","ruta:ver","ventachofer","cuadratura","mayorista","informes","vc.anular","vc.descuento","may.anular","may.descuento"]],
+  ["Vendedor mayorista",["mayorista","informes:ver","cfg.clientes","may.descuento"]],
+  ["Bodeguero",["ruta:ver","bodega","compras","bodega.editar"]],
+  ["Supervisor",["pedidos","pedidos.anular","ruta","choferes","sectorizar","mayorista","ventachofer","cuadratura","bodega","compras","informes","cfg.choferes","cfg.clientes","app.repartidores","vc.anular","vc.descuento","may.anular","may.descuento","bodega.editar","cfg.historial"]]];
 const esV2=p=>Array.isArray(p)&&p.includes("_v2");
 // acciones especiales y apps: los usuarios antiguos (sin "_v2") conservan lo que podían hacer antes
 const tieneExtra=c=>{if(!yo)return false;if(esAdmin())return true;if(yo.rol!=="encargado")return false;
-  if(!esV2(yo.permisos))return c==="pedidos.anular"||c.startsWith("app.");return yo.permisos.includes(c)};
+  if(!esV2(yo.permisos))return c==="pedidos.anular"||c.startsWith("app.")||["vc.anular","vc.descuento","may.anular","may.descuento","bodega.editar"].includes(c);return permV3(yo.permisos,c)};
 const soloVer=id=>!!yo&&yo.rol==="encargado"&&Array.isArray(yo.permisos)&&yo.permisos.includes(id+":ver")&&!yo.permisos.includes(id);
 const misSucs=()=>!yo?[]:esAdmin()?D.locales.map(l=>l.id):((yo.sucursales&&yo.sucursales.length)?yo.sucursales:[yo.local]).filter(x=>x!=null);
 var infPor=null,respOk=false;
@@ -1328,7 +1337,7 @@ function camposAcceso(u){
   const sucs=u?(u.sucursales&&u.sucursales.length?u.sucursales:(u.local?[u.local]:[])):[suc];
   const p=u&&Array.isArray(u.permisos)?u.permisos:null,v2=esV2(p);
   const nivel=id=>!p?(u&&id!=="sectorizar"?"usar":""):p.includes(id)?"usar":p.includes(id+":ver")?"ver":"";
-  const extra=c=>p?(v2?p.includes(c):(c==="pedidos.anular"||c.startsWith("app."))):!!u&&(c==="pedidos.anular"||c.startsWith("app."));
+  const extra=c=>p?(v2?permV3(p,c):(c==="pedidos.anular"||c.startsWith("app."))):!!u&&(c==="pedidos.anular"||c.startsWith("app."));
   const T=id=>id==="informes"?"Informes":(MODULOS.find(m=>m.id===id)||{}).t;
   const radio=(id,v,t)=>`<label class="pm-op"><input type="radio" name="pm-${id}" value="${v}" ${nivel(id)===v?"checked":""}><span>${t}</span></label>`;
   return `<fieldset class="acceso" id="us-acceso"><legend>Sucursales a las que puede entrar</legend><div class="checks-grid">${D.locales.map(l=>`<label class="radio"><input type="checkbox" name="us-suc" value="${l.id}" ${sucs.includes(l.id)?"checked":""}>${esc(l.nombre)}</label>`).join("")}</div></fieldset>
@@ -1339,7 +1348,7 @@ function camposAcceso(u){
       ${MOD_PERM.map(id=>`<tr><td>${T(id)}</td><td>${radio(id,"","No")}</td><td>${radio(id,"ver","Ver")}</td><td>${radio(id,"usar","Trabajar")}</td></tr>`).join("")}
       </tbody></table>
       <div class="perm-der">
-        <p class="perm-tit">Acciones especiales</p>${PERM_EXTRA.map(([c,t])=>`<label class="radio"><input type="checkbox" name="us-perm" value="${c}" ${extra(c)?"checked":""}>${t}</label>`).join("")}
+        <p class="perm-tit">Acciones especiales</p>${PERM_GRUPOS.map(([g,l])=>`<p class="perm-g">${g}</p>${l.map(([c,t])=>`<label class="radio"><input type="checkbox" name="us-perm" value="${c}" ${extra(c)?"checked":""}>${t}</label>`).join("")}`).join("")}
       </div>
     </div>
     <p class="nota" style="margin:8px 0 0"><b>Solo ver</b>: entra y mira, pero no puede guardar cambios. Los administradores pueden todo.</p></fieldset>
@@ -1347,12 +1356,12 @@ function camposAcceso(u){
     <p class="nota" style="margin:6px 0 0">Encargado: trabaja en la app con los cuadros que tenga permitidos. Repartidor: ve sus entregas en la app. Si no la marca, no puede entrar.</p></fieldset>`+camposLocal(p);
 }
 const leerAcceso0=()=>({sucursales:[...$$('input[name="us-suc"]:checked')].map(i=>+i.value),
-  permisos:["_v2",...MOD_PERM.map(id=>{const r=$(`input[name="pm-${id}"]:checked`);return !r||!r.value?null:r.value==="ver"?id+":ver":id}).filter(Boolean),...[...$$('input[name="us-perm"]:checked')].map(i=>i.value),...[...$$('input[name="us-app"]:checked')].map(i=>i.value)],
+  permisos:["_v2","_v3",...MOD_PERM.map(id=>{const r=$(`input[name="pm-${id}"]:checked`);return !r||!r.value?null:r.value==="ver"?id+":ver":id}).filter(Boolean),...[...$$('input[name="us-perm"]:checked')].map(i=>i.value),...[...$$('input[name="us-app"]:checked')].map(i=>i.value)],
   apps:[...$$('input[name="us-app"]:checked')].map(i=>i.value)});
 function resumenPerm(p){if(!Array.isArray(p))return "Todos los cuadros";
   const T=id=>id==="informes"?"Informes":(MODULOS.find(m=>m.id===id)||{}).t;
   const tr=MOD_PERM.filter(id=>p.includes(id)).map(T),vr=MOD_PERM.filter(id=>p.includes(id+":ver")&&!p.includes(id)).map(T);
-  const ex=esV2(p)?PERM_EXTRA.filter(([c])=>p.includes(c)).map(([,t])=>t):[];
+  const ex=esV2(p)?PERM_GRUPOS.map(([g,l])=>{const s=l.filter(([c])=>permV3(p,c)).map(([,t])=>t);return s.length?g+" ("+s.join(", ").toLowerCase()+")":""}).filter(Boolean):[];
   return [tr.length?"Trabaja: "+tr.join(", "):"",vr.length?"Solo ve: "+vr.join(", "):"",ex.length?"Además: "+ex.join(", "):"",appsTxt(p),resumenLocal(p)].filter(Boolean).join("<br>")||"Sin cuadros"}
 function appsTxt(p){const l=!esV2(p)?PERM_APPS:PERM_APPS.filter(([c])=>p.includes(c));return l.length?"Apps: "+l.map(([,t])=>t.replace(" (oficina)","")).join(", "):"Sin apps"}
 
@@ -1365,7 +1374,7 @@ function pintarSistema(){
   if(!puede(mod))mod=yo.rol==="chofer"?"chofer":"menu";
   if(!suc&&mod!=="sucursal")mod="sucursal";
   registrarNav();
-  $("#sis-acciones").innerHTML=ACCIONES.filter(a=>puede(a.id)).map(a=>`<button class="accion ${a.id==="salir"?"salir":""}" data-accion="${a.id}" type="button">${svg(a.id)}<span>${a.t.replace("<br>"," ")}</span></button>`).join("");
+  $("#sis-acciones").innerHTML=ACCIONES.filter(a=>puede(a.id)&&!["manual","empresa"].includes(a.id)).map(a=>`<button class="accion ${a.id==="salir"?"salir":""}" data-accion="${a.id}" type="button">${svg(a.id)}<span>${a.t.replace("<br>"," ")}</span></button>`).join("");
   const l=loc(suc);
   $("#sis-sucursal").innerHTML=l?`<small>Sucursal:</small>${esc(l.nombre)}`:`<small>Sucursal:</small>sin elegir`;
   $("#sis-yo").textContent=yo.nombre+" · "+({admin:"Administrador",encargado:"Encargado",chofer:"Chofer"})[yo.rol];
@@ -3947,7 +3956,7 @@ function vistaVentaChofer(chs,fechaSel){
   const ent=vcCh!=null?entregasDe(vcCh,fechaCuad):null,carga=ch?ch.carga||{}:{},FE=fmtEnv();
   const k=r?calcRend(r):null,totDia=act.reduce((s,x)=>s+montoVuelta(r,x),0);
   const sel=`<label>Chofer<select id="vc-ch" class="vc-chsel">${chs.map(c=>`<option value="${c.id}" ${c.id===vcCh?"selected":""}>${esc(c.nombre)}${c.patente?" · "+esc(c.patente):""}</option>`).join("")}</select></label>`;
-  return cabeza("Venta Chofer",`<div class="acc" style="align-items:end">${sel}${fechaSel}</div>`)+(ed?"":`<div class="banner">${soloVer("ventachofer")?"Solo puede ver este cuadro.":"Este día ya pasó y está bloqueado. Para editarlo, el administrador debe darle acceso a históricos."}</div>`)+`
+  return cabeza("Venta Chofer","")+`<div class="vc-top">${sel}${fechaSel}</div>`+(ed?"":`<div class="banner">${soloVer("ventachofer")?"Solo puede ver este cuadro.":"Este día ya pasó y está bloqueado. Para editarlo, el administrador debe darle acceso a históricos."}</div>`)+`
   <form class="caja vc-caja" id="f-vc" autocomplete="off"><div class="vc-card">
    <div class="vc-g" style="--n:${FORMATOS.length}">
     <div class="vc-izq"><span class="vc-plab">Precio chofer</span>
@@ -4821,6 +4830,33 @@ function resCSV(){const [d1,d2]=rangoRes(),q=v=>`"${String(v??"").replace(/"/g,'
 function envLocal(){const o={};FORMATOS.forEach(f=>{const id=LID[f.id];if(id)o[id]=Math.max(0,Math.round(+((D.preciosEnvase||{})[f.id])||0))});return o}
 async function envALocal(){if(!NUBE.activo||!esAdmin())return;const e=envLocal(),sucs={};LOCAL_SUCS.forEach(x=>sucs[lslug(x)]={envase:e});
   try{await locPrecios({sucs})}catch(x){aviso("Envases del ERP Local","No se pudieron actualizar en el ERP Local: "+x.message)}}
+
+/* ===== Historial de cambios por fechas (no carga todo de una vez) ===== */
+let hcD1=null,hcD2=null;
+function hcRango(k){const h=hoyStr(),d=new Date(h+"T12:00");if(k==="hoy"){hcD1=hcD2=h}else if(k==="7"){d.setDate(d.getDate()-6);hcD1=fechaISO(d);hcD2=h}
+  else if(k==="mes"){hcD1=h.slice(0,8)+"01";hcD2=h}else{const a=new Date(d.getFullYear(),d.getMonth()-1,1,12),b=new Date(d.getFullYear(),d.getMonth(),0,12);hcD1=fechaISO(a);hcD2=fechaISO(b)}pintarSistema()}
+CFG_MAY.histCambios={v(){if(!hcD1){const d=new Date(hoyStr()+"T12:00");d.setDate(d.getDate()-6);hcD1=fechaISO(d);hcD2=hoyStr()}
+  const d1=hcD1,d2=hcD2&&hcD2>=hcD1?hcD2:hcD1;
+  const T=(D.bitacora||[]).filter(x=>["sistema","precios"].includes(x.area)&&String(x.fecha||"").slice(0,10)>=d1&&String(x.fecha||"").slice(0,10)<=d2),B=T.slice(0,500);
+  return `<section class="cfgp"><h3>Historial de cambios</h3><p class="cfgp-nota izq">Cambios en la configuración: usuarios, choferes, precios, accesos y sucursales.</p>
+    <div class="res-top"><span class="res-et">Período</span><input type="date" id="hc-d1" value="${d1}"> a <input type="date" id="hc-d2" value="${d2}"><button class="btn chico" type="button" id="hc-ver">Ver</button><span style="flex:1"></span>
+    ${[["hoy","Hoy"],["7","Últimos 7 días"],["mes","Este mes"],["mesant","Mes anterior"]].map(([k,x])=>`<button class="btn chico linea" type="button" data-hcr="${k}">${x}</button>`).join("")}</div>
+    <p class="nota" id="hc-n" style="margin:0 0 8px">${T.length} cambio${T.length===1?"":"s"} entre el ${fF(d1)} y el ${fF(d2)}${T.length>B.length?` · se muestran los ${B.length} más recientes; acorte el período para ver el resto`:""}.</p>
+    <div class="tabla-wrap cfgt"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Cambio</th><th>Detalle</th></tr></thead><tbody>${B.map(histFila).join("")||'<tr><td colspan="4" class="vacio">Sin cambios en este período.</td></tr>'}</tbody></table></div></section>`},
+  l(){const v=$("#hc-ver");if(!v)return;v.onclick=()=>{hcD1=$("#hc-d1").value||hoyStr();hcD2=$("#hc-d2").value||hcD1;pintarSistema()};$$("[data-hcr]").forEach(b=>b.onclick=()=>hcRango(b.dataset.hcr))}};
+
+/* ===== Permisos detallados: se aplican en pantalla después de pintar ===== */
+function aplicarPermDet(){if(!yo||esAdmin())return;
+  if(!tieneExtra("may.anular"))$$("[data-anmay]").forEach(b=>b.remove());
+  if(!tieneExtra("may.descuento"))["#vm-dcto"].forEach(s=>{const i=$(s);if(i){i.value="";i.disabled=true;i.title="Sin permiso para dar descuentos"}});
+  if(!tieneExtra("vc.anular")){const b=$("#vc-anular");if(b){b.disabled=true;b.title="Sin permiso para anular"}}
+  if(!tieneExtra("vc.descuento")){const i=$("#vc-dcto");if(i){i.value="";i.disabled=true;i.title="Sin permiso para dar descuentos"}}
+  if(!tieneExtra("bodega.editar")){const b=$("#bd-editar");if(b)b.remove()}}
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{aplicarPermDet()}catch(e){}return r}}
+
+/* Venta Local se precarga desde el menú para que abra rápido */
+{const l0=L.menu;L.menu=function(){const r=l0?l0.apply(this,arguments):undefined;
+  try{if(document.querySelector('a.modulo[href="local/"]')&&!document.getElementById("pre-local")){const k=document.createElement("link");k.id="pre-local";k.rel="prefetch";k.href="local/";document.head.appendChild(k)}}catch(e){}return r}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5850,6 +5886,14 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .inf-local{display:block;width:100%;height:calc(100vh - 190px);min-height:520px;border:1px solid #e4e8ee;border-radius:12px;background:#fff}
 
 .sis #s-sucl td:first-child{min-width:200px}.sis #s-sucl .suc-d{display:block;font-size:12px;color:#667085;margin-top:2px}.sis #s-sucl tr.suc-mz td{background:#f7f9fc}
+
+.sis .perm-der .perm-g{margin:10px 0 2px;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#667085}.sis .perm-der .perm-g:first-of-type{margin-top:4px}
+
+.sis .vc-top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:end;background:#fff;border:1px solid #e4e8ee;border-radius:12px;padding:10px 16px;margin:0 0 12px}
+.sis .vc-top label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#667085;margin:0}
+.sis .vc-top select.vc-chsel{font-size:20px;font-weight:700;color:#0a2557;padding:10px 40px 10px 14px;min-width:340px;height:auto;text-transform:none;letter-spacing:0}
+.sis .vc-top input[type=date]{font-size:16px;padding:10px 12px;height:auto}
+@media (max-width:700px){.sis .vc-top select.vc-chsel{min-width:0;width:100%}.sis .vc-top label{flex:1 1 100%}}
 </style>
 </body>
 </html>

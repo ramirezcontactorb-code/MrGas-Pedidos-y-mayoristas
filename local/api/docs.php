@@ -271,7 +271,8 @@ try {
     $s->execute([$desde]);
     $rows = [];
     foreach ($s as $r) $rows[] = ['path' => $r['path'], 'data' => json_decode($r['data']), 'updated_at' => $marca($r['ver'])];
-    salida(['rows' => $rows]);
+    $n = (int) db()->query("SELECT COUNT(*) FROM local_docs WHERE path <> 'app/users'")->fetchColumn();
+    salida(['rows' => $rows, 'n' => $n]);
 } catch (Throwable $e) {
     error_log('MR Gas local: ' . $e->getMessage());
     salida(['error' => 'Error del servidor.'], 500);
