@@ -296,6 +296,57 @@ try {
     }
 
     // ---------- usuarios (administrador) ----------
+    // Limpieza de datos (solo administrador, con su contraseña): borra movimientos de prueba y deja el stock en cero.
+    // Se mantienen usuarios, precios, sucursales, choferes, clientes, sectores y configuración.
+    case 'limpiar': {
+        $adm = requiereAdmin(); $b = cuerpo();
+        limitar('limpiar', 5, 900);
+        $st = db()->prepare('SELECT hash FROM usuarios WHERE uid = ?'); $st->execute([$adm['uid']]);
+        if (!password_verify((string) ($b['pass'] ?? ''), (string) $st->fetchColumn())) { anotarIntento('limpiar'); salida(['error' => 'La contraseña del administrador no es correcta.'], 401); }
+        if (($b['confirmar'] ?? '') !== 'LIMPIAR') salida(['error' => 'Escriba LIMPIAR para confirmar.'], 400);
+        @set_time_limit(300);
+        $uid = (int) $adm['uid']; $n = 0;
+        $cols = ['pedidos','bitacora','ventas','gastos','rendiciones','cargas','cargasDist','anticipos','petroleo','peonetas','movimientos','recuentos','ventasAnuladas','programados','reparto','historialPrecios'];
+        $p = db(); $p->beginTransaction();
+        $q = $p->prepare('SELECT col, id FROM docs WHERE borrado = 0 AND col IN (' . implode(',', array_fill(0, count($cols), '?')) . ')'); $q->execute($cols);
+        foreach ($q->fetchAll() as $f) { grabarDoc($f['col'], (string) $f['id'], null, $uid); $n++; }
+        // stock de bodegas y camiones en cero
+        $cero = fn($o) => is_array($o) ? array_map(fn() => 0, $o) : $o;
+        $q = $p->query("SELECT id, data FROM docs WHERE borrado = 0 AND col = 'estado' AND (id LIKE 'loc-%' OR id LIKE 'stk-%')");
+        foreach ($q->fetchAll() as $f) {
+            $d = json_decode($f['data'], true); if (!is_array($d)) continue;
+            $o = isset($d['v']) && is_array($d['v']) ? $d['v'] : $d;
+            foreach (['stock', 'vacios', 'prestados', 'comodato', 'carga'] as $k) if (isset($o[$k])) $o[$k] = $cero($o[$k]);
+            if (isset($d['v']) && is_array($d['v'])) $d['v'] = $o; else $d = $o;
+            grabarDoc('estado', (string) $f['id'], $d, $uid);
+        }
+        $q = $p->query("SELECT id, data FROM docs WHERE borrado = 0 AND col = 'choferes'");
+        foreach ($q->fetchAll() as $f) {
+            $d = json_decode($f['data'], true); if (!is_array($d)) continue; $cambio = false;
+            foreach (['carga', 'vacios'] as $k) if (isset($d[$k]) && is_array($d[$k])) { $d[$k] = $cero($d[$k]); $cambio = true; }
+            if ($cambio) grabarDoc('choferes', (string) $f['id'], $d, $uid);
+        }
+        // Venta Local: ventas, rendiciones y movimientos de bodega
+        $loc = 0;
+        try {
+            $loc = $p->exec("DELETE FROM local_docs WHERE path LIKE 'suc/%/ventas/%' OR path LIKE 'suc/%/rend/%' OR path LIKE 'suc/%/bmovs/%'") ?: 0;
+            $q = $p->query("SELECT path, data FROM local_docs WHERE path LIKE 'suc/%' AND path NOT LIKE 'suc/%/%'");
+            foreach ($q->fetchAll() as $f) {
+                $d = json_decode($f['data'], true); if (!is_array($d)) continue;
+                foreach (($d['products'] ?? []) as $i => $pr) $d['products'][$i]['stock'] = 0;
+                $d['vacios'] = new stdClass(); $d['prestados'] = new stdClass();
+                if (isset($d['mayor']) && is_array($d['mayor'])) { $d['mayor']['ventas'] = []; $d['mayor']['rend'] = new stdClass(); $d['mayor']['rendc'] = new stdClass(); }
+                $p->exec("UPDATE contadores SET valor = valor + 1 WHERE nombre = 'local'");
+                $ver = (int) $p->query("SELECT valor FROM contadores WHERE nombre = 'local'")->fetchColumn();
+                $p->prepare('UPDATE local_docs SET data = ?, ver = ? WHERE path = ?')->execute([json_encode($d, JSON_UNESCAPED_UNICODE), $ver, $f['path']]);
+            }
+        } catch (Throwable $e) { /* Venta Local aún no se usa */ }
+        $p->commit();
+        $id = 'limpieza-' . time();
+        grabarDoc('bitacora', $id, ['id' => time(), 'fecha' => date('Y-m-d H:i:s'), 'user' => $adm['nombre'], 'local' => 1, 'area' => 'sistema',
+            'accion' => 'Limpieza de datos', 'detalle' => "Se borraron $n registros de prueba y $loc de Venta Local. El stock quedó en cero."], $uid);
+        salida(['ok' => true, 'borrados' => $n, 'local' => $loc]);
+    }
     case 'usuarios': {
         requiereAdmin();
         $l = db()->query('SELECT * FROM usuarios ORDER BY nombre')->fetchAll();

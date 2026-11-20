@@ -1537,6 +1537,10 @@ const montoIt=its=>its.reduce((s,i)=>s+(i.precio||0)*(i.cant||0)+(i.env||0)*(i.p
 const filaRend=r=>{const k=calcRend(r),ef=sumP(r,"efectivo"),tb=sumP(r,"transbank"),tr=sumP(r,"transferencia"),chq=sumP(r,"cheque"),va=sumP(r,"vale");
   return [fF(r.fecha),nomRef(r),k.venta,ef,tb,tr,chq,va,k.pagado-ef-tb-tr-chq-va,k.saldo]};
 const COLS_REND=[["Fecha","t"],["Nombre","t"],["Vendido","$"],["Efectivo","$"],["Transbank","$"],["Transferencia","$"],["Cheque","$"],["Vales","$"],["Otros","$"],["Saldo","$"]];
+/* informes que se muestran (los demás quedan guardados pero ocultos) */
+const REP_IMP=["p-detalle","p-movil","p-comuna","p-resumen-mes",
+  "r-resumen","r-saldos","r-ventas-dia","r-unidades","r-rend-chofer","r-cuentamay","r-vales","r-transbank-rev","r-cargos-desc","r-prestamos",
+  "b-historial"];
 const REPORTES=[
  {g:"r",id:"r-cuentamay",t:"Cuenta clientes mayoristas",ic:"tabla",fn:c=>{const M=(D.mayoristas||[]).filter(m=>c.ids.includes(m.local??1)).map(cuentaMay).sort((a,b)=>b.saldo-a.saldo);
    return {cols:[["Cliente","t"],["RUT","t"],["Lista","t"],["Comprado","$"],["Pagado","$"],["Comisión vales","$"],["Saldo","$"],["Última compra","t"]],
@@ -1638,7 +1642,7 @@ function ctxRep(){const ids=alcanceInf==="todas"?misSucs():[suc],c={desde:repDes
   return c}
 {const i=REPORTES.findIndex(r=>r.id==="r-petroleo");if(i>=0)REPORTES.splice(i,1)}
 function catalogo(){
-  const sec=(g,t)=>`<section class="rep-sec"><h3>${t}</h3><div class="rep-grid">${REPORTES.filter(r=>r.g===g).map(r=>`<button type="button" class="rep" data-rep="${r.id}"><span class="ico">${svg(r.ic)}</span><b>${r.t}</b></button>`).join("")}</div></section>`;
+  const sec=(g,t)=>`<section class="rep-sec"><h3>${t}</h3><div class="rep-grid">${REPORTES.filter(r=>r.g===g&&REP_IMP.includes(r.id)).sort((x,y)=>REP_IMP.indexOf(x.id)-REP_IMP.indexOf(y.id)).map(r=>`<button type="button" class="rep" data-rep="${r.id}"><span class="ico">${svg(r.ic)}</span><b>${r.t}</b></button>`).join("")}</div></section>`;
   return cabeza("Informes")+tabsInf()+sec("p","Pedidos telefónicos")+sec("r","Rendiciones y ventas")+sec("b","Bodega");
 }
 const FMT_COL={t:v=>esc(v??""),n:v=>(+v||0).toLocaleString("es-CL"),$:v=>clp(+v||0),kg:v=>(+v||0).toLocaleString("es-CL")+" kg"};
@@ -4571,7 +4575,7 @@ function barraVentasMay(){const vs=ventasDiaMay(),gen=getRendMayV(mayCli,fechaCu
   const pend=(D.rendiciones||[]).filter(r=>r.tipo==="mayorista"&&r.ref===mayCli&&r.fecha<fechaCuad&&(S.ef.get(r)||0)>0);
   const chip=(k,t,sub,on,an)=>`<button type="button" class="mv-ch ${on?"on":""}" data-mvsel="${k}">${t}${sub?`<small>${sub}</small>`:""}</button>`;
   return `<div class="mv-bar"><span class="mv-lbl">VENTAS DE ${esc((c||{}).nombre||"").toUpperCase()} · ${fF(fechaCuad)}</span>
-    ${vs.map((x,i)=>{const r=rendDeVenta(x),sd=r?(S.ef.get(r)??0):valorDist(x);return chip(x.k,`Venta ${i+1} · ${esc(String(x.hora||"").slice(0,5))}`,sd<=0?((S.cubierto.get(r)||0)?"pagada con abono":"pagada"):"debe "+clp(sd),String(mayVenta)===String(x.k))}).join("")||'<span class="nota" style="margin:0">Sin ventas este día</span>'}
+    ${vs.map((x,i)=>{const r=rendDeVenta(x),sd=r?(S.ef.get(r)??0):valorDist(x);return chip(x.k,`Rendición ${i+1} · ${esc(String(x.hora||"").slice(0,5))}`,sd<=0?((S.cubierto.get(r)||0)?"pagada con abono":"pagada"):"debe "+clp(sd),String(mayVenta)===String(x.k))}).join("")||'<span class="nota" style="margin:0">Sin ventas este día</span>'}
     ${gen&&(calcRend(gen).tarros>0)?chip("sin","Ventas antiguas del día",clp(calcRend(gen).saldo),mayVenta==null):""}
     <span class="mv-hist ${Math.round(cta.saldo)>0?"debe":Math.round(cta.saldo)<0?"favor":""}">Saldo histórico: <b>${Math.round(cta.saldo)>0?"debe "+clp(cta.saldo):Math.round(cta.saldo)<0?"a favor "+clp(-cta.saldo):"al día"}</b></span></div>
   ${pend.length?`<p class="nota mv-nota">Para pagar una deuda anterior, toque su fecha en «Deudas pendientes» y registre el pago en esa venta.</p>`:""}`}
@@ -4884,7 +4888,7 @@ function compactarRend(){const rr=document.querySelector(".rerp");if(!rr||rr.dat
   const mv=cont.querySelector(".mv-bar");
   if(mv){mv.querySelectorAll(".mv-ch").forEach(x=>lin.appendChild(x));const h=mv.querySelector(".mv-hist");mv.remove();const n=cont.querySelector(".mv-nota");if(n)n.remove();if(h)lin.appendChild(h)}
   const vr=cont.querySelector(".vr-sum");
-  if(vr){const btn=vr.querySelector("[data-ctab]");if(mv){if(btn)lin.insertBefore(btn,lin.querySelector(".mv-hist"))}else{const g=document.createElement("span");g.className="rd-vs";[...vr.childNodes].forEach(x=>g.appendChild(x));lin.appendChild(g)}vr.remove()}
+  if(vr){const btn=vr.querySelector("[data-ctab]");if(mv){if(btn)lin.insertBefore(btn,lin.querySelector(".mv-hist"))}else if(btn)lin.appendChild(btn);vr.remove()}
   const top=cont.querySelector(".rtop-erp");if(top){const g=top.querySelector(".guia");if(g)lin.appendChild(g);top.remove()}
   if(bar){bar.parentNode.insertBefore(lin,bar);if(!bar.querySelector(".row"))bar.remove()}else{rr.closest("fieldset")?.parentNode.insertBefore(lin,rr.closest("fieldset"))}
   // sin Descuento QR (salvo que ya tenga montos guardados)
@@ -4898,6 +4902,27 @@ function compactarRend(){const rr=document.querySelector(".rerp");if(!rr||rr.dat
 /* Configuraciones → General: incluye la lista de Sucursales (solo administrador) */
 {const lc=L.config;L.config=function(){const r=lc.apply(this,arguments);
   try{if(cfgTab==="general"&&esAdmin()&&!document.getElementById("s-sucl")){const z=document.querySelector(".cfg-main");if(z){z.insertAdjacentHTML("beforeend",'<div class="cfg-suc-gen">'+CFG_MAY.sucLocal.v()+'</div>');CFG_MAY.sucLocal.l()}}}catch(e){console.error(e)}
+  return r}}
+
+/* ===== Respaldos y reset → Limpiar datos para empezar a usar el sistema (pide la contraseña del administrador) ===== */
+function limpiarDatosLocal(){["pedidos","ventas","gastos","rendiciones","cargas","cargasDist","anticipos","petroleo","peonetas","movimientos","recuentos","ventasAnuladas","programados","bitacora","historialPrecios"].forEach(k=>{if(Array.isArray(D[k]))D[k]=[]});
+  const z=()=>Object.fromEntries(FORMATOS.map(f=>[f.id,0]));(D.locales||[]).forEach(l=>{l.stock=z();l.vacios=z();l.prestados=z();if(l.comodato)l.comodato=z()});(D.choferes||[]).forEach(c=>{c.carga=z();c.vacios=z()})}
+{const lc=L.config;L.config=function(){const r=lc.apply(this,arguments);
+  try{if(cfgTab==="respaldos"&&esAdmin()&&!document.getElementById("f-limpiar")){const z=document.querySelector(".cfg-main");if(z){
+    z.insertAdjacentHTML("beforeend",`<form class="caja lim-caja" id="f-limpiar"><h3>Limpiar datos para empezar a usar el sistema</h3>
+      <p class="nota" style="margin:0">Borra <b>todos los pedidos, ventas, rendiciones, cargas, compras, movimientos e historial</b> (también los de Venta Local) y deja el <b>stock de bodega y camiones en cero</b>.
+      Se mantienen usuarios, precios, sucursales, choferes, clientes, sectores y la configuración. <b>No se puede deshacer</b>: haga antes una copia de seguridad.</p>
+      <div class="fila"><label>Contraseña del administrador<input type="password" id="lim-pass" autocomplete="current-password" required></label><label>Escriba LIMPIAR para confirmar<input id="lim-conf" placeholder="LIMPIAR" autocomplete="off" required></label></div>
+      <p class="error" id="lim-err" hidden></p><div><button class="btn rojo" type="submit" id="lim-btn">Limpiar datos</button></div></form>`);
+    $("#f-limpiar").onsubmit=async e=>{e.preventDefault();const er=$("#lim-err"),b=$("#lim-btn"),pass=$("#lim-pass").value,conf=$("#lim-conf").value.trim().toUpperCase();er.hidden=true;
+      if(conf!=="LIMPIAR"){er.textContent="Escriba LIMPIAR para confirmar.";er.hidden=false;return}
+      b.disabled=true;b.textContent="Limpiando…";
+      try{if(NUBE.activo){const j=await api("limpiar",{pass,confirmar:"LIMPIAR"});
+          try{localStorage.removeItem(KEY)}catch(x){}try{indexedDB.deleteDatabase("mrgas-local")}catch(x){}
+          aviso("Datos limpios",`Se borraron ${j.borrados} registros${j.local?` y ${j.local} de Venta Local`:""}. El sistema se recarga.`);setTimeout(()=>location.reload(),1800)}
+        else{const u=(D.usuarios||[]).find(x=>x.user===yo.user);if(u&&u.pass&&u.pass!==pass){throw new Error("La contraseña del administrador no es correcta.")}
+          limpiarDatosLocal();log("sistema","Limpieza de datos","Se borraron los datos de prueba y el stock quedó en cero.");guardar();pintarSistema();aviso("Datos limpios","Ya puede empezar a usar el sistema.")}}
+      catch(x){er.textContent=x.message;er.hidden=false;b.disabled=false;b.textContent="Limpiar datos"}}}}}catch(e){console.error(e)}
   return r}}
 </script>
 <style id="tema-erp">
@@ -5968,6 +5993,21 @@ body.vl-abierta{overflow:hidden}
 .sis .rd-lv .rerp .radios,.sis .rd-lv .rerp .radios label{font-size:12px!important;font-weight:500!important}.sis .rd-lv .rerp .radios input{width:13px;height:13px}
 
 .sis .cfg-suc-gen{margin-top:20px}.sis .cfg-suc-gen #s-sucl{max-width:1000px!important}.sis .cfg-suc-gen #s-sucl select{max-width:190px}.sis .cfg-suc-gen .tabla-wrap{overflow-x:auto}
+
+/* rendición chofer y mayorista: mismos colores que Venta Local (todo azul suave) */
+.sis .rd-lv .rerp .rbox,.sis .rd-lv .rerp [class*="k-"]{--kc:#0d3a7f;--kb:#eaeff8;--kd:#a5bde1}
+.sis .rd-lv .rerp .rbox{border-color:#a5bde1!important;border-radius:6px;background:#fff}
+.sis .rd-lv .rerp .rbox-h{background:#eaeff8!important;color:#0d3a7f!important;border-bottom-color:#a5bde1!important}
+.sis .rd-lv .rerp .rbox-h .tot{color:#0d3a7f!important}
+.sis .rd-lv .rerp .rbox-b .btn{background:#fff!important;color:#0d3a7f!important;border:1px solid #a5bde1!important;font-weight:600;box-shadow:none!important}
+.sis .rd-lv .rerp .rbox-b .btn:hover{background:#eaeff8!important}
+.sis .rd-lv .rerp .rbox-b input,.sis .rd-lv .rerp .rbox-b select,.sis .rd-lv .rerp .rbox-b textarea{border-color:#d0d7e2;background:#fff}
+.sis .rd-lv .rerp .tbox{border-color:#d0d7e2}.sis .rd-lv .rerp .tbox th{background:#eaeff8!important;color:#0d3a7f!important}
+.sis .rd-lv .rerp table.rv thead th{background:#fff;color:#667085}
+.sis .rd-lv .rerp table.rv tr.tot td{background:#fff}
+.sis .rd-lv .rerp .chips .chip{background:#f5f8fd;border-color:#d0d7e2}
+
+.sis .lim-caja{margin-top:20px;border-color:#fecdca;background:#fffbfa;max-width:900px}.sis .lim-caja h3{color:#b42318}
 </style>
 </body>
 </html>
