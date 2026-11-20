@@ -3554,7 +3554,7 @@ const GASTO_T=["Combustible","Alimentación","Mantención","Peaje","Estacionamie
 const CAJA_K={efectivo:"ing",vale:"val",valecil:"val",cheque:"ban",transferencia:"ban",transbank:"ban",deposito:"ban",qr:"res",descuento:"res",gasto:"res",petroleo:"res",credito:"res",creditodoc:"res"};
 
 function vistaRendERP(r,fechaSel){
-  const c=calcRend(r),ant=r.tipo==="mayorista"?0:saldoAnterior(r.tipo,r.ref,r.fecha),ed=puedeEditarFecha(r.fecha),MY=r.tipo==="mayorista",adm=esAdmin();
+  const c=calcRend(r),ant=r.tipo==="mayorista"?saldoAntMay(r):saldoAnterior(r.tipo,r.ref,r.fecha),ed=puedeEditarFecha(r.fecha),MY=r.tipo==="mayorista",adm=esAdmin();
   const ent=r.tipo==="movil"?entregasDe(r.ref,r.fecha):cargaDistDe(r.ref,r.fecha);
   const pe=r.precioEnv||{},en=r.envases||st();
   const totF=f=>(r.ventas[f.id]||0)*(r.precios[f.id]||0)+(en[f.id]||0)*(pe[f.id]||0);
@@ -4576,6 +4576,15 @@ estadoVentaMay=function(x){const r=rendDeVenta(x);if(!r)return '<span class="pil
 /* barra «Deudas pendientes» del mayorista: usa los saldos ya descontados con los abonos */
 {const d0=deudasRend;deudasRend=function(r){if(r.tipo!=="mayorista")return d0(r);const S=saldosMay(r.ref),list=[];
   S.ef.forEach((v,x)=>{if(v>0&&x!==r&&x.fecha<r.fecha)list.push({f:x.fecha,orig:S.raw.get(x),pend:v})});list.sort((a,b)=>a.f.localeCompare(b.f));return {list,favor:S.credito}}}
+
+/* Mayorista: saldo anterior = deudas no pagadas acumuladas en orden cronológico hasta antes de esta venta
+   (días anteriores y ventas anteriores del mismo día, menos abonos). Saldo pendiente total = anterior + esta venta. */
+const ordenRend=x=>x.fecha+"|"+(x.venta!=null?String(x.venta).padStart(16,"0"):"9".repeat(16))+"|"+(x.creada||"");
+function saldoAntMay(r){const o=ordenRend(r);
+  const rs=(D.rendiciones||[]).filter(x=>x.tipo==="mayorista"&&x.ref===r.ref&&x!==r&&ordenRend(x)<o);
+  let t=rs.reduce((s,x)=>s+calcRend(x).saldo,0);
+  (D.cargasDist||[]).filter(x=>x.mayorista===r.ref&&!x.anulada&&x.fecha<r.fecha&&!rendDeVenta(x)&&!(D.rendiciones||[]).some(y=>y.tipo==="mayorista"&&y.ref===r.ref&&y.venta==null&&y.fecha===x.fecha)).forEach(x=>t+=valorDist(x));
+  return Math.round(t)}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
