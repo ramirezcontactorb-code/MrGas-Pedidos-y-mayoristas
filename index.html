@@ -3697,7 +3697,7 @@ CFG_MAY.descQR={v(){D.descQR=D.descQR||{};return `<form class="cfgp" id="f-qr"><
    Si la pantalla no cabe, la tabla más larga se achica y se desplaza dentro de su cuadro. */
 function ajustarPantalla(){const main=document.getElementById("sis-main");if(!main)return;
   main.querySelectorAll(".tabla-wrap[data-fit]").forEach(t=>{t.style.maxHeight="";t.removeAttribute("data-fit")});
-  if(innerWidth<900||innerHeight<500||main.querySelector(".cfgp,.res-ks"))return;
+  if(innerWidth<900||innerHeight<500||main.querySelector(".cfgp,.res-ks,.res-kpi"))return;
   for(let i=0;i<5;i++){const over=document.documentElement.scrollHeight-innerHeight;if(over<=2)break;
     const ts=[...main.querySelectorAll(".tabla-wrap")].filter(t=>!t.dataset.fit&&t.offsetHeight>190&&t.offsetParent).sort((a,b)=>b.offsetHeight-a.offsetHeight);if(!ts.length)break;
     const t=ts[0],h=Math.max(170,t.offsetHeight-over-4);t.style.maxHeight=h+"px";t.style.overflow="auto";t.dataset.fit=1}}
@@ -4712,6 +4712,92 @@ function tablaResumen(C,canales){const sum=(fn)=>canales.reduce((s,k)=>s+fn(C[k]
   ${fila("Descuentos",c=>c.desc,v=>v?"−"+clp(v):"–")}
   ${fila("Total vendido",c=>c.monto,pesos,"tot")}
   </tbody></table></div></section>`}
+
+/* ===== Informes → Resumen (formato del informe del ERP Local, con local, choferes y mayoristas) ===== */
+let resD1=null,resD2=null,resSucs={};
+function rangoRes(){const h=hoyStr();if(!resD1){const d=new Date(h+"T12:00");d.setDate(d.getDate()-6);resD1=fechaISO(d);resD2=h}
+  return [resD1,resD2&&resD2>=resD1?resD2:resD1]}
+function resRango(k){const h=hoyStr(),d=new Date(h+"T12:00");
+  if(k==="hoy"){resD1=resD2=h}else if(k==="7"){d.setDate(d.getDate()-6);resD1=fechaISO(d);resD2=h}
+  else if(k==="mes"){resD1=h.slice(0,8)+"01";resD2=h}
+  else{const a=new Date(d.getFullYear(),d.getMonth()-1,1,12),b=new Date(d.getFullYear(),d.getMonth(),0,12);resD1=fechaISO(a);resD2=fechaISO(b)}
+  resLocal=null;pintarSistema()}
+const kgF=id=>(FORMATOS.find(f=>f.id===id)||{kg:0}).kg;
+function datosResumen2(){const [d1,d2]=rangoRes(),ids=misSucs(),dias=[];{const d=new Date(d1+"T12:00"),f=new Date(d2+"T12:00");while(d<=f&&dias.length<93){dias.push(fechaISO(d));d.setDate(d.getDate()+1)}}
+  const z=n=>({n,venta:0,cil:0,kg:0,rend:0,carg:0,ops:0,f:Object.fromEntries(FORMATOS.map(f=>[f.id,0]))});
+  const C={local:z("Venta local"),chofer:z("Venta choferes"),may:z("Venta mayorista")},porDia=Object.fromEntries(dias.map(d=>[d,{local:0,chofer:0,may:0}]));
+  const ch={},my={},sl={},en=f=>f>=d1&&f<=d2;
+  const suma=(o,id,q)=>{o.f[id]=(o.f[id]||0)+q;o.cil+=q;o.kg+=q*kgF(id)};
+  const ADD=(o,id,q)=>{suma(o,id,q)};
+  (D.rendiciones||[]).filter(r=>ids.includes(r.local)&&en(r.fecha)).forEach(r=>{const c=calcRend(r);
+    if(r.tipo==="movil"){const o=ch[r.ref]||(ch[r.ref]=z(nomRef(r)));[o,C.chofer].forEach(x=>{x.venta+=c.venta;x.rend+=c.pagado;x.carg+=c.cargos;x.ops++;FORMATOS.forEach(f=>ADD(x,f.id,r.ventas[f.id]||0))});if(porDia[r.fecha])porDia[r.fecha].chofer+=c.venta}
+    else if(r.tipo==="mayorista"){const pg=r.pagos.filter(p=>p.auto!=="may").reduce((s,p)=>s+p.monto,0),o=my[r.ref]||(my[r.ref]=z(nomRef(r)));[o,C.may].forEach(x=>{x.rend+=pg;x.carg+=c.cargos})}
+    else if(r.tipo==="local"){C.local.rend+=c.pagado;C.local.carg+=c.cargos}});
+  (D.cargasDist||[]).filter(x=>!x.anulada&&ids.includes(x.local)&&en(x.fecha)).forEach(x=>{const v=valorDist(x),cm=cliMay(x.mayorista),o=my[x.mayorista]||(my[x.mayorista]=z(cm?cm.nombre:"Mayorista"));
+    [o,C.may].forEach(y=>{y.venta+=v;y.ops++;FORMATOS.forEach(f=>ADD(y,f.id,x.venta[f.id]||0))});if(porDia[x.fecha])porDia[x.fecha].may+=v});
+  if(D.ventas.some(v=>ids.includes(v.local)&&en(v.fecha.slice(0,10)))){const o=sl._m=z("Casa Matriz");
+    D.ventas.filter(v=>ids.includes(v.local)&&en(v.fecha.slice(0,10))).forEach(v=>{const m=montoV(v),d=v.fecha.slice(0,10);[o,C.local].forEach(x=>{x.venta+=m;x.ops++;ADD(x,v.formato,v.cant)});if(porDia[d])porDia[d].local+=m});
+    o.rend=C.local.rend;o.carg=C.local.carg}
+  if(resLocal&&!resLocal.error)Object.entries(resLocal).forEach(([d,o])=>{if(!en(d))return;C.local.venta+=o.total||0;C.local.ops+=o.n||0;C.local.rend+=o.rend||0;C.local.carg+=o.carg||0;if(porDia[d])porDia[d].local+=o.total||0;
+    const keys=new Set([...Object.keys(o.suc||{}),...Object.keys(o.srend||{})]);
+    keys.forEach(k=>{const s=sl[k]||(sl[k]=z(resSucs[k]||k));s.venta+=(o.suc||{})[k]||0;s.rend+=(o.srend||{})[k]||0;s.carg+=(o.scarg||{})[k]||0;
+      Object.entries((o.scil||{})[k]||{}).forEach(([id,q])=>{const f=LID2[id];if(f)suma(s,f,q)})});
+    Object.entries(o.cil||{}).forEach(([id,q])=>{const f=LID2[id];if(f)suma(C.local,f,q)})});
+  Object.values({...C,...ch,...my,...sl}).forEach(o=>o.saldo=o.venta+o.carg-o.rend);
+  return {dias,C,porDia,d1,d2,ch:Object.values(ch).sort((a,b)=>b.venta-a.venta),my:Object.values(my).sort((a,b)=>b.venta-a.venta),sl:Object.values(sl).sort((a,b)=>b.venta-a.venta)}}
+function barrasCanal(C,canales){const rowH=38,W=540,pl=128,pr=112,H=canales.length*rowH+8,iw=W-pl-pr,max=Math.max(1,...canales.map(k=>C[k].venta));let g="";
+  canales.forEach((k,i)=>{const y=8+i*rowH,w=C[k].venta/max*iw;g+=`<text x="${pl-10}" y="${y+15}" text-anchor="end" class="lb">${RES_TXT[k]}</text>`;
+    g+=`<rect x="${pl}" y="${y+2}" width="${Math.max(w,C[k].venta?2:0)}" height="18" rx="4" fill="${RES_COL[k]}"><title>${RES_TXT[k]}: ${clp(C[k].venta)}</title></rect><text x="${pl+w+8}" y="${y+15}" class="vl">${clp(C[k].venta)}</text>`});
+  return `<svg viewBox="0 0 ${W} ${H}" class="res-svg" role="img" aria-label="Ventas por canal">${g}</svg>`}
+const RES_TABLAS={};
+function resTabla(id,titulo,sub,cols,filas,total){RES_TABLAS[id]={titulo,cols,filas,total};
+  const td=(v,i)=>`<td class="${cols[i][1]==="t"?"":"der num"}${cols[i][2]&&v>0?" rojo":""}">${v==null?"":cols[i][1]==="$"?clp(v):cols[i][1]==="n"?Number(v).toLocaleString("es-CL"):v}</td>`;
+  return `<div class="res-cap"><div><b>${titulo}</b><span class="nota"> · ${sub}</span></div><button class="btn chico linea" type="button" data-copiar="${id}">⧉ Copiar tabla</button></div>
+  <div class="tabla-wrap res-t"><table><thead><tr>${cols.map(c=>`<th class="${c[1]==="t"?"":"der"}">${c[0]}</th>`).join("")}</tr></thead><tbody>
+  ${filas.length?filas.map(f=>`<tr>${f.map(td).join("")}</tr>`).join(""):`<tr><td colspan="${cols.length}" class="nota" style="text-align:center">Sin ventas en este período</td></tr>`}
+  ${total&&filas.length>1?`<tr class="tot">${total.map(td).join("")}</tr>`:""}</tbody></table></div>`}
+function vistaResumenInf(){cargarResLocal();const R=datosResumen2(),C=R.C,canales=["local","chofer",...(D.precios&&D.precios.sinMayorista?[]:["may"])];
+  const T={venta:0,cil:0,kg:0,rend:0,saldo:0};canales.forEach(k=>Object.keys(T).forEach(x=>T[x]+=C[k][x]));
+  const per=R.d1===R.d2?fF(R.d1):`${fF(R.d1)} al ${fF(R.d2)}`,kg=v=>Number(v).toLocaleString("es-CL");
+  const ley=`<div class="res-ley">${canales.map(k=>`<span><i style="background:${RES_COL[k]}"></i>${RES_TXT[k]}</span>`).join("")}</div>`;
+  const aviso=resLocal&&resLocal.error?`<p class="nota" style="margin:0 0 8px">No se pudo leer la venta del ERP Local (${esc(resLocal.error)}).</p>`:(!resLocal&&NUBE.activo?'<p class="nota" style="margin:0 0 8px">Cargando venta del ERP Local…</p>':"");
+  const fila=o=>[o.n,o.venta,o.cil,o.kg,o.rend,o.saldo],TOT=["TOTAL",T.venta,T.cil,T.kg,T.rend,T.saldo];
+  const colsB=n=>[[n,"t"],["Ventas $","$"],["Cilindros","n"],["Kilos","n"],["Rendido","$"],["Saldo","$",1]];
+  const colsF=n=>[[n,"t"],...FORMATOS.map(f=>[f.tipo==="h"?"H15":f.kg+" kg","n"]),["Total cil.","n"],["Kilos","n"]];
+  const filaF=o=>[o.n,...FORMATOS.map(f=>o.f[f.id]||0),o.cil,o.kg];
+  const sumF=l=>["TOTAL",...FORMATOS.map(f=>l.reduce((s,o)=>s+(o.f[f.id]||0),0)),l.reduce((s,o)=>s+o.cil,0),l.reduce((s,o)=>s+o.kg,0)];
+  const sumB=l=>["TOTAL",...["venta","cil","kg","rend","saldo"].map(k=>l.reduce((s,o)=>s+o[k],0))];
+  const ctrl=`<div class="res-top"><span class="res-et">Período</span><input type="date" id="res-d1" value="${R.d1}"> a <input type="date" id="res-d2" value="${R.d2}">
+    <button class="btn chico" type="button" id="res-ver">Ver informe</button><span style="flex:1"></span>
+    ${[["hoy","Hoy"],["7","Últimos 7 días"],["mes","Este mes"],["mesant","Mes anterior"]].map(([k,t])=>`<button class="btn chico linea" type="button" data-rr="${k}">${t}</button>`).join("")}</div>`;
+  return cabeza("Informes",`<button class="btn chico linea" type="button" onclick="window.print()">Imprimir</button>`)+tabsInf()+ctrl+aviso+`
+  <div class="res-cap"><p class="res-tit">Total de ventas · ${per}</p><button class="btn chico" type="button" id="res-xls">⬇ Exportar a Excel</button></div>
+  <div class="res-kpi"><div><span>Ventas</span><b class="num">${clp(T.venta)}</b></div><div><span>Cilindros vendidos</span><b class="num">${kg(T.cil)}</b></div><div><span>Kilos vendidos</span><b class="num">${kg(T.kg)}</b></div></div>
+  <div class="res-g"><section class="caja"><div class="res-h"><div><b>Ventas por día</b><span class="nota"> · ${per}</span></div>${ley}</div>
+    ${R.dias.length>1?barrasDias(R.dias,R.porDia,canales):'<p class="nota">Elija un período de varios días (por ejemplo «Últimos 7 días») para ver el gráfico por día.</p>'}</section>
+  <section class="caja"><div class="res-h"><div><b>Ventas por canal</b><span class="nota"> · ${per}</span></div></div>${barrasCanal(C,canales)}</section></div>
+  ${resTabla("t-canal","Resumen por canal",per,colsB("Canal"),canales.map(k=>fila(C[k])),TOT)}
+  ${resTabla("t-form","Cilindros vendidos por formato",per,colsF("Canal"),canales.map(k=>filaF(C[k])),sumF(canales.map(k=>C[k])))}
+  ${R.sl.length?resTabla("t-loc","Venta local por sucursal",per,colsB("Sucursal"),R.sl.map(fila),sumB(R.sl)):""}
+  ${resTabla("t-cho","Venta por chofer",per,colsB("Chofer"),R.ch.map(fila),sumB(R.ch))}
+  ${canales.includes("may")?resTabla("t-may","Venta por mayorista",per,colsB("Mayorista"),R.my.map(fila),sumB(R.my)):""}
+  <p class="nota" style="margin:4px 0 0">Rendido = lo pagado en las rendiciones del período. Saldo = ventas + cargos − rendido. No incluye ventas anuladas.</p>`}
+function resCSV(){const [d1,d2]=rangoRes(),q=v=>`"${String(v??"").replace(/"/g,'""')}"`,L=[];
+  Object.values(RES_TABLAS).forEach(t=>{L.push(q(t.titulo));L.push(t.cols.map(c=>q(c[0])).join(";"));t.filas.forEach(f=>L.push(f.map(q).join(";")));if(t.total&&t.filas.length>1)L.push(t.total.map(q).join(";"));L.push("")});
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+L.join("\r\n")],{type:"text/csv;charset=utf-8"}));a.download=`resumen_${d1}_${d2}.csv`;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+{const c0=cargarResLocal;cargarResLocal=async function(){const [d1,d2]=rangoRes();if(resLocalKey!==d1+"|"+d2&&!resCargando)resLocal=null;
+  if(resCargando||resLocalKey===d1+"|"+d2||!NUBE.activo)return;resCargando=true;
+  try{const r=await fetch(`local/api/docs.php?a=resumen&desde=${d1}&hasta=${d2}`,{credentials:"same-origin",cache:"no-store"});const j=await r.json();
+    resLocal=r.ok?j.dias||{}:{error:j.error||"sin acceso"};if(r.ok&&j.sucs)resSucs=j.sucs}catch(e){resLocal={error:"sin conexión"}}
+  resLocalKey=d1+"|"+d2;resCargando=false;if(mod==="informes"&&infTab==="resumen")pintarSistema()}}
+{const l0=L.informes;L.informes=function(){const r=l0?l0.apply(this,arguments):undefined;
+  if(infTab==="resumen"&&$("#res-ver")){$("#res-ver").onclick=()=>{resD1=$("#res-d1").value||hoyStr();resD2=$("#res-d2").value||resD1;resLocal=null;pintarSistema()};
+    document.querySelectorAll("[data-rr]").forEach(b=>b.onclick=()=>resRango(b.dataset.rr));$("#res-xls").onclick=resCSV;
+    document.querySelectorAll("[data-copiar]").forEach(b=>b.onclick=()=>{const t=RES_TABLAS[b.dataset.copiar];if(!t)return;
+      const txt=[t.cols.map(c=>c[0]),...t.filas,...(t.total&&t.filas.length>1?[t.total]:[])].map(f=>f.join("\t")).join("\n");
+      (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>aviso("Tabla copiada","Péguela en Excel."),()=>aviso("No se pudo copiar","Use Exportar a Excel."))})}
+  return r}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5724,6 +5810,18 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .res-tab tr.sub td{border-top:1.5px solid #d0d7e2;font-weight:600}
 .sis .res-tab tr.tot td{background:#f5f8fd;font-weight:700;color:#0a2557;border-top:1.5px solid #c3d4ef}
 .sis .res-dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:0}
+
+.sis .res-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;border:1px solid #e4e8ee;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:13px}
+.sis .res-top input[type=date]{width:auto;padding:5px 8px}.sis .res-et{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#667085}
+.sis .res-cap{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 8px}
+.sis .res-tit{margin:0;font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#344054}
+.sis .res-kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#fff;border:1px solid #e4e8ee;border-radius:10px;overflow:hidden;margin-bottom:14px}
+.sis .res-kpi>div{padding:14px 20px;border-left:1px solid #e4e8ee;display:flex;flex-direction:column;gap:4px}.sis .res-kpi>div:first-child{border-left:0}
+.sis .res-kpi span{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#667085}.sis .res-kpi b{font-size:26px;color:#101828}
+.sis .res-g{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}
+.sis .res-t table td.rojo{color:#d92d20;font-weight:600}.sis .res-t tr.tot td{background:#f5f8fd;font-weight:700;color:#0a2557;border-top:1.5px solid #c3d4ef}
+@media (max-width:700px){.sis .res-kpi{grid-template-columns:minmax(0,1fr)}.sis .res-kpi>div{border-left:0;border-top:1px solid #e4e8ee}}
+@media print{.sis .res-top,.sis [data-copiar],.sis #res-xls{display:none!important}}
 </style>
 </body>
 </html>

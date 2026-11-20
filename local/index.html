@@ -1068,6 +1068,10 @@ setInterval(()=>{if(!document.hidden)mgLeerBodega();},6000);
         .then(r=>r.json()).then(j=>{if(j&&j.bodega!=null&&MGB&&MGB.suc===suc){MGB.base={stock:j.stock,vacios:j.vacios,prestados:j.prestados};mgAplicarBodega();}})
         .catch(()=>toast('No se pudo descontar el stock en la bodega de la matriz. Revise la conexión.','err'));}}
   return s0.apply(this,arguments);};}
+/* totales de la rendición del día para el informe Resumen del ERP Matriz */
+{const p0=partsOf;partsOf=function(suc,d){const out=p0.apply(this,arguments),sl=slug(suc);
+  try{withDb(d,()=>{for(const f in d.rend){const k=`suc/${sl}/rend/${f}`;if(!out[k])continue;const c=calcDia(f);out[k]={...d.rend[f],_r:Math.round(c.rendido+c.com),_c:Math.round(c.cargos)};}});}catch(e){}
+  return out;};}
 {const r0=rebuild;rebuild=function(suc,st){const x=r0.apply(this,arguments);if(MGB&&MGB.suc===suc&&S.user&&S.user.suc===suc){mgAplicarBodega();}return x;};}
 /* usuarios, permisos y claves se manejan en el ERP Matriz */
 {const f0=fixUsers;fixUsers=function(l){return MGU?l:f0(l);};}

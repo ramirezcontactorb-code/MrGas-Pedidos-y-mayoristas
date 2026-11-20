@@ -204,10 +204,21 @@ try {
                 foreach (($v['items'] ?? []) as $id => $q) { $o['cil'][$id] = ($o['cil'][$id] ?? 0) + (int) $q; $o['mon'][$id] = ($o['mon'][$id] ?? 0) + (int) $q * (int) ($v['precios'][$id] ?? 0); }
                 foreach (($v['env'] ?? []) as $id => $q) { $o['env'] = ($o['env'] ?? 0) + (int) $q * (int) ($v['penv'][$id] ?? 0); $o['envn'] = ($o['envn'] ?? 0) + (int) $q; }
                 $o['desc'] = ($o['desc'] ?? 0) + (int) ($v['desc'] ?? 0);
-                $o['suc'][$suc] = ($o['suc'][$suc] ?? 0) + (int) ($v['total'] ?? 0); unset($o);
+                $o['suc'][$suc] = ($o['suc'][$suc] ?? 0) + (int) ($v['total'] ?? 0);
+                foreach (($v['items'] ?? []) as $id => $q) $o['scil'][$suc][$id] = ($o['scil'][$suc][$id] ?? 0) + (int) $q; unset($o);
             }
         }
-        salida(['dias' => $out]);
+        $st = db()->prepare("SELECT path, data FROM local_docs WHERE path LIKE 'suc/%/rend/%'"); $st->execute();
+        foreach ($st as $r) {
+            $f = substr(substr($r['path'], strrpos($r['path'], '/') + 1), 0, 10);
+            if ($f < $d1 || $f > $d2) continue;
+            $suc = explode('/', $r['path'])[1];
+            $d = json_decode($r['data'], true);
+            $o = &$out[$f]; $o['rend'] = ($o['rend'] ?? 0) + (int) ($d['_r'] ?? 0); $o['carg'] = ($o['carg'] ?? 0) + (int) ($d['_c'] ?? 0);
+            $o['srend'][$suc] = ($o['srend'][$suc] ?? 0) + (int) ($d['_r'] ?? 0); $o['scarg'][$suc] = ($o['scarg'][$suc] ?? 0) + (int) ($d['_c'] ?? 0); unset($o);
+        }
+        $nom = []; foreach (sucursalesLocal() as $x) $nom[slugLocal((string) $x['nombre'])] = $x['nombre'];
+        salida(['dias' => $out, 'sucs' => $nom]);
     }
     if ($a === 'precios' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($q['perfil']['rol'] !== 'admin') salida(['error' => 'Solo el administrador puede cambiar precios del ERP Local.'], 403);
