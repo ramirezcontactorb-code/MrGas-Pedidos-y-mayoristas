@@ -317,7 +317,7 @@ body.arrancando::after{content:"Cargando MR Gas…";position:fixed;inset:0;displ
     <h1>Bienvenido a <em>MR Gas</em></h1>
     <div class="pt-grid">
       <a class="pt-b" id="pt-erp" href="#acceso"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M8 20h8M12 16v4"/></svg></span><b>ERP Matriz</b><small>Pedidos, rutas, cuadratura y bodega</small><i>Entrar →</i></a>
-      <a class="pt-b" id="pt-erplocal" href="https://mrgaslocal.com/" target="_blank" rel="noopener"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6v10H3z"/><path d="M9 20v-6h6v6"/></svg></span><b>ERP Local</b><small>Venta local y bodega</small><i>Abrir →</i></a>
+      <a class="pt-b" id="pt-erplocal" href="local/"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6v10H3z"/><path d="M9 20v-6h6v6"/></svg></span><b>ERP Local</b><small>Venta local y bodega</small><i>Entrar →</i></a>
       <a class="pt-b" href="repartidores/"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></svg></span><b>App repartidores</b><small>Pedidos a domicilio y reparto a mayoristas</small><i>Entrar →</i></a>
       <a class="pt-b" id="pt-dist" href="distribucion/"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="3" y="13" width="4" height="6" rx="1"/><rect x="17" y="13" width="4" height="6" rx="1"/></svg></span><b>App distribución</b><small>Reparto a mayoristas: pedidos, camiones y choferes</small><i>Entrar →</i></a>
     </div>
@@ -1154,6 +1154,7 @@ async function entrarComo(p){
   try{await iniciarEscuchas()}catch(e){aviso("Sin conexión con el servidor",e.message)}
   if(!loc(suc))suc=(D.locales[0]||{}).id;
   log("sistema","Ingreso al sistema","",{local:p.local});guardar();
+  if(/[?&]volver=local\b/.test(location.search)){location.href="local/";return}
   location.hash="panel";if(location.hash==="#panel")pintarSistema()}
 async function sesionNube(){
   try{const r=await api("yo");if(r.perfil){yo={...r.perfil,uid:String(r.perfil.uid)};

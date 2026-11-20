@@ -1014,7 +1014,7 @@ async function mgGate(){
   let j=null;try{const r=await fetch('../api/index.php?a=yo',{credentials:'same-origin',cache:'no-store'});j=await r.json();}catch(e){}
   if(!j){mgPantalla('Sin conexión','No se pudo conectar con el servidor. Revise internet y vuelva a intentar.');return false;}
   const p=j.perfil;
-  if(!p){mgPantalla('Inicie sesión','Para usar el ERP Local primero entre al ERP Matriz con su usuario.');return false;}
+  if(!p){location.replace('../?volver=local#acceso');return false;}
   const ok=p.rol==='admin'||(p.rol==='encargado'&&Array.isArray(p.permisos)&&p.permisos.includes('app.local'));
   if(!ok){mgPantalla('Sin permiso','Su usuario no tiene permiso para el ERP Local. Pídalo al administrador (Configuraciones → Usuarios → Apps).');return false;}
   MGU=p;return true;
