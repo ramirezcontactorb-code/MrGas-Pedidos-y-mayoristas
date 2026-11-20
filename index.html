@@ -3338,7 +3338,7 @@ function volverAtras(){
 document.addEventListener("keydown",e=>{if(e.altKey&&e.key==="ArrowLeft"&&yo&&location.hash==="#panel"){e.preventDefault();volverAtras()}});
 
 /* ===================== PESTAÑAS DE CONFIGURACIONES (Sectorizar vive aquí) ===================== */
-const cfgTabsTodas=()=>[...(esAdmin()?[["precioBase","Precio Base"]]:[]),["precios","Precio Domicilio"],["preciosMay","Precios Mayoristas"],...(esAdmin()?[["preciosLocal","Precio Local"]]:[]),["envases","Precio Envases"],["clientesMay","Clientes"],["comVale","Comisión Vales"],["histPrecios","Historial de Precios"],["histCambios","Historial de Cambios"],["usuarios","Usuarios"],["choferes","Choferes"],["sectorizar","Sectorizar"],...(esAdmin()?[["sucLocal","Sucursales"]]:[["sucursal","Sucursal"]]),["general","General"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
+const cfgTabsTodas=()=>[...(esAdmin()?[["precioBase","Precio Base"]]:[]),["precios","Precio Domicilio"],["preciosMay","Precios Mayoristas"],...(esAdmin()?[["preciosLocal","Precio Local"]]:[]),["envases","Precio Envases"],["clientesMay","Clientes"],["comVale","Comisión Vales"],["histPrecios","Historial de Precios"],["histCambios","Historial de Cambios"],["usuarios","Usuarios"],["choferes","Choferes"],["sectorizar","Sectorizar"],...(esAdmin()?[]:[["sucursal","Sucursal"]]),["general","General"],...(puede("respaldos")?[["respaldos","Respaldos y reset"]]:[])];
 const CFG_MAY_TABS=["clientesMay","preciosMay","comVale"];
 const cfgTabsLista=()=>(!yo?[]:esAdmin()?cfgTabsTodas():cfgTabsTodas().filter(([k])=>CFG_PERM[k]&&tieneExtra(CFG_PERM[k]))).filter(([k])=>!(D.precios&&D.precios.sinMayorista&&CFG_MAY_TABS.includes(k)));
 const cfgTabsHtml=sel=>`<!--CFGTABS-->`;
@@ -4824,7 +4824,7 @@ function resCSV(){const [d1,d2]=rangoRes(),q=v=>`"${String(v??"").replace(/"/g,'
      .replace('<section class="cfgp" id="s-sucl" style="max-width:860px">','<section class="cfgp" id="s-sucl" style="max-width:920px">'+(form?form.replace('<form class="caja" id="f-suc" style="margin-bottom:24px">','<form class="caja" id="f-suc" style="margin-bottom:16px">'):""));
     return h+'<button type="button" id="nueva-suc" hidden></button>'};
   s0.l=function(){const r=l0.apply(this,arguments);try{L.admin()}catch(e){}return r}}
-{const vc=V.config;V.config=function(){if(cfgTab==="sucursal"&&esAdmin())cfgTab="sucLocal";if(cfgTab==="descQR")cfgTab=esAdmin()?"preciosLocal":"precios";return vc.apply(this,arguments)}}
+{const vc=V.config;V.config=function(){if((cfgTab==="sucursal"||cfgTab==="sucLocal")&&esAdmin())cfgTab="general";if(cfgTab==="descQR")cfgTab=esAdmin()?"preciosLocal":"precios";return vc.apply(this,arguments)}}
 
 /* Precio de envases: uno solo para la matriz y todas las sucursales de Venta Local */
 function envLocal(){const o={};FORMATOS.forEach(f=>{const id=LID[f.id];if(id)o[id]=Math.max(0,Math.round(+((D.preciosEnvase||{})[f.id])||0))});return o}
@@ -4894,6 +4894,11 @@ function compactarRend(){const rr=document.querySelector(".rerp");if(!rr||rr.dat
 /* Ingreso de carga (antes Compras y Devoluciones) vive dentro de Control de Bodega */
 {const lb=L.bodega;L.bodega=function(){if(bTab==="ingreso"){$$("[data-btab]").forEach(b=>b.onclick=()=>{bTab=b.dataset.btab;pintarSistema()});try{L.compras()}catch(e){}return}return lb.apply(this,arguments)}}
 {const i0=ir;ir=function(m){if(m==="compras"){bTab="ingreso";return i0.call(this,"bodega")}return i0.apply(this,arguments)}}
+
+/* Configuraciones → General: incluye la lista de Sucursales (solo administrador) */
+{const lc=L.config;L.config=function(){const r=lc.apply(this,arguments);
+  try{if(cfgTab==="general"&&esAdmin()&&!document.getElementById("s-sucl")){const z=document.querySelector(".cfg-main");if(z){z.insertAdjacentHTML("beforeend",'<div class="cfg-suc-gen">'+CFG_MAY.sucLocal.v()+'</div>');CFG_MAY.sucLocal.l()}}}catch(e){console.error(e)}
+  return r}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5961,6 +5966,8 @@ body.vl-abierta{overflow:hidden}
 .sis .rd-lv .rerp .tbox th{font-size:10px;padding:4px}.sis .rd-lv .rerp .tbox td{font-size:12px;padding:4px 7px}.sis .rd-lv .rerp .tbox .bigv{font-size:13px;padding:5px 4px}
 .sis .rd-lv .cab-mod h1,.sis .rd-lv .cab-mod h2{font-size:20px}
 .sis .rd-lv .rerp .radios,.sis .rd-lv .rerp .radios label{font-size:12px!important;font-weight:500!important}.sis .rd-lv .rerp .radios input{width:13px;height:13px}
+
+.sis .cfg-suc-gen{margin-top:20px}.sis .cfg-suc-gen #s-sucl{max-width:1000px!important}.sis .cfg-suc-gen #s-sucl select{max-width:190px}.sis .cfg-suc-gen .tabla-wrap{overflow-x:auto}
 </style>
 </body>
 </html>
