@@ -1290,8 +1290,8 @@ const ACCIONES=[
 const MOD_PERM=["pedidos","ruta","choferes","sectorizar","mayorista","ventachofer","cuadratura","bodega","compras","informes"];
 /* Permisos detallados (versión 2, marcada con "_v2"):
    "pedidos" = ver y trabajar · "pedidos:ver" = solo ver · acciones y apps aparte */
-const PERM_EXTRA=[["pedidos.anular","Anular pedidos"],["cfg.choferes","Configurar choferes y móviles"],["cfg.clientes","Configurar clientes mayoristas"],["cfg.precios","Cambiar precios (gas, mayoristas, vales y QR)"]];
-const PERM_APPS=[["app.repartidores","App repartidores (oficina)"],["app.distribucion","App distribución"]];
+const PERM_EXTRA=[["pedidos.anular","Anular pedidos"],["cfg.choferes","Configurar choferes y móviles"],["cfg.clientes","Configurar clientes mayoristas"],["cfg.precios","Cambiar precios (gas, mayoristas, vales y QR)"],["rend.historico","Editar rendiciones de días pasados"]];
+const PERM_APPS=[["app.repartidores","App repartidores (oficina)"],["app.distribucion","App distribución"],["app.local","ERP Local"]];
 const CFG_PERM={choferes:"cfg.choferes",clientesMay:"cfg.clientes",precios:"cfg.precios",envases:"cfg.precios",preciosMay:"cfg.precios",comVale:"cfg.precios",descQR:"cfg.precios",histPrecios:"cfg.precios"};
 const ESTADO_PRECIOS=["precios","preciosMayor","preciosEnvase","preciosConvenio","listas","historico","listasMay","comisionVale","descQR"];
 const PLANTILLAS=[
@@ -1341,7 +1341,7 @@ function camposAcceso(u){
       </div>
     </div>
     <p class="nota" style="margin:8px 0 0"><b>Solo ver</b>: entra y mira, pero no puede guardar cambios. Los administradores pueden todo.</p></fieldset>
-  <fieldset class="acceso" id="us-apps"><legend>Apps a las que puede entrar</legend><div class="checks-grid">${PERM_APPS.map(([c,t])=>`<label class="radio"><input type="checkbox" name="us-app" value="${c}" ${(p?(v2?p.includes(c):true):true)?"checked":""}>${t.replace(" (oficina)","")}</label>`).join("")}</div>
+  <fieldset class="acceso" id="us-apps"><legend>Apps a las que puede entrar</legend><div class="checks-grid">${PERM_APPS.map(([c,t])=>`<label class="radio"><input type="checkbox" name="us-app" value="${c}" ${(c==="app.local"?!!(p&&v2&&p.includes(c)):(p?(v2?p.includes(c):true):true))?"checked":""}>${t.replace(" (oficina)","")}</label>`).join("")}</div>
     <p class="nota" style="margin:6px 0 0">Encargado: trabaja en la app con los cuadros que tenga permitidos. Repartidor: ve sus entregas en la app. Si no la marca, no puede entrar.</p></fieldset>`;
 }
 const leerAcceso=()=>({sucursales:[...$$('input[name="us-suc"]:checked')].map(i=>+i.value),
@@ -1394,7 +1394,7 @@ function cargaDistDe(mid,fecha){const o=st(),e=st();let dcto=0;(D.cargasDist||[]
   return {ventas:o,env:e,dcto,tarros:Object.values(o).reduce((a,b)=>a+b,0),envTot:Object.values(e).reduce((a,b)=>a+b,0)}}
 const prestamoPend=(mid,fid)=>(D.cargasDist||[]).filter(x=>x.mayorista===mid&&!x.anulada).reduce((s,x)=>s+(x.prestamo[fid]||0)-(x.devolucion[fid]||0),0);
 const comisionDe=(kind,v)=>FORMATOS.reduce((s,f)=>s+(v[f.id]||0)*((((D.comisiones||{})[kind]||{})[f.id])||0),0);
-const puedeEditarFecha=f=>esAdmin()||f>=hoyStr()||(((D.historico||{}).usuarios||[]).includes(yo.uid||yo.user)&&f>=((D.historico||{}).desde||"9999"));
+const puedeEditarFecha=f=>esAdmin()||f>=hoyStr()||tieneExtra("rend.historico")||(((D.historico||{}).usuarios||[]).includes(yo.uid||yo.user)&&f>=((D.historico||{}).desde||"9999"));
 function infoMovil(r){if(r.tipo!=="movil")return "";
   const cg=cargadoDe(r.ref,r.fecha),pe=entregasDe(r.ref,r.fecha),fila=(t,o)=>`<tr class="fila-info"><td>${t}</td>${FORMATOS.map(f=>`<td class="der num">${o[f.id]||0}</td>`).join("")}</tr>`;
   return fila("Cargado hoy (inicial + recargas)",cg)+fila("Pedidos telefónicos entregados",pe.ventas)+fila("Pedidos con venta de envase",pe.env)}
@@ -1483,7 +1483,7 @@ function vistaRend(r,fechaSel){
         return `<form class="caja pago-card" data-pform="${t}"><div class="pago-cab"><h4>${v}</h4><b class="num ${sub?"":"cero"}">${clp(sub)}</b></div>
           ${formPago(t,r)}
           <div class="acc"><button class="btn chico" type="submit">Agregar</button><span class="error" data-perr hidden>Ingrese un monto mayor a $0.</span></div>
-          ${ps.length?`<ul class="pago-lista">${ps.map(p=>`<li><span>${esc(p.detalle||v)}</span><b class="num">${clp(p.monto)}</b><button class="quitar" data-delpago="${p.id}" type="button" aria-label="Quitar ${v} de ${clp(p.monto)}">×</button></li>`).join("")}</ul>`:""}
+          ${ps.length?`<ul class="pago-lista">${ps.map(p=>`<li><span>${esc(p.detalle||v)}${porTag(p)}</span><b class="num">${clp(p.monto)}</b><button class="quitar" data-delpago="${p.id}" type="button" aria-label="Quitar ${v} de ${clp(p.monto)}">×</button></li>`).join("")}</ul>`:""}
         </form>`}).join("")}</div>
     </section>
     <div class="grid dos" style="gap:20px">
@@ -1492,7 +1492,7 @@ function vistaRend(r,fechaSel){
         ${(()=>{const k=idDoc("rendiciones",r),pend=(D.rendiciones||[]).filter(x=>x.local===r.local&&x!==r).flatMap(x=>x.pagos.filter(p=>p.tipo==="credito"&&!p.cobrado).map(p=>({x,p})));
           return pend.length?`<div class="cred-pend"><span class="eyebrow">Créditos de clientes por cobrar</span>${pend.map(({x,p})=>`<div class="cred-fila"><span>${esc(p.detalle||"Crédito")}<br><span class="nota" style="margin:0">${fF(x.fecha)} · ${esc(nomRef(x))}</span></span><b class="num">${clp(p.monto)}</b><button type="button" class="btn chico linea" data-cobrar="${idDoc("rendiciones",x)}|${p.id}">Cobrar</button></div>`).join("")}</div>`:""})()}<p class="nota" style="margin:0">Se suman a lo que debe rendir, por ejemplo un faltante anterior.</p>
         <form id="f-cargo" class="grid" style="gap:12px"><div class="fila"><label>Monto (CLP)<input id="cg-monto" type="number" min="1" class="num"></label><label>Detalle<input id="cg-det"></label></div><div><button class="btn chico" type="submit">Agregar cargo</button></div></form>
-        ${r.cargos.length?`<div class="tabla-wrap"><table><tbody>${r.cargos.map(x=>`<tr><td>${esc(x.detalle||"Cargo")}</td><td class="der num">${clp(x.monto)}</td><td class="der"><button class="btn chico linea" data-delcargo="${x.id}" type="button">Quitar</button></td></tr>`).join("")}</tbody></table></div>`:""}
+        ${r.cargos.length?`<div class="tabla-wrap"><table><tbody>${r.cargos.map(x=>`<tr><td>${esc(x.detalle||"Cargo")}${porTag(x)}</td><td class="der num">${clp(x.monto)}</td><td class="der"><button class="btn chico linea" data-delcargo="${x.id}" type="button">Quitar</button></td></tr>`).join("")}</tbody></table></div>`:""}
       </section>
       <section class="caja"><h3>4. Observaciones</h3><textarea id="rd-obs" style="min-height:120px;font-family:var(--f-body);font-size:1rem" placeholder="Ej: el cliente paga la diferencia el lunes">${esc(r.obs)}</textarea></section>
     </div>
@@ -1918,9 +1918,10 @@ const V={
     const entHoy=ps.filter(p=>p.estado==="entregado"&&(p.entregado||"").startsWith(hoy)).length,nom=String(yo.nombre||"").split(" ")[0];
     const card=(attr,ico,t,d,go="Abrir")=>`<${attr.startsWith("href")?"a":"button"} class="modulo" ${attr}><span class="ico">${svg(ico)}</span><b>${t}</b><span class="sub">${d}</span><span class="mgo">${go}<span aria-hidden="true">→</span></span></${attr.startsWith("href")?"a":"button"}>`;
     return `<div class="phead-mr"><div class="eyebrow-mr">Sucursal ${esc(nomLocal(suc))}</div><h1>${saludo}, ${esc(nom)}</h1><p class="sub">${fechaLarga(hoy)}</p></div>
-      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","ventachofer","choferes","bodega","compras","informes","config"],FUERA=["sectorizar","cuadratura"];
+      <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","ventachofer","local","choferes","bodega","compras","informes","config"],FUERA=["sectorizar","cuadratura"];
         const ids=[...ORDEN,...MODULOS.map(m=>m.id).filter(id=>!ORDEN.includes(id)&&!FUERA.includes(id))];
-        return ids.map(id=>{if(id==="erp")return yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","ERP Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):"";
+        return ids.map(id=>{if(id==="local")return esAdmin()||(yo.rol==="encargado"&&Array.isArray(yo.permisos)&&yo.permisos.includes("app.local"))?card('href="local/"',"externo","ERP Local","Venta local, bodega y rendiciones de los locales."):"";
+          if(id==="erp")return yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","ERP Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):"";
           const m=MODULOS.find(x=>x.id===id);if(m&&id==="informes"&&!puede(id)&&yo.rol==="encargado")return card('data-infaut="1" type="button"',m.id,m.t,"Necesita la autorización de alguien con permiso.","Pedir autorización");
           return m&&puede(m.id)?card(`data-modulo="${m.id}" type="button"`,m.id,m.t,m.s):""}).join("")})()}</div>
       <p class="stitle-mr">Resumen de hoy</p>
@@ -2582,17 +2583,17 @@ const L={
         else if(t==="petroleo")detalle=g("litros")?g("litros")+" litros":"";
         else if(t==="credito"||t==="creditodoc")detalle=[g("det"),txt("tdoc"),g("num")&&"N° "+g("num")].filter(Boolean).join(" · ");
         if(monto<=0){f.querySelector("[data-perr]").hidden=false;return}
-        r.pagos.push({id:nuevoId(r.pagos),tipo:t,monto,detalle,hora:ahora(),campos:{tarjeta:g("tarjeta"),banco:g("banco"),num:g("num"),fecha:g("fecha"),vale:g("vale"),valeTxt:txt("vale"),formato:g("formato"),cant:+g("cant")||0,motivo:txt("motivo"),tdoc:g("tdoc"),litros:+g("litros")||0}});if(t==="vale"&&r.tipo==="mayorista"){const q=r.pagos[r.pagos.length-1];q.com=comVale(q.campos);if(q.com)q.detalle+=" · comisión cliente "+clp(q.com)}
+        r.pagos.push({por:porMi(),id:nuevoId(r.pagos),tipo:t,monto,detalle,hora:ahora(),campos:{tarjeta:g("tarjeta"),banco:g("banco"),num:g("num"),fecha:g("fecha"),vale:g("vale"),valeTxt:txt("vale"),formato:g("formato"),cant:+g("cant")||0,motivo:txt("motivo"),tdoc:g("tdoc"),litros:+g("litros")||0}});if(t==="vale"&&r.tipo==="mayorista"){const q=r.pagos[r.pagos.length-1];q.com=comVale(q.campos);if(q.com)q.detalle+=" · comisión cliente "+clp(q.com)}
         log("cuadratura","Pago agregado",`${nomRef(r)} (${r.fecha}) · ${TIPOS_PAGO[t]} ${clp(monto)}${detalle?" · "+detalle:""}`,{chofer:r.tipo==="movil"?r.ref:null});re()};
     });
     $$("[data-delpago]").forEach(b=>b.onclick=()=>{const q=r.pagos.find(p=>p.id===+b.dataset.delpago);r.pagos=r.pagos.filter(p=>p!==q);log("cuadratura","Pago quitado",`${nomRef(r)} (${r.fecha}) · ${TIPOS_PAGO[q.tipo]} ${clp(q.monto)}`,{chofer:r.tipo==="movil"?r.ref:null});re()});
-    $("#f-cargo").onsubmit=e=>{e.preventDefault();const m=+$("#cg-monto").value||0;if(m<=0)return;r.cargos.push({id:nuevoId(r.cargos),monto:m,detalle:$("#cg-det").value.trim()});re()};
+    $("#f-cargo").onsubmit=e=>{e.preventDefault();const m=+$("#cg-monto").value||0;if(m<=0)return;r.cargos.push({por:porMi(),id:nuevoId(r.cargos),monto:m,detalle:$("#cg-det").value.trim()});re()};
     $$("[data-delcargo]").forEach(b=>b.onclick=()=>{const cg=r.cargos.find(x=>x.id===+b.dataset.delcargo);
       if(cg&&cg.credito){const o=(D.rendiciones||[]).find(x=>idDoc("rendiciones",x)===cg.credito.rend),p=o&&o.pagos.find(y=>y.id===cg.credito.pago);if(p){delete p.cobrado;nubeGuardar("rendiciones",o)}}
       r.cargos=r.cargos.filter(x=>x!==cg);re()});
     const rv=$("#rd-vuelto");if(rv)rv.onchange=()=>{r.vuelto=Math.max(0,+rv.value||0);re()};
     $$("[data-cobrar]").forEach(b=>b.onclick=()=>{const [k,pid]=b.dataset.cobrar.split("|"),o=(D.rendiciones||[]).find(x=>idDoc("rendiciones",x)===k),p=o&&o.pagos.find(y=>y.id===+pid);if(!p)return;
-      p.cobrado={fecha:r.fecha,en:idDoc("rendiciones",r)};r.cargos.push({id:nuevoId(r.cargos),monto:p.monto,detalle:"Cobro crédito: "+(p.detalle||""),credito:{rend:k,pago:p.id}});
+      p.cobrado={fecha:r.fecha,en:idDoc("rendiciones",r)};r.cargos.push({por:porMi(),id:nuevoId(r.cargos),monto:p.monto,detalle:"Cobro crédito: "+(p.detalle||""),credito:{rend:k,pago:p.id}});
       nubeGuardar("rendiciones",o);log("cuadratura","Crédito cobrado",`${p.detalle||""} · ${clp(p.monto)} · en ${nomRef(r)}`,{chofer:r.tipo==="movil"?r.ref:null});re()});
     $("#rd-guardar").onclick=()=>{r.guardada=ahora();r.usuario=yo.nombre;nubeGuardar("rendiciones",r);{const c=calcRend(r);log("cuadratura","Cuadratura guardada",`${nomRef(r)} (${r.fecha}) · vendido ${clp(c.venta)} · rendido ${clp(c.pagado)} · saldo ${clp(c.saldo)}`,{chofer:r.tipo==="movil"?r.ref:null})}guardar();pintarSistema();$("#rd-ok").hidden=false};
   },
@@ -3430,7 +3431,7 @@ L.mayorista=function(){
       if(!m||monto<=0){aviso("Faltan datos","Elija el cliente y escriba el monto.");return}
       if(!puedeEditarFecha(fecha)){aviso("Día cerrado","Solo un administrador puede registrar abonos en días anteriores.");return}
       const r=getRend("mayorista",id,fecha,true),med=$("#ab-medio").value,det=$("#ab-det").value.trim();
-      r.pagos.push({id:nuevoId(r.pagos),tipo:med,monto,detalle:["Abono",det].filter(Boolean).join(" · "),hora:ahora(),abono:true,campos:{}});
+      r.pagos.push({por:porMi(),id:nuevoId(r.pagos),tipo:med,monto,detalle:["Abono",det].filter(Boolean).join(" · "),hora:ahora(),abono:true,campos:{}});
       nubeGuardar("rendiciones",r);log("cuadratura","Abono mayorista",`${m.nombre} · ${TIPOS_PAGO[med]} ${clp(monto)}`);guardar();pintarSistema();aviso("Abono registrado",`${m.nombre}: ${clp(monto)}. Saldo ahora: ${clp(cuentaMay(m).saldo)}.`)};
     $$("[data-vermov]").forEach(b=>b.onclick=()=>{mayFiltro.cli=b.dataset.vermov;pintarSistema();setTimeout(()=>{const t=$("#mv-cli");if(t)t.scrollIntoView({block:"start"})},50)});
     $("#mv-cli").onchange=e=>{mayFiltro.cli=e.target.value;pintarSistema()};
@@ -3554,7 +3555,7 @@ function vistaRendERP(r,fechaSel){
   const caja=(t,titulo,campos,btn="Agregar")=>{const ps=r.pagos.filter(p=>p.tipo===t),tot=ps.reduce((a,p)=>a+p.monto,0);
     return `<div class="rbox k-${CAJA_K[t]||"res"}"><div class="rbox-h"><span>${titulo}</span><span class="tot">TOTAL: ${clp(tot)}</span></div>
       ${campos!=null&&ed?`<form class="rbox-b" data-rk="${t}">${campos}<button class="btn chico" type="submit">${btn}</button></form>`:""}
-      ${ps.length?`<div class="chips">${ps.map(p=>`<span class="chip">${esc(p.detalle||TIPOS_PAGO[t])} <b>${clp(p.monto)}</b>${ed?`<button type="button" data-delpago="${p.id}" aria-label="Quitar">✕</button>`:""}</span>`).join("")}</div>`:""}</div>`};
+      ${ps.length?`<div class="chips">${ps.map(p=>`<span class="chip">${esc(p.detalle||TIPOS_PAGO[t])} <b>${clp(p.monto)}</b>${porTag(p)}${ed?`<button type="button" data-delpago="${p.id}" aria-label="Quitar">✕</button>`:""}</span>`).join("")}</div>`:""}</div>`};
   const I=(f,ph,w,type="number")=>`<input data-f="${f}" type="${type}" ${type==="number"?'inputmode="numeric" min="0"':""} placeholder="${ph}" ${w?'class="w"':""} ${type==="date"?`value="${r.fecha}"`:""}>`;
   const S=(f,ops,ph)=>`<select data-f="${f}">${ph?`<option value="">${ph}</option>`:""}${ops.map(o=>Array.isArray(o)?`<option value="${o[0]}">${o[1]}</option>`:`<option>${o}</option>`).join("")}</select>`;
   const R=(f,ops)=>{const nm="r_"+f+"_"+Math.random().toString(36).slice(2,7);return `<div class="radios">${ops.map(([v,t],i)=>`<label><input type="radio" name="${nm}" data-f="${f}" value="${v}" ${i?"":"checked"}> ${t}</label>`).join("")}</div>`};
@@ -3585,7 +3586,7 @@ function vistaRendERP(r,fechaSel){
      <div>
       <div class="rbox k-car"><div class="rbox-h"><span>CARGOS</span><span class="tot">TOTAL: ${clp(c.cargos)}</span></div>
         ${ed?`<form class="rbox-b" id="f-cargo"><input id="cg-monto" type="number" min="1" inputmode="numeric" placeholder="Monto $"><input id="cg-det" placeholder="N° o detalle" class="w"><button class="btn chico" type="submit">Agregar</button></form>`:`<form id="f-cargo" hidden></form>`}
-        ${r.cargos.length||r.vuelto?`<div class="chips">${r.cargos.map(x=>`<span class="chip">${esc(x.detalle||"Cargo")} <b>${clp(x.monto)}</b>${ed?`<button type="button" data-delcargo="${x.id}" aria-label="Quitar">✕</button>`:""}</span>`).join("")}${r.vuelto?`<span class="chip">Vuelto <b>${clp(r.vuelto)}</b></span>`:""}</div>`:""}
+        ${r.cargos.length||r.vuelto?`<div class="chips">${r.cargos.map(x=>`<span class="chip">${esc(x.detalle||"Cargo")} <b>${clp(x.monto)}</b>${porTag(x)}${ed?`<button type="button" data-delcargo="${x.id}" aria-label="Quitar">✕</button>`:""}</span>`).join("")}${r.vuelto?`<span class="chip">Vuelto <b>${clp(r.vuelto)}</b></span>`:""}</div>`:""}
         ${(()=>{if(MY)return "";const pend=(D.rendiciones||[]).filter(x=>x.local===r.local&&x!==r).flatMap(x=>x.pagos.filter(p=>p.tipo==="credito"&&!p.cobrado).map(p=>({x,p})));
           return pend.length&&ed?`<div class="chips"><span class="nota" style="margin:0;width:100%">Créditos por cobrar:</span>${pend.map(({x,p})=>`<span class="chip">${esc(p.detalle||"Crédito")} · ${fF(x.fecha)} <b>${clp(p.monto)}</b><button type="button" data-cobrar="${idDoc("rendiciones",x)}|${p.id}" style="color:var(--b7)">Cobrar</button></span>`).join("")}</div>`:""})()}</div>
       <div class="rbox k-obs"><div class="rbox-h"><span>OBSERVACIONES</span></div><div class="rbox-b"><textarea id="rd-obs" placeholder="Ej: el cliente paga la diferencia el lunes">${esc(r.obs||"")}</textarea></div></div>
@@ -3617,7 +3618,7 @@ function vistaRendERP(r,fechaSel){
     ${caja("descuento","DESCUENTOS",S("motivo",DESC_T,"Tipo...")+I("monto","Monto $")+I("det","Detalle",1,"text"))}
     ${caja("gasto","GASTOS",S("motivo",GASTO_T,"Tipo...")+I("monto","Monto $")+I("det","Detalle",1,"text"))}
     ${caja("transbank","TRANSBANK",R("tarjeta",[["debito","Débito"],["credito","Crédito"]])+I("monto","Monto $")+I("num","N° voucher",0,"text")+I("fecha","",0,"date"))}
-    ${otros.length?`<div class="rbox k-ban"><div class="rbox-h"><span>OTROS PAGOS</span><span class="tot">TOTAL: ${clp(otros.reduce((a,p)=>a+p.monto,0))}</span></div><div class="chips">${otros.map(p=>`<span class="chip">${esc(TIPOS_PAGO[p.tipo]||p.tipo)} · ${esc(p.detalle||"")} <b>${clp(p.monto)}</b>${ed?`<button type="button" data-delpago="${p.id}" aria-label="Quitar">✕</button>`:""}</span>`).join("")}</div></div>`:""}
+    ${otros.length?`<div class="rbox k-ban"><div class="rbox-h"><span>OTROS PAGOS</span><span class="tot">TOTAL: ${clp(otros.reduce((a,p)=>a+p.monto,0))}</span></div><div class="chips">${otros.map(p=>`<span class="chip">${esc(TIPOS_PAGO[p.tipo]||p.tipo)} · ${esc(p.detalle||"")} <b>${clp(p.monto)}</b>${porTag(p)}${ed?`<button type="button" data-delpago="${p.id}" aria-label="Quitar">✕</button>`:""}</span>`).join("")}</div></div>`:""}
    </div>
   </div></fieldset>`;
 }
@@ -3629,10 +3630,10 @@ function enlazarRendERP(){
   const lg=(t,monto,det)=>log("cuadratura","Pago agregado",`${nomRef(r)} (${r.fecha}) · ${TIPOS_PAGO[t]} ${clp(monto)}${det?" · "+det:""}`,{chofer:r.tipo==="movil"?r.ref:null});
   const fv=$("#f-vuelto");if(fv)fv.onsubmit=e=>{e.preventDefault();r.vuelto=Math.max(0,Math.round(+$("#rd-vuelto2").value||0));re()};
   const fc=$("#f-cargo");if(fc)fc.onsubmit=e=>{e.preventDefault();const m=Math.round(+$("#cg-monto").value||0);if(m<=0)return;const d=$("#cg-det").value.trim();
-    r.cargos.push({id:nuevoId(r.cargos),monto:m,detalle:d?(/^\d+$/.test(d)?"N° "+d:d):"Cargo"});re()};
+    r.cargos.push({por:porMi(),id:nuevoId(r.cargos),monto:m,detalle:d?(/^\d+$/.test(d)?"N° "+d:d):"Cargo"});re()};
   $$("[data-rk]").forEach(f=>f.onsubmit=e=>{e.preventDefault();const t=f.dataset.rk,q=k=>f.querySelector(`[data-f="${k}"]`),g=k=>{const el=q(k);return el?String(el.value).trim():""};
     const rad=k=>{const el=f.closest(".rbox").querySelector(`[data-f="${k}"]:checked`);return el?el.value:""};
-    const fe=g("fecha"),fe2=fe?fe.split("-").reverse().join("-"):"",add=(monto,detalle,campos={})=>{const p={id:nuevoId(r.pagos),tipo:t,monto:Math.round(monto),detalle,hora:ahora(),campos};r.pagos.push(p);return p};
+    const fe=g("fecha"),fe2=fe?fe.split("-").reverse().join("-"):"",add=(monto,detalle,campos={})=>{const p={id:nuevoId(r.pagos),tipo:t,monto:Math.round(monto),detalle,hora:ahora(),campos,por:porMi()};r.pagos.push(p);return p};
     if(t==="vale"||t==="valecil"){const vk=rad("vale")||"compania";let n=0;
       FORMATOS.forEach(fo=>{const k=+g("q"+fo.id)||0;if(!k)return;n++;
         if(t==="vale"){const p=add(k*(r.precios[fo.id]||0),`${k} × ${fo.et} · ${VALES[vk]}`,{vale:vk,valeTxt:VALES[vk],formato:fo.id,cant:k});
@@ -4285,6 +4286,10 @@ async function pintarConectados(){
   try{const f=$("#f-usr");if(f&&esAdmin()&&!$("#con-ahora")){f.insertAdjacentHTML("beforebegin",`<div class="caja" id="con-ahora"><div class="con-h"><b>Conectados ahora</b><span class="con-n">0</span><small>Se actualiza cada 30 segundos</small></div><div class="con-l"><span class="nota">Cargando…</span></div></div>`);
     pintarConectados();clearInterval(conTimer);conTimer=setInterval(()=>{if(!document.hidden)pintarConectados()},30000)}}catch(e){}
   return r}}
+
+/* Quién agregó cada pago o cargo de una rendición (solo lo ve el administrador) */
+function porMi(){return yo?(yo.nombre||yo.user||""):""}
+function porTag(o){return esAdmin()&&o&&o.por?`<small class="por-tag" title="Agregado por ${esc(o.por)}${o.hora?" · "+esc(String(o.hora).slice(0,16)):""}">${esc(o.por)}</small>`:""}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5150,6 +5155,8 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .bd-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
 .sis .bd-kt{background:#f5f8fd;border-color:#c3d4ef}.sis .bd-kt b{color:#0a2557}
 @media (max-width:700px){.sis .bd-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.por-tag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:4px;background:#eef2f8;color:#475467;font-size:10.5px;font-weight:600;vertical-align:1px}
 </style>
 </body>
 </html>

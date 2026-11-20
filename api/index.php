@@ -166,6 +166,18 @@ try {
             $leer->execute([$col, $id]); $prev = $leer->fetch() ?: null;
             $antes = $prev && !$prev['borrado'] ? json_decode($prev['data'], true) : null;
             $m = $data !== null ? meta($col, $id, $data) : ['local' => null];
+            if ($col === 'rendiciones' && $data !== null && !rendicionAbierta($u, (string) ($data['fecha'] ?? ''), (string) ($antes['fecha'] ?? ''), $data, $antes)) { $res[] = ['ok' => false, 'error' => 'día cerrado', 'actual' => $antes]; continue; }
+            // Quién agregó cada pago o cargo: lo anota el servidor (no se puede falsificar)
+            if ($col === 'rendiciones' && $data !== null) {
+                foreach (['pagos', 'cargos'] as $lista) {
+                    $ya = array_map(fn($x) => (string) ($x['id'] ?? ''), $antes[$lista] ?? []);
+                    foreach (($bo->docs[$i]->data->$lista ?? []) as $k => $x) {
+                        if (!is_object($x) || !empty($x->auto) || in_array((string) ($x->id ?? ''), $ya, true)) continue;
+                        $x->por = $u['nombre']; $data[$lista][$k]['por'] = $u['nombre'];
+                    }
+                }
+                $json = json_encode($bo->docs[$i]->data, JSON_UNESCAPED_UNICODE);
+            }
             if (!puedeEscribir($u, $col, $id, $m, $data, $antes, $prev)) { $res[] = ['ok' => false, 'error' => 'sin permiso', 'actual' => $prev && !$prev['borrado'] ? json_decode($prev['data']) : null]; continue; }
             if ($data === null && !$prev) { $res[] = ['ok' => true]; continue; }
             $res[] = ['ok' => true, 'ver' => grabarDoc($col, $id, $data, $u['uid'], $json)];

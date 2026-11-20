@@ -234,6 +234,19 @@ function puedeEscribir(array $u, string $col, string $id, array $m, ?array $nuev
     return true;
 }
 
+// Rendiciones de días pasados: solo admin, quien tenga el permiso «rend.historico»
+// o a quien el administrador le dio acceso a históricos desde cierta fecha
+function rendicionAbierta(array $u, string $fecha, string $fechaAntes, array $nuevo, ?array $antes): bool {
+    if ($u['rol'] === 'admin') return true;
+    $hoy = date('Y-m-d'); $f = min(substr($fecha ?: $hoy, 0, 10), substr($fechaAntes ?: $hoy, 0, 10));
+    if ($f >= $hoy) return true;
+    if ($antes !== null && json_encode($antes) === json_encode($nuevo)) return true;
+    if (is_array($u['permisos']) && in_array('rend.historico', $u['permisos'], true)) return true;
+    $s = db()->prepare("SELECT data FROM docs WHERE col = 'estado' AND id = 'historico' AND borrado = 0"); $s->execute();
+    $h = json_decode((string) $s->fetchColumn(), true) ?: [];
+    return in_array((string) $u['uid'], array_map('strval', $h['usuarios'] ?? []), true) && $f >= (string) ($h['desde'] ?? '9999');
+}
+
 // Responde al navegador y sigue trabajando (para enviar avisos sin hacer esperar a nadie)
 function responderYSeguir(array $datos, callable $luego): never {
     ignore_user_abort(true); set_time_limit(30);
