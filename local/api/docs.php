@@ -83,6 +83,59 @@ try {
 
     $q = quien();
     if (!$q) salida(['error' => 'Inicie sesión en el ERP Local.'], 401);
+    // ---- Precios del ERP Local manejados desde el ERP Matriz (solo administrador) ----
+    if ($a === 'leer') { // documentos puntuales: ?paths=app/global,suc/cervantes
+        $ps = array_slice(array_filter(explode(',', (string) ($_GET['paths'] ?? ''))), 0, 20);
+        $out = [];
+        foreach ($ps as $pth) {
+            if ($pth === 'app/users') continue;
+            $st = db()->prepare('SELECT data FROM local_docs WHERE path = ?'); $st->execute([$pth]);
+            $v = $st->fetchColumn(); $out[$pth] = $v === false ? null : json_decode($v);
+        }
+        salida(['docs' => $out]);
+    }
+    if ($a === 'precios' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        if ($q['perfil']['rol'] !== 'admin') salida(['error' => 'Solo el administrador puede cambiar precios del ERP Local.'], 403);
+        $b = json_decode(file_get_contents('php://input') ?: '{}', false);
+        $quien = $q['perfil']['nombre']; $hoy = date('Y-m-d'); $hora = date('H:i:s');
+        $p = db(); $p->beginTransaction();
+        $leer = function (string $pth) use ($p) { $st = $p->prepare('SELECT data FROM local_docs WHERE path = ?'); $st->execute([$pth]); $v = $st->fetchColumn(); return $v === false ? null : json_decode($v); };
+        $grabar = function (string $pth, $data) use ($p) {
+            $p->exec("UPDATE contadores SET valor = valor + 1 WHERE nombre = 'local'");
+            $ver = (int) $p->query("SELECT valor FROM contadores WHERE nombre = 'local'")->fetchColumn();
+            $p->prepare(esSqlite() ? 'INSERT OR REPLACE INTO local_docs (path, data, ver) VALUES (?, ?, ?)'
+                : 'INSERT INTO local_docs (path, data, ver) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), ver = VALUES(ver)')->execute([$pth, json_encode($data, JSON_UNESCAPED_UNICODE), $ver]);
+        };
+        $hist = []; // [prod, campo, antes, despues]
+        if (isset($b->global) && is_object($b->global)) {
+            $g = $leer('app/global') ?? new stdClass();
+            foreach (['mayor', 'comision', 'qr'] as $k) if (isset($b->global->$k)) {
+                if ($k === 'mayor') { $g->mayor = $g->mayor ?? new stdClass();
+                    foreach ($b->global->mayor as $id => $v) { $ant = (int) ($g->mayor->$id ?? 0); if ($ant !== (int) $v) { $hist[] = ['g', $id, 'mayor', $ant, (int) $v]; $g->mayor->$id = (int) $v; } } }
+                else $g->$k = $b->global->$k;
+            }
+            $g->hist = $g->hist ?? [];
+            foreach ($hist as $h) $g->hist[] = ['fecha' => $hoy, 'hora' => $hora, 'usuario' => $quien . ' (Matriz)', 'prod' => $h[1] === 'H15A' ? 'H15' : $h[1] . ' kg', 'campo' => $h[2], 'antes' => $h[3], 'despues' => $h[4], 'suc' => 'Matriz'];
+            $g->hist = array_slice($g->hist, -500); $g->t = (int) round(microtime(true) * 1000);
+            $grabar('app/global', $g);
+        }
+        foreach ((array) ($b->sucs ?? []) as $slug => $cam) {
+            if (!preg_match('/^[a-z0-9_]+$/', (string) $slug)) continue;
+            $pth = 'suc/' . $slug; $d = $leer($pth) ?? new stdClass();
+            $d->products = $d->products ?? [];
+            $d->phist = $d->phist ?? [];
+            foreach (['venta', 'envase', 'mayor'] as $campo) foreach ((array) ($cam->$campo ?? []) as $id => $v) {
+                $pr = null; foreach ($d->products as $x) if (($x->id ?? '') === (string) $id) $pr = $x;
+                if (!$pr) { $pr = (object) ['id' => (string) $id]; $d->products[] = $pr; }
+                $ant = (int) ($pr->$campo ?? 0);
+                if ($ant !== (int) $v) { $pr->$campo = (int) $v; $d->phist[] = ['fecha' => $hoy, 'hora' => $hora, 'usuario' => $quien . ' (Matriz)', 'prod' => $id === 'H15A' ? 'H15' : $id . ' kg', 'campo' => $campo, 'antes' => $ant, 'despues' => (int) $v]; }
+            }
+            foreach (['comision', 'qr'] as $k) if (isset($cam->$k)) $d->$k = $cam->$k;
+            $grabar($pth, $d);
+        }
+        $p->commit();
+        salida(['ok' => true]);
+    }
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!str_contains($_SERVER['CONTENT_TYPE'] ?? '', 'application/json')) salida(['error' => 'Solicitud no válida.'], 400);
         $raw = file_get_contents('php://input') ?: '';
