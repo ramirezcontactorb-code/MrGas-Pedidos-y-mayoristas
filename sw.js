@@ -1,7 +1,7 @@
 // Service worker de MR Gas: permite instalar la app y abrirla sin conexión.
 // Los datos (carpeta api/) nunca se guardan en caché: siempre van al servidor.
 // Al cambiar archivos del sitio, suba el número de versión para renovar la copia guardada.
-const VERSION = "mrgas-v89";
+const VERSION = "mrgas-v90";
 const ARCHIVOS = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/badge-72.png"];
 
 self.addEventListener("install", (e) => {

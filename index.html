@@ -1935,7 +1935,7 @@ const V={
     return `<div class="phead-mr"><div class="eyebrow-mr">Sucursal ${esc(nomLocal(suc))}</div><h1>${saludo}, ${esc(nom)}</h1><p class="sub">${fechaLarga(hoy)}</p></div>
       <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","ventachofer","local","choferes","bodega","compras","informes","config"],FUERA=["sectorizar","cuadratura"];
         const ids=[...ORDEN,...MODULOS.map(m=>m.id).filter(id=>!ORDEN.includes(id)&&!FUERA.includes(id))];
-        return ids.map(id=>{if(id==="local")return esAdmin()||(yo.rol==="encargado"&&Array.isArray(yo.permisos)&&yo.permisos.includes("app.local"))?card('href="local/"',"externo","ERP Local","Venta local, bodega y rendiciones de los locales."):"";
+        return ids.map(id=>{if(id==="local")return esAdmin()||(yo.rol==="encargado"&&Array.isArray(yo.permisos)&&yo.permisos.includes("app.local"))?card('href="local/"',"ventachofer","Venta Local","Venta y rendición de los locales"):"";
           if(id==="erp")return yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","ERP Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):"";
           const m=MODULOS.find(x=>x.id===id);if(m&&id==="informes"&&!puede(id)&&yo.rol==="encargado")return card('data-infaut="1" type="button"',m.id,m.t,"Necesita la autorización de alguien con permiso.","Pedir autorización");
           return m&&puede(m.id)?card(`data-modulo="${m.id}" type="button"`,m.id,m.t,m.s):""}).join("")})()}</div>
@@ -5088,7 +5088,8 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .modulo .ico{width:34px!important;height:34px!important;margin-bottom:4px!important}
 .sis .modulo b{font-size:15px}
 .sis .modulo .sub{font-size:12.5px}
-.sis .modulo .mgo{margin-top:6px!important;padding-top:8px!important}
+.sis .modulo .mgo{margin-top:auto!important;padding-top:8px!important;font-size:13px!important}
+.sis .modulo span.sub{flex:1 1 auto;margin-bottom:6px}
 .sis .stitle-mr{margin:0 0 6px}
 .sis .stats-mr>div{padding:10px 16px!important}.sis .stats-mr .v{font-size:20px!important}
 @media (max-width:1100px){.sis .modulos{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
