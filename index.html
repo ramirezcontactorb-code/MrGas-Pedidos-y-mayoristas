@@ -2423,7 +2423,7 @@ const V={
       <button class="btn" type="submit">Guardar</button><p class="aviso ok" id="em-ok" hidden>Datos guardados.</p></form>`;
   },
   usuarios(){
-    const nube=NUBE.activo,lista=(nube?NUBE.usuarios:D.usuarios).slice().sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
+    const nube=NUBE.activo,lista=(nube?NUBE.usuarios:D.usuarios).slice().sort((a,b)=>((a.activo===false)-(b.activo===false))||(a.nombre||"").localeCompare(b.nombre||""));
     const keyOf=u=>nube?u.uid:u.user,ed=editUser!=null?lista.find(u=>keyOf(u)===editUser):null,yoKey=nube?yo.uid:yo.user;
     const ROL={admin:"Administrador",encargado:"Encargado",chofer:"Repartidor"},rolSel=ed?ed.rol:"encargado";
     const acceso=u=>u.rol==="admin"?"Todo"+(Array.isArray(u.permisos)&&!u.permisos.includes("respaldos")?' <span class="nota" style="margin:0">· sin respaldos</span>':" · con respaldos"):u.rol==="chofer"?"Móvil "+esc(nomChofer(u.chofer))+'<br><span class="nota" style="margin:0">'+appsTxt(u.permisos)+"</span>"
@@ -2440,7 +2440,7 @@ const V={
     <div class="tabla-wrap"><table><thead><tr><th>Nombre</th><th>Usuario</th><th>Tipo</th><th>Acceso</th><th>Estado</th><th></th></tr></thead><tbody>
     ${lista.map(u=>{const k=keyOf(u);return `<tr><td>${esc(u.nombre)}</td><td class="num">${esc(u.user)}</td><td>${ROL[u.rol]||esc(u.rol)}</td><td>${acceso(u)}</td>
       <td>${u.activo===false?'<span class="pill anulado">Desactivado</span>':'<span class="pill entregado">Activo</span>'}</td>
-      <td><div class="acc">${k!==yoKey&&!(u.rol==="admin"&&(u.permisos==null||(u.permisos||[]).includes("respaldos"))&&!puede("respaldos"))?`<button class="btn chico linea" data-edituser="${esc(k)}" type="button">Editar</button><button class="btn chico linea" data-toggleuser="${esc(k)}" type="button">${u.activo===false?"Activar":"Desactivar"}</button>`:'<span class="nota" style="margin:0">Usted</span>'}</div></td></tr>`}).join("")||`<tr><td colspan="7">${nube?"Cargando usuarios…":"Sin usuarios."}</td></tr>`}
+      <td><div class="acc">${k!==yoKey&&!(u.rol==="admin"&&(u.permisos==null||(u.permisos||[]).includes("respaldos"))&&!puede("respaldos"))?`<button class="btn chico linea" data-edituser="${esc(k)}" type="button">Editar</button><button class="btn chico linea" data-toggleuser="${esc(k)}" type="button">${u.activo===false?"Activar":"Desactivar"}</button>${esAdmin()?`<button class="btn chico linea us-del" data-deluser="${esc(k)}" type="button">Eliminar</button>`:""}`:'<span class="nota" style="margin:0">Usted</span>'}</div></td></tr>`}).join("")||`<tr><td colspan="7">${nube?"Cargando usuarios…":"Sin usuarios."}</td></tr>`}
     </tbody></table></div>`;
   },
   clave(){
@@ -5106,6 +5106,22 @@ L.facturas=function(){
 const rutSii=r=>{const s=String(r||"").replace(/[^0-9kK]/g,"").toUpperCase();return s.length>1?s.slice(0,-1)+"-"+s.slice(-1):s};
 document.addEventListener("click",e=>{const b=e.target.closest("[data-rutc]");if(!b)return;const r=rutSii(b.dataset.rutc);
   (navigator.clipboard?navigator.clipboard.writeText(r):Promise.reject()).then(()=>{const t0=b.textContent;b.textContent="✓ Copiado "+r;b.classList.add("ok");setTimeout(()=>{b.textContent=t0;b.classList.remove("ok")},1800)},()=>aviso("RUT",r))});
+
+/* ===== Usuarios: primero la lista (activos arriba), el formulario se abre con un botón; eliminar usuarios ===== */
+let usForm=false,usN=null;
+{const lc=L.config;L.config=function(){const r=lc.apply(this,arguments);
+  try{if(cfgTab==="usuarios"){const f=$("#f-usr");if(f&&!document.getElementById("us-lista-h")){const tw=f.nextElementSibling;
+      const n=tw?tw.querySelectorAll("tbody tr").length:0;if(usForm&&usN!=null&&n>usN)usForm=false;usN=n;const abierto=usForm||editUser!=null;
+      if(tw&&tw.classList.contains("tabla-wrap")){f.parentNode.insertBefore(tw,f);tw.insertAdjacentHTML("beforebegin",`<div class="us-cab" id="us-lista-h"><h3>Usuarios creados</h3><button class="btn" type="button" id="us-abrir">${abierto?"− Cerrar formulario":"＋ Agregar usuario"}</button></div>`);tw.style.marginBottom="16px"}
+      f.hidden=!abierto;
+      $("#us-abrir").onclick=()=>{if(editUser!=null){editUser=null;usForm=false;pintarSistema();return}usForm=!usForm;pintarSistema();if(usForm)setTimeout(()=>{const i=$("#us-nombre");if(i){i.scrollIntoView({block:"center"});i.focus()}},50)};
+      if(editUser!=null)setTimeout(()=>f.scrollIntoView({block:"start"}),30)}
+    $$("[data-deluser]").forEach(b=>b.onclick=()=>confirmar(b,async()=>{const k=b.dataset.deluser;
+      if(NUBE.activo){const u=(NUBE.usuarios||[]).find(x=>x.uid===k);
+        try{await api("usuario_borrar",{uid:+k});log("sistema","Usuario eliminado",u?u.user:k);guardar();await cargarUsuarios();pintarSistema();aviso("Usuario eliminado",u?u.nombre:"")}
+        catch(x){aviso("No se pudo eliminar",x.message||"")}}
+      else{const u=D.usuarios.find(x=>x.user===k);D.usuarios=D.usuarios.filter(x=>x.user!==k);log("sistema","Usuario eliminado",k);guardar();pintarSistema();aviso("Usuario eliminado",u?u.nombre:"")}}))}}catch(e){console.error(e)}
+  return r}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -6203,6 +6219,9 @@ body.vl-abierta{overflow:hidden}
 .sis .fac-rut{background:#0a2557;color:#fff;border-color:#0a2557}.sis .fac-rut.ok{background:#12b76a;border-color:#12b76a}
 
 .sis .fac-mes{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #e4e8ee;border-radius:10px;padding:8px 12px;margin:0 0 10px}.sis .fac-mes b{font-size:15px;min-width:130px;text-align:center}.sis .fac-mes input{width:auto;padding:5px 8px}
+
+.sis .us-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px}.sis .us-cab h3{margin:0}
+.sis .us-del{color:#d92d20;border-color:#fecdca}
 </style>
 </body>
 </html>

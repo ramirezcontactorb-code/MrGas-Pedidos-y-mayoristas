@@ -352,6 +352,23 @@ try {
         $l = db()->query('SELECT * FROM usuarios ORDER BY nombre')->fetchAll();
         salida(['usuarios' => array_map('perfilDe', $l)]);
     }
+    // Eliminar un usuario (solo administrador). No puede eliminarse a sí mismo ni dejar el sistema sin administradores.
+    case 'usuario_borrar': {
+        $adm = requiereAdmin(); $b = cuerpo(); $uid = (int) ($b['uid'] ?? 0);
+        if ($uid === (int) $adm['uid']) salida(['error' => 'No puede eliminar su propio usuario.'], 400);
+        $s0 = db()->prepare('SELECT * FROM usuarios WHERE uid = ?'); $s0->execute([$uid]); $obj = $s0->fetch();
+        if (!$obj) salida(['error' => 'Ese usuario ya no existe.'], 404);
+        $total = fn(?array $per) => $per === null || in_array('respaldos', $per, true);
+        if ($obj['rol'] === 'admin') {
+            if (!$total($adm['permisos']) && $total($obj['permisos'] !== null ? json_decode($obj['permisos'], true) : null)) salida(['error' => 'Solo un administrador con permiso de respaldos puede eliminar a este usuario.'], 403);
+            $n = (int) db()->query("SELECT COUNT(*) FROM usuarios WHERE rol = 'admin' AND activo = 1")->fetchColumn();
+            if ($n <= 1 && $obj['activo']) salida(['error' => 'Debe quedar al menos un administrador.'], 400);
+        }
+        db()->prepare('DELETE FROM usuarios WHERE uid = ?')->execute([$uid]);
+        try { db()->prepare('DELETE FROM presencia WHERE uid = ?')->execute([$uid]); } catch (Throwable $e) {}
+        try { db()->prepare('DELETE FROM push_subs WHERE uid = ?')->execute([$uid]); } catch (Throwable $e) {}
+        salida(['ok' => true]);
+    }
     case 'usuario': {
         $adm = requiereAdmin(); $b = cuerpo();
         // al editar un usuario (por ejemplo, darle clave nueva) se le quita el bloqueo por intentos fallidos
