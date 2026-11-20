@@ -1017,13 +1017,13 @@ function mgSucs(l){if(!Array.isArray(l)||!l.length)return;
   SUCS.splice(0,SUCS.length,...SUCS_TODAS.filter(s=>!SUCS_OFF.includes(s)));
   INDEP.splice(0,INDEP.length,...l.filter(x=>x.indep).map(x=>x.nombre));
   try{const u=JSON.parse(sessionStorage.getItem('gl_user'));if(u&&!SUCS.includes(u.suc)){sessionStorage.removeItem('gl_user');S.user=null;S.view='login';}}catch(e){}}
+function mgVer(){const x=document.getElementById('mg-oculto');if(x)x.remove();}
 async function mgGate(){
-  const mgVer=()=>{const x=document.getElementById('mg-oculto');if(x)x.remove();};
   if(!/^https?:$/.test(location.protocol)){mgVer();return true;} /* vista previa sin servidor */
   let j=null;try{const r=await fetch(MG_API+'?a=estado',{credentials:'same-origin',cache:'no-store'});j=await r.json();}catch(e){}
   if(!j||j.error){mgPantalla('Sin conexión','No se pudo conectar con el servidor. Revise internet y vuelva a intentar.');return false;}
   mgSucs(j.sucursales);
-  if(j.quien){MGU={modo:j.quien.modo,user:j.quien.perfil.user};USERS=[mgUsuario(j.quien.perfil)];mgVer();return true;}
+  if(j.quien){MGU={modo:j.quien.modo,user:j.quien.perfil.user};USERS=[mgUsuario(j.quien.perfil)];setTimeout(mgVer,8000);return true;}
   /* sin sesión: se entra con el usuario y clave del ERP Matriz */
   try{sessionStorage.removeItem('gl_user');}catch(e){}
   location.replace('../?volver=local#acceso');return false;
@@ -2784,6 +2784,7 @@ if(MG_EMB)document.documentElement.classList.add('mg-emb');
     if(MG_EMB)S.view='inf';
     else if(S.view==='home'||S.view==='inf'||!VIEWS[S.view])S.view=canView('venta')?'venta':canView('rend')?'rend':S.view;}
   const x=r1.apply(this,arguments);
+  if(MGU&&S.user&&db&&READY)mgVer();
   try{if(MGU&&S.user&&!MG_EMB){
     document.querySelectorAll('.ab-right .hb').forEach(b=>{if(b.id!=='mg-volver'&&/Volver/.test(b.textContent))b.remove();});
     const br=document.querySelector('.appbar .brand');if(br){br.removeAttribute('onclick');br.style.cursor='default';}
