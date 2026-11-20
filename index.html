@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MR Gas · ERP Matriz</title>
+<title>MR Gas · Panel General</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="MR Gas · sistema de control interno.">
 <meta name="robots" content="noindex, nofollow">
@@ -316,8 +316,8 @@ body.arrancando::after{content:"Cargando MR Gas…";position:fixed;inset:0;displ
     <div class="pt-marca"><span class="pt-sello">MR</span><div><b>MR Gas</b><small>Elija dónde quiere entrar</small></div></div>
     <h1>Bienvenido a <em>MR Gas</em></h1>
     <div class="pt-grid">
-      <a class="pt-b" id="pt-erp" href="#acceso"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M8 20h8M12 16v4"/></svg></span><b>ERP Matriz</b><small>Pedidos, rutas, cuadratura y bodega</small><i>Entrar →</i></a>
-      <a class="pt-b" id="pt-erplocal" href="local/"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6v10H3z"/><path d="M9 20v-6h6v6"/></svg></span><b>ERP Local</b><small>Venta local y bodega</small><i>Entrar →</i></a>
+      <a class="pt-b" id="pt-erp" href="#acceso"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M8 20h8M12 16v4"/></svg></span><b>Panel General</b><small>Pedidos, rutas, cuadratura y bodega</small><i>Entrar →</i></a>
+      <a class="pt-b" id="pt-erplocal" href="local/"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6v10H3z"/><path d="M9 20v-6h6v6"/></svg></span><b>Venta Local</b><small>Venta y rendición de los locales</small><i>Entrar →</i></a>
       <a class="pt-b" href="repartidores/"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></svg></span><b>App repartidores</b><small>Pedidos a domicilio y reparto a mayoristas</small><i>Entrar →</i></a>
     </div>
   </div>
@@ -353,7 +353,7 @@ body.arrancando::after{content:"Cargando MR Gas…";position:fixed;inset:0;displ
       <span class="il-sello">MR</span>
       <div>
         <h1>MR Gas</h1>
-        <p>ERP Matriz</p>
+        <p>Panel General</p>
       </div>
     </div>
     <div class="il-lema">
@@ -1002,7 +1002,7 @@ async function iniciarNube(){
   catch(e){if(e.status>=500){NUBE.activo=true;const er=$("#lg-error");er.textContent=e.message;er.hidden=false}}
   addEventListener("online",()=>{estadoNube(true);if(NUBE.listo){sondear();programarEnvio()}});addEventListener("offline",()=>estadoNube(false));estadoNube(true)}
 function estadoNube(ok){if(ok!==undefined)NUBE.enLinea=ok&&navigator.onLine;const e=document.getElementById("nube-estado");if(!e)return;e.hidden=!NUBE.activo;
-  e.textContent=NUBE.enLinea?"Conectado al servidor":"Sin conexión · se guarda al volver";e.classList.toggle("off",!NUBE.enLinea)}
+  e.textContent=NUBE.enLinea?"Conectado al servidor":"No conectado al servidor";e.classList.toggle("off",!NUBE.enLinea)}
 
 /* ---- qué se comparte ---- */
 const CLAVE={cargas:x=>`c${x.local}-${x.k}`,cargasDist:x=>`d${x.local}-${x.k}`,anticipos:x=>`a${x.local}-${x.k}`,peonetas:x=>`pe${x.id}`,clientes:x=>`cl${x.fono}`,petroleo:x=>`p${x.local}-${x.k}`,rendiciones:r=>`${r.tipo}-${r.ref}-${r.fecha}-${r.local}${r.venta!=null?"-v"+r.venta:""}`,ventas:v=>`v${v.local}-${v.grupo||v.id}-${v.formato}`,gastos:g=>`g${g.local}-${g.k||g.id}`};
@@ -1301,7 +1301,7 @@ const PERM_EXTRA=PERM_GRUPOS.flatMap(g=>g[1]);
 /* permisos nuevos (versión 3): a quien no los tiene marcados se le respeta lo que podía hacer antes */
 const PERM_ANTES={"cfg.preciosMay":"cfg.precios","cfg.envases":"cfg.precios","cfg.comVale":"cfg.precios","cfg.historial":"cfg.precios","vc.anular":"ventachofer","vc.descuento":"ventachofer","may.anular":"mayorista","may.descuento":"mayorista","bodega.editar":"bodega"};
 function permV3(p,c){if(!Array.isArray(p))return true;if(p.includes(c))return true;if(p.includes("_v3"))return false;return !!PERM_ANTES[c]&&p.includes(PERM_ANTES[c])}
-const PERM_APPS=[["app.repartidores","App repartidores (oficina)"],["app.local","ERP Local"]];
+const PERM_APPS=[["app.repartidores","App repartidores (oficina)"],["app.local","Venta Local"]];
 const CFG_PERM={choferes:"cfg.choferes",clientesMay:"cfg.clientes",precios:"cfg.precios",envases:"cfg.envases",preciosMay:"cfg.preciosMay",comVale:"cfg.comVale",descQR:"cfg.precios",histPrecios:"cfg.historial",histCambios:"cfg.historial"};
 const ESTADO_PRECIOS=["precios","preciosMayor","preciosEnvase","preciosConvenio","listas","historico","listasMay","comisionVale","descQR"];
 const PLANTILLAS=[
@@ -1709,7 +1709,7 @@ function detalleDia(d,ids){
   const TM={compra:"Compra a proveedor",devprov:"Devolución a proveedor",devcli:"Devolución de cliente"};
   return `<div class="barra"><div><button class="volver" id="inf-volver-mes" type="button">← Volver al mes</button><h2 style="margin-top:6px">${fechaLarga(d)}</h2></div></div>
   <div class="kpis"><div class="kpi"><span>Venta total</span><b class="num">${clp(x.vDesp+x.vMes)}</b></div><div class="kpi"><span>Cilindros vendidos</span><b class="num">${x.cil}</b></div><div class="kpi"><span>Pedidos</span><b class="num">${x.ped.length}</b></div><div class="kpi"><span>Saldo cuadratura</span><b class="num">${clp(x.saldo)}</b></div></div>
-  ${tabla("Pedidos",["N°","Hora","Cliente","Dirección","Cilindros",">Total","Pago","Móvil","Estado"],x.ped.map(p=>`<tr><td class="num">${p.id}</td><td class="num">${esc(p.fecha.slice(11))}</td><td>${p.nombre?esc(p.nombre)+"<br>":""}<span class="num" ${p.nombre?'style="color:var(--muted)"':""}>${esc(p.fono)}</span></td><td>${esc(p.dir)}</td><td class="num">${resumenP(p)}</td><td class="der num">${clp(totalP(p))}</td><td>${MEDIOS[p.medio]||""}</td><td>${esc(nomChofer(p.chofer))}</td><td><span class="pill ${p.estado}">${ESTADOS[p.estado]}</span>${p.estado==="entregado"&&p.entregado?`<br><span class="num" style="color:var(--muted);font-size:.82rem">${esc(p.entregado.slice(11))}</span>`:""}</td></tr>`),"No hubo pedidos este día.")}
+  ${tabla("Pedidos",["N°","Hora","Cliente","Dirección","Cilindros",">Total","Pago","Móvil","Estado"],x.ped.map(p=>`<tr><td class="num">${p.id}</td><td class="num">${esc(p.fecha.slice(11))}</td><td>${p.nombre?esc(p.nombre)+"<br>":""}<span class="num" ${p.nombre?'style="color:var(--muted)"':""}>${esc(p.fono)}</span></td><td>${esc(p.dir)}</td><td class="num">${resumenP(p)}</td><td class="der num">${clp(totalP(p))}</td><td>${MEDIOS[p.medio]||""}</td><td>${esc(nomChofer(p.chofer))}</td><td><span class="pill ${p.estado}">${ESTADOS[p.estado]}</span>${p.estado==="anulado"&&p.motivoAnula?`<br><span style="color:var(--muted);font-size:.82rem">${esc(p.motivoAnula)}${p.anuladoPor?" · "+esc(p.anuladoPor):""}</span>`:""}${p.estado==="entregado"&&p.entregado?`<br><span class="num" style="color:var(--muted);font-size:.82rem">${esc(p.entregado.slice(11))}</span>`:""}</td></tr>`),"No hubo pedidos este día.")}
   ${tabla("Cuadraturas",["Nombre","Tipo",">Vendido",">Rendido",">Saldo","Hecha por"],x.ren.map(r=>{const c=calcRend(r);return `<tr><td>${esc(nomRef(r))}</td><td>${({movil:"Móvil",mayorista:"Mayorista",local:"Local"})[r.tipo]}</td><td class="der num">${clp(c.venta)}</td><td class="der num">${clp(c.pagado)}</td><td class="der num"><span class="${sCls(c.saldo)}">${clp(c.saldo)}</span></td><td>${esc(r.usuario)}</td></tr>`}),"No hubo cuadraturas este día.")}
   ${tabla("Ventas en mesón",["Hora","Cilindros","Pago",">Monto"],x.ven.map(v=>`<tr><td class="num">${esc(v.fecha.slice(11))}</td><td>${v.cant} × ${fmt(v.formato).et}</td><td>${MEDIOS[v.medio]||""}</td><td class="der num">${clp(montoV(v))}</td></tr>`),"No hubo ventas en mesón.")}
   ${tabla("Gastos de caja chica",["Hora","Detalle",">Monto"],x.gas.map(g=>`<tr><td class="num">${esc(g.fecha.slice(11))}</td><td>${esc(g.det)}</td><td class="der num">${clp(g.monto)}</td></tr>`),"No hubo gastos.")}
@@ -1945,7 +1945,7 @@ const V={
       <div class="modulos">${(()=>{const ORDEN=["pedidos","ruta","mayorista","ventachofer","local","choferes","bodega","compras","informes","config"],FUERA=["sectorizar","cuadratura"];
         const ids=[...ORDEN,...MODULOS.map(m=>m.id).filter(id=>!ORDEN.includes(id)&&!FUERA.includes(id))];
         return ids.map(id=>{if(id==="local")return esAdmin()||(yo.rol==="encargado"&&Array.isArray(yo.permisos)&&yo.permisos.includes("app.local"))?card('href="local/"',"ventachofer","Venta Local","Venta y rendición de los locales"):"";
-          if(id==="erp")return yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","ERP Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):"";
+          if(id==="erp")return yo.rol!=="chofer"?card('href="https://mrgaslocal.com/" target="_blank" rel="noopener"',"externo","Venta Local Gas","Sistema de venta local y bodega.","Abrir en otra pestaña"):"";
           const m=MODULOS.find(x=>x.id===id);if(m&&id==="informes"&&!puede(id)&&yo.rol==="encargado")return card('data-infaut="1" type="button"',m.id,m.t,"Necesita la autorización de alguien con permiso.","Pedir autorización");
           return m&&puede(m.id)?card(`data-modulo="${m.id}" type="button"`,m.id,m.t,m.s):""}).join("")})()}</div>
       <p class="stitle-mr">Resumen de hoy</p>
@@ -2792,7 +2792,7 @@ const L={
       const ch=r==="chofer"?D.choferes.find(x=>x.id===+$("#us-chofer").value):null;
       if(r==="chofer"&&!ch)return falla("Primero agregue el móvil en Asigna Ruta.");
       if(r==="encargado"&&!acc.sucursales.length&&!soloLocalP(acc.permisos))return falla("Marque al menos una sucursal.");
-      if(r==="encargado"&&acc.permisos.includes("app.local")&&!acc.permisos.some(c=>c.startsWith("lsuc.")))return falla("Marque al menos una sucursal del ERP Local.");
+      if(r==="encargado"&&acc.permisos.includes("app.local")&&!acc.permisos.some(c=>c.startsWith("lsuc.")))return falla("Marque al menos una sucursal de Venta Local.");
       if(r==="encargado"&&!acc.permisos.some(x=>MOD_PERM.includes(x.split(":")[0])||x.startsWith("app.")))return falla("Marque al menos un cuadro o una app que pueda usar.");
       const datos={nombre:$("#us-nombre").value.trim(),rol:r,sucursales:r==="admin"?[]:r==="chofer"?[ch.local]:acc.sucursales,permisos:r==="encargado"?acc.permisos:r==="admin"?(puede("respaldos")?($("#us-resp").checked?null:[]):[]):["_v2",...acc.apps],chofer:ch?ch.id:null};
       datos.local=r==="admin"?null:datos.sucursales[0];
@@ -3349,7 +3349,7 @@ function enlazarCfgTabs(){$$("[data-cfgtab]").forEach(b=>b.onclick=()=>{const k=
   V.sectorizar=()=>vs().replace(cabeza("Sectorizar pedidos"),cabeza("Configuraciones")+cfgTabsHtml("sectorizar"));
   L.sectorizar=()=>{enlazarCfgTabs();ls()}}
 
-/* ===================== VENTA MAYORISTA (igual que en ERP Local MR Gas) =====================
+/* ===================== VENTA MAYORISTA (igual que en Venta Local MR Gas) =====================
    Clientes mayoristas con lista de precios (precio base menos $ por kilo, o precio especial),
    venta que descuenta de bodega, cuenta por cliente con abonos y comisión por vale. */
 IC.mayorista='<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 4h5v5"/><path d="M21 4l-5 5"/><path d="M17 14h4v6h-4"/>';
@@ -3546,7 +3546,7 @@ const CFG_MAY={
         c.esp=c.esp||{};ins.forEach(i=>{const f=i.dataset.esp,v=Math.round(+i.value),a=precioCliMay(c,f);if(v!==a){histMay("Precio especial "+c.nombre,f,a,v);c.esp[f]=v}});
         espEdit=null;log("precios","Precio especial guardado",c.nombre);guardar();pintarSistema()})}},
   comVale:{v(){asegMay();return `<form class="cfgp" id="f-comvale"><h3>Comisión de vales</h3>
-      <p class="cfgp-nota">Escribe cuánto se le abona al cliente por cada vale, según el tipo de vale y el cilindro. Solo se aplica en la <b>Rendición Mayorista</b>: es un beneficio para el cliente. Se calcula sola al grabar un vale y se descuenta de su saldo (queda a favor en su cuenta). En la rendición local no hay comisión. <b>Vale para el ERP Matriz y para todas las sucursales del ERP Local.</b></p>
+      <p class="cfgp-nota">Escribe cuánto se le abona al cliente por cada vale, según el tipo de vale y el cilindro. Solo se aplica en la <b>Rendición Mayorista</b>: es un beneficio para el cliente. Se calcula sola al grabar un vale y se descuenta de su saldo (queda a favor en su cuenta). En la rendición local no hay comisión. <b>Vale para el Panel General y para todas las sucursales de Venta Local.</b></p>
       <div class="tabla-wrap cfgt"><table><thead><tr><th>Tipo de vale</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15":f.kg+" kg"}</th>`).join("")}</tr></thead><tbody>
       ${Object.entries(VALES).map(([k,t])=>`<tr><td><b>${t}</b></td>${FORMATOS.map(f=>`<td class="pn c"><span>$</span><input type="number" min="0" class="azul" data-cv="${k}|${f.id}" value="${D.comisionVale[k][f.id]||0}" aria-label="Comisión ${t} ${f.et}"></td>`).join("")}</tr>`).join("")}
       </tbody></table></div><div class="cfgp-btn"><button class="btn" type="submit">Guardar comisión</button></div>
@@ -3557,7 +3557,7 @@ const CFG_MAY={
       if(NUBE.activo&&esAdmin()){const VMAP={compania:"De la compañía",otras:"Otras compañías",digital:"Vale Digital",digotras:"Digital Otras compañías"},FMAP={c5:"5",c11:"11",c15:"15",c45:"45",h15a:"H"},com={};
         Object.keys(VMAP).forEach(k=>{com[VMAP[k]]={};FORMATOS.forEach(f=>com[VMAP[k]][FMAP[f.id]]=(D.comisionVale[k]||{})[f.id]||0)});
         const sucs={};LOC_INDEP.forEach(x=>sucs[lslug(x)]={comision:com});
-        try{await locPrecios({global:{comision:com},sucs});local=" También quedó en todas las sucursales del ERP Local."}catch(x){local=" No se pudo guardar en el ERP Local: "+x.message}}
+        try{await locPrecios({global:{comision:com},sucs});local=" También quedó en todas las sucursales de Venta Local."}catch(x){local=" No se pudo guardar en Venta Local: "+x.message}}
       if(!n&&!local){aviso("Sin cambios","No cambió ninguna comisión.");return}
       if(n){log("precios","Comisión por vale actualizada",`${n} valor(es)`);guardar()}pintarSistema();aviso("Comisión guardada","Se aplica a los vales que se graben desde ahora en la Rendición mayorista."+local)}}}
 };
@@ -3925,7 +3925,7 @@ function enlazarVR(){
   if(cuadTab==="movil"&&cuadSel!=null){const b=$("#cu-lista");if(b){b.textContent="← Volver a Venta Choferes";b.onclick=()=>{cuadTab="menu";cuadSel=null;pintarSistema()}}
     $$(".vr-sum [data-ctab]").forEach(x=>x.onclick=()=>{vrCh=cuadSel;cuadTab="menu";cuadSel=null;pintarSistema()})}}}
 
-/* ===================== VENTA CHOFERES (igual a Venta Local del ERP Local, pero por chofer) ===================== */
+/* ===================== VENTA CHOFERES (igual a Venta Local de Venta Local, pero por chofer) ===================== */
 let vcTab="venta",vcCh=null,vcUlt=null;
 const cilBlanco=f=>{const lab=f.tipo==="h"?"15":String(f.kg),alu=f.tipo==="h",h=f.kg>=45?96:f.kg>=15?86:f.kg>=11?78:68,w=f.kg>=45?58:f.kg>=15?52:f.kg>=11?48:42,x=(64-w)/2,y=112-h;
   return `<svg viewBox="0 0 64 116" class="cilb" aria-hidden="true"><defs><linearGradient id="gb${f.id}" x1="0" x2="1"><stop offset="0" stop-color="#e9edf2"/><stop offset=".35" stop-color="#fff"/><stop offset="1" stop-color="#d5dbe3"/></linearGradient></defs>
@@ -4192,7 +4192,7 @@ L.bodega=function(){l0();
   $$("[data-bcargar]").forEach(b=>b.onclick=()=>{bChofer=+b.dataset.bcargar;bTab="cargas";pintarSistema();window.scrollTo(0,0)});};
 }
 
-/* ===================== CONFIGURACIONES con el formato del ERP Local ===================== */
+/* ===================== CONFIGURACIONES con el formato de Venta Local ===================== */
 const CFG_IC={sucLocal:"sucursal",precioBase:"precios",preciosLocal:"precios",precios:"precios",envases:"precios",clientesMay:"usuarios",descQR:"precios",preciosMay:"precios",comVale:"cuadratura",histPrecios:"manual",histCambios:"manual",usuarios:"usuarios",choferes:"choferes",sectorizar:"ruta",sucursal:"sucursal",general:"bodega",respaldos:"config"};
 // Precio del Gas
 CFG_MAY.precios={v(){const p=D.precios,prog=(D.programados||[]).slice().sort((a,b)=>a.desde.localeCompare(b.desde));
@@ -4239,7 +4239,7 @@ CFG_MAY.histCambios={v(){const B=(D.bitacora||[]).filter(x=>["sistema","precios"
   return h.slice(0,i)+`<div class="cfg-lay">${side}<div class="cfg-main">${h.slice(i+k.length)}</div></div>`}}
 {const lc=L.config;L.config=function(){lc.apply(this,arguments);$$(".cfgp [data-cfgtab]").forEach(a=>a.onclick=e=>{e.preventDefault();cfgTab=a.dataset.cfgtab;cfgCh=null;pintarSistema()})}}
 
-/* ===== Seguridad como en el ERP Local ===== */
+/* ===== Seguridad como en Venta Local ===== */
 function dlSeg(html,onok){
   let dl=document.getElementById("dl-seg");if(!dl){dl=document.createElement("dialog");dl.id="dl-seg";dl.className="dl-estado";document.body.appendChild(dl)}
   dl.innerHTML=html;dl.showModal();
@@ -4307,7 +4307,7 @@ async function pintarConectados(){
   const z=$("#con-ahora");if(!z){clearInterval(conTimer);conTimer=null;return}
   let l=[];if(NUBE.activo){try{l=(await api("conectados")).conectados}catch(e){z.querySelector(".con-l").innerHTML=`<span class="nota">${esc(e.message)}</span>`;return}}
   else l=yo?[{nombre:yo.nombre,user:yo.user,rol:yo.rol,app:"erp",hace:0}]:[];
-  const APP={erp:"ERP Matriz",repartidores:"App repartidores",distribucion:"App distribución","":"ERP Matriz"};
+  const APP={erp:"Panel General",repartidores:"App repartidores",distribucion:"App distribución","":"Panel General"};
   z.querySelector(".con-n").textContent=l.length;
   z.querySelector(".con-l").innerHTML=l.length?l.map(c=>`<span class="con-c"><i></i><b>${esc(c.nombre)}</b><small>${esc(APP[c.app]||c.app)}${c.ip?" · "+esc(c.ip):""}</small></span>`).join(""):'<span class="nota">Nadie conectado ahora.</span>'}
 {const l0=L.usuarios;L.usuarios=function(){const r=l0.apply(this,arguments);
@@ -4319,7 +4319,7 @@ async function pintarConectados(){
 function porMi(){return yo?(yo.nombre||yo.user||""):""}
 function porTag(o){return esAdmin()&&o&&o.por?`<small class="por-tag" title="Agregado por ${esc(o.por)}${o.hora?" · "+esc(String(o.hora).slice(0,16)):""}">${esc(o.por)}</small>`:""}
 
-/* ===== Permisos del ERP Local (se dan aquí, en el ERP Matriz) ===== */
+/* ===== Permisos de Venta Local (se dan aquí, en el Panel General) ===== */
 let LOCAL_SUCS=['Cervantes','El Tranque','Maipo','Padre Damián','Olivos','Jr Coyhaique','Jr Parcelas','Chillán'],LOCAL_CFG=null;
 const lslug=n=>n.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,'_');
 const LOCAL_PERMS=[["Ventas",[["venta","Venta Local"],["anular","Anular ventas"],["rend","Rendición del local"],["mayor","Venta mayorista y su rendición"],["mcta","Ver cuenta clientes mayoristas"]]],
@@ -4329,34 +4329,34 @@ const LOCAL_PERMS=[["Ventas",[["venta","Venta Local"],["anular","Anular ventas"]
 const LOCAL_PLANT=[["Vendedor",["venta","rend","bodega"]],["Bodeguero",["bodega","bmov","bvmov","bedit"]],["Encargado de local",["venta","anular","rend","mayor","mcta","bodega","bmov","bvmov","bedit","precios","com","phist"]]];
 const soloLocalP=p=>Array.isArray(p)&&p.includes("app.local")&&p.every(c=>/^(_v2|app\.|loc\.|lsuc\.|clave\.)/.test(c));
 function camposLocal(p){const t=c=>!!(p&&p.includes(c));
-  return `<fieldset class="acceso" id="us-local" ${t("app.local")?"":"hidden"}><legend>ERP Local</legend>
-    <p class="perm-tit" style="margin:0 0 4px">Sucursales del ERP Local</p>
+  return `<fieldset class="acceso" id="us-local" ${t("app.local")?"":"hidden"}><legend>Venta Local</legend>
+    <p class="perm-tit" style="margin:0 0 4px">Sucursales de Venta Local</p>
     <div class="checks-grid">${LOCAL_SUCS.map(x=>`<label class="radio"><input type="checkbox" name="us-lsuc" value="lsuc.${lslug(x)}" ${t("lsuc."+lslug(x))?"checked":""}>${esc(x)}</label>`).join("")}</div>
     <div class="pl-bar" style="margin-top:10px"><span>Plantilla rápida:</span>${LOCAL_PLANT.map(([n],i)=>`<button type="button" class="btn chico linea" data-lplant="${i}">${n}</button>`).join("")}<button type="button" class="btn chico linea" data-lplant="-1">Nada</button></div>
     <div class="loc-perm">${LOCAL_PERMS.map(([g,l])=>`<div class="loc-g"><p class="perm-tit">${g}</p>${l.map(([c,n])=>`<label class="radio"><input type="checkbox" name="us-lperm" value="loc.${c}" ${t("loc."+c)?"checked":""}>${n}</label>`).join("")}</div>`).join("")}</div>
-    <p class="nota" style="margin:6px 0 0">Los mismos permisos valen para todas las sucursales marcadas. Si el usuario no tiene ningún cuadro del ERP Matriz, solo puede entrar al ERP Local (no a la matriz). Los administradores pueden todo.</p></fieldset>`}
+    <p class="nota" style="margin:6px 0 0">Los mismos permisos valen para todas las sucursales marcadas. Si el usuario no tiene ningún cuadro del Panel General, solo puede entrar a Venta Local (no a la matriz). Los administradores pueden todo.</p></fieldset>`}
 const leerAcceso=()=>{const a=leerAcceso0();if(a.permisos.includes("app.local"))a.permisos.push(...[...$$('input[name="us-lsuc"]:checked'),...$$('input[name="us-lperm"]:checked')].map(i=>i.value));return a};
 function resumenLocal(p){if(!Array.isArray(p)||!p.includes("app.local"))return "";
   const ss=LOCAL_SUCS.filter(x=>p.includes("lsuc."+lslug(x))),ps=LOCAL_PERMS.flatMap(([,l])=>l).filter(([c])=>p.includes("loc."+c)).map(([,n])=>n);
-  return `ERP Local${soloLocalP(p)?" (solo ERP Local)":""}: ${ss.length?ss.join(", "):"sin sucursal"} · ${ps.length?ps.join(", "):"sin permisos"}`}
+  return `Venta Local${soloLocalP(p)?" (solo Venta Local)":""}: ${ss.length?ss.join(", "):"sin sucursal"} · ${ps.length?ps.join(", "):"sin permisos"}`}
 {const l0=L.usuarios;L.usuarios=function(){const r=l0.apply(this,arguments);
   try{const fs=$("#us-local"),rol=$("#us-rol"),ck=$('input[name="us-app"][value="app.local"]');
     const upd=()=>{if(fs)fs.hidden=!(ck&&ck.checked&&rol&&rol.value==="encargado")};if(ck)ck.addEventListener("change",upd);if(rol)rol.addEventListener("change",upd);upd();
     $$("[data-lplant]").forEach(b=>b.onclick=()=>{const i=+b.dataset.lplant,set=i<0?[]:LOCAL_PLANT[i][1];$$('input[name="us-lperm"]').forEach(x=>x.checked=set.includes(x.value.slice(4)))})}catch(e){}
   return r}}
 
-/* ===== Precio base (uno solo para todo) y precios del ERP Local ===== */
+/* ===== Precio base (uno solo para todo) y precios de Venta Local ===== */
 const LID={c5:"5",c11:"11",c15:"15",c45:"45",h15a:"H15A"};
 const LOC_DEF={"5":{venta:12900,envase:28000},"11":{venta:22600,envase:51000},"15":{venta:30400,envase:40000},"45":{venta:90500,envase:98000},"H15A":{venta:27000,envase:0}};
 let LOC_INDEP=["Chillán"];
 const locCompartidas=()=>LOCAL_SUCS.filter(x=>!LOC_INDEP.includes(x));
 const VTIPOS_L=["De la compañía","Otras compañías","Vale Digital","Digital Otras compañías"],VSIZES_L=["5","11","15","45","H"],QRS_L=["11","15"];
-async function locLeer(paths){const r=await fetch("local/api/docs.php?a=leer&paths="+encodeURIComponent(paths.join(",")),{credentials:"same-origin",cache:"no-store"});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo leer el ERP Local");return j.docs}
-async function locPrecios(body){const r=await fetch("local/api/docs.php?a=precios",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"No se pudo guardar en el ERP Local")}
+async function locLeer(paths){const r=await fetch("local/api/docs.php?a=leer&paths="+encodeURIComponent(paths.join(",")),{credentials:"same-origin",cache:"no-store"});const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo leer Venta Local");return j.docs}
+async function locPrecios(body){const r=await fetch("local/api/docs.php?a=precios",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"No se pudo guardar en Venta Local")}
 const etC=f=>f.tipo==="h"?"H15A":f.kg+"N";
 CFG_MAY.precioBase={v(){const p=D.precios;
   return `<form class="cfgp" id="f-pbase" style="max-width:820px"><h3>Precio base</h3>
-    <p class="cfgp-nota">Un solo precio por cilindro para todo el sistema. Al guardarlo se actualiza en: <b>Precio Domicilio</b> (pedidos a domicilio y venta de choferes), <b>precio base mayorista</b>, y en el <b>ERP Local</b> la venta local y el precio base mayorista de ${locCompartidas().length} sucursales (${LOC_INDEP.join(", ")} tiene precios propios, en «Precio Local»). Cada cambio queda en el Historial de Precios.</p>
+    <p class="cfgp-nota">Un solo precio por cilindro para todo el sistema. Al guardarlo se actualiza en: <b>Precio Domicilio</b> (pedidos a domicilio y venta de choferes), <b>precio base mayorista</b>, y en el <b>Venta Local</b> la venta local y el precio base mayorista de ${locCompartidas().length} sucursales (${LOC_INDEP.join(", ")} tiene precios propios, en «Precio Local»). Cada cambio queda en el Historial de Precios.</p>
     <div class="tabla-wrap cfgt"><table><thead><tr><th>Cilindro</th><th class="c">Precio actual</th><th class="c">Precio base nuevo</th><th class="c">Cambio</th></tr></thead><tbody>
     ${FORMATOS.map(f=>`<tr><td><b>Cilindro ${etC(f)}</b> <span class="gris">${f.tipo==="h"?"Aluminio":f.kg+" kilos"}</span></td><td class="c azul">${clp(p[f.id])}</td><td class="pn"><span>$</span><input type="number" min="0" step="1" data-pb="${f.id}" value="${p[f.id]}" aria-label="Precio base ${f.et}"></td><td class="c" data-pbd="${f.id}"></td></tr>`).join("")}
     </tbody></table></div>
@@ -4373,20 +4373,20 @@ CFG_MAY.precioBase={v(){const p=D.precios;
       const b=f.querySelector("button[type=submit]");b.disabled=true;
       try{let local="";
         if(NUBE.activo){const venta={},mayor={};FORMATOS.forEach(x=>{venta[LID[x.id]]=nuevos[x.id];mayor[LID[x.id]]=nuevos[x.id]});
-          const sucs={};locCompartidas().forEach(x=>sucs[lslug(x)]={venta});await locPrecios({global:{mayor},sucs});local=` y en ${locCompartidas().length} sucursales del ERP Local`}
+          const sucs={};locCompartidas().forEach(x=>sucs[lslug(x)]={venta});await locPrecios({global:{mayor},sucs});local=` y en ${locCompartidas().length} sucursales de Venta Local`}
         if(cambia){registrarPrecios(nuevos,yo.nombre,($("#pb-motivo").value.trim()||"Precio base"),hoyStr());D.preciosMayor=D.preciosMayor||{};
           FORMATOS.forEach(x=>{const a=D.preciosMayor[x.id]||0;if(a!==nuevos[x.id]){histMay("Precio base mayorista",x.id,a,nuevos[x.id]);D.preciosMayor[x.id]=nuevos[x.id]}});guardar()}
-        pintarSistema();aviso("Precio base guardado",`Se actualizó en el ERP Matriz${local}.`)}
+        pintarSistema();aviso("Precio base guardado",`Se actualizó en el Panel General${local}.`)}
       catch(x){er.textContent=x.message;er.hidden=false}finally{b.disabled=false}}}};
 
 let locGrupo="comp",locDocs=null;
 CFG_MAY.preciosLocal={v(){
-  return `<section class="cfgp" id="s-ploc"><h3>Precio local (ERP Local)</h3>
+  return `<section class="cfgp" id="s-ploc"><h3>Precio local (Venta Local)</h3>
     <div class="cfgp-fila"><label>Sucursales<select id="pl-grupo"><option value="comp" ${locGrupo==="comp"?"selected":""}>${esc(locCompartidas().join(", "))}</option>${LOC_INDEP.map(x=>`<option value="${esc(x)}" ${locGrupo===x?"selected":""}>${esc(x)} (precios propios)</option>`).join("")}</select></label></div>
-    <div id="pl-cuerpo"><p class="nota">Cargando precios del ERP Local…</p></div></section>`},
+    <div id="pl-cuerpo"><p class="nota">Cargando precios de Venta Local…</p></div></section>`},
   async l(){const sel=$("#pl-grupo");if(!sel)return;sel.onchange=()=>{locGrupo=sel.value;pintarSistema()};
     const z=$("#pl-cuerpo");
-    if(!NUBE.activo){z.innerHTML='<p class="nota">Los precios del ERP Local se manejan cuando el sistema está publicado en el servidor.</p>';return}
+    if(!NUBE.activo){z.innerHTML='<p class="nota">Los precios de Venta Local se manejan cuando el sistema está publicado en el servidor.</p>';return}
     const comp=locGrupo==="comp",ref=comp?lslug(locCompartidas()[0]):lslug(locGrupo);
     try{locDocs=await locLeer(["app/global","suc/"+ref])}catch(x){z.innerHTML=`<p class="error">${esc(x.message)}</p>`;return}
     if(!$("#pl-cuerpo"))return;
@@ -4410,11 +4410,11 @@ CFG_MAY.preciosLocal={v(){
       Object.assign(envase,envLocal());
       try{if(comp){const sucs={};locCompartidas().forEach(x=>sucs[lslug(x)]={venta,envase});await locPrecios({global:{qr:qrN},sucs})}
         else await locPrecios({sucs:{[lslug(locGrupo)]:{venta,envase,qr:qrN}}});
-        log("precios","Precios del ERP Local",comp?"Sucursales: "+locCompartidas().join(", "):locGrupo);guardar();
-        aviso("Precios guardados",`Se actualizaron en el ERP Local (${comp?locCompartidas().length+" sucursales":locGrupo}).`);pintarSistema()}
+        log("precios","Precios de Venta Local",comp?"Sucursales: "+locCompartidas().join(", "):locGrupo);guardar();
+        aviso("Precios guardados",`Se actualizaron en Venta Local (${comp?locCompartidas().length+" sucursales":locGrupo}).`);pintarSistema()}
       catch(x){er.textContent=x.message;er.hidden=false}finally{b.disabled=false}}}};
 
-/* ===== Sucursales del ERP Local (cuántas, activas y con precios propios) ===== */
+/* ===== Sucursales de Venta Local (cuántas, activas y con precios propios) ===== */
 let sucLocCargando=false,sucLocNueva=[],sucLocBorrar=new Set();
 function aplicarSucLocal(l){if(!Array.isArray(l)||!l.length)return;LOCAL_CFG=l.map(x=>({nombre:x.nombre,indep:!!x.indep,activa:x.activa!==false,bodega:x.bodega??null}));
   LOCAL_SUCS=LOCAL_CFG.map(x=>x.nombre);LOC_INDEP=LOCAL_CFG.filter(x=>x.indep).map(x=>x.nombre)}
@@ -4422,8 +4422,8 @@ async function cargarSucLocal(){if(sucLocCargando||LOCAL_CFG||!NUBE.activo||!yo|
   try{const r=await fetch("local/api/docs.php?a=sucursales",{credentials:"same-origin",cache:"no-store"});const j=await r.json();if(r.ok){aplicarSucLocal(j.list);if(mod==="config")pintarSistema()}}catch(e){}finally{sucLocCargando=false}}
 {const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{cargarSucLocal()}catch(e){}return r}}
 CFG_MAY.sucLocal={v(){const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC_INDEP.includes(n),activa:true}))).concat(sucLocNueva);
-  return `<section class="cfgp" id="s-sucl" style="max-width:860px"><h3>Sucursales del ERP Local</h3>
-    <p class="cfgp-nota">Aquí decides cuántas sucursales tiene el ERP Local. <b>Precios iguales</b>: usa el Precio Base y los precios de «Precio Local» de todas. <b>Precios propios</b>: se cambian aparte (como Chillán). <b>Bodega</b>: «Misma que Casa Matriz» si es el mismo lugar; sus ventas descuentan de esa bodega y el stock no se suma dos veces (al unirla, su stock actual se pasa a la matriz). <b>Desactivar</b> la oculta y guarda sus datos. <b>Eliminar</b> (✕) la quita del todo; si tiene ventas o stock, se pide confirmar y esos datos se borran.</p>
+  return `<section class="cfgp" id="s-sucl" style="max-width:860px"><h3>Sucursales de Venta Local</h3>
+    <p class="cfgp-nota">Aquí decides cuántas sucursales tiene Venta Local. <b>Precios iguales</b>: usa el Precio Base y los precios de «Precio Local» de todas. <b>Precios propios</b>: se cambian aparte (como Chillán). <b>Bodega</b>: «Misma que Casa Matriz» si es el mismo lugar; sus ventas descuentan de esa bodega y el stock no se suma dos veces (al unirla, su stock actual se pasa a la matriz). <b>Desactivar</b> la oculta y guarda sus datos. <b>Eliminar</b> (✕) la quita del todo; si tiene ventas o stock, se pide confirmar y esos datos se borran.</p>
     <div class="tabla-wrap cfgt"><table><thead><tr><th>Sucursal</th><th class="c">Precios</th><th class="c">Bodega</th><th class="c">Activa</th><th class="c">Eliminar</th></tr></thead><tbody>
     ${L.map((x,i)=>`<tr class="${x.activa?"":"apagada"} ${sucLocBorrar.has(x.nombre)?"borrar":""}"><td><b>${esc(x.nombre)}</b>${i>=L.length-sucLocNueva.length?' <span class="pill">nueva</span>':""}${sucLocBorrar.has(x.nombre)?' <span class="pill rojo">se eliminará</span>':""}</td>
       <td class="c"><select data-sli="${i}"><option value="0" ${x.indep?"":"selected"}>Iguales a las demás</option><option value="1" ${x.indep?"selected":""}>Propios (independientes)</option></select></td>
@@ -4455,8 +4455,8 @@ CFG_MAY.sucLocal={v(){const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC
             document.getElementById("dl-seg").addEventListener("close",()=>res(false),{once:true})});
           if(!ok)return;borrar.push(nom);b.disabled=true;({r,j}=await enviar(borrar))}
         if(!r.ok)throw new Error(j.error||"No se pudo guardar");sucLocNueva=[];sucLocBorrar=new Set();aplicarSucLocal(j.list);
-        log("sistema","Sucursales del ERP Local",j.list.map(x=>x.nombre+(x.indep?" (precios propios)":"")+(x.activa?"":" (inactiva)")).join(", ")+((j.borradas||[]).length?" · eliminadas: "+j.borradas.join(", "):""));guardar();
-        pintarSistema();aviso("Sucursales guardadas","El ERP Local ya usa esta lista. Los usuarios que lo tengan abierto la verán al recargar la página.")}
+        log("sistema","Sucursales de Venta Local",j.list.map(x=>x.nombre+(x.indep?" (precios propios)":"")+(x.activa?"":" (inactiva)")).join(", ")+((j.borradas||[]).length?" · eliminadas: "+j.borradas.join(", "):""));guardar();
+        pintarSistema();aviso("Sucursales guardadas","Venta Local ya usa esta lista. Los usuarios que lo tengan abierto la verán al recargar la página.")}
       catch(x){er.textContent=x.message;er.hidden=false}finally{b.disabled=false}}}};
 
 /* Pedidos de Gas compacto: Fuente al lado del teléfono */
@@ -4540,7 +4540,7 @@ function enlazarMapaRuta(){const cv=$("#mr-cv");if(!cv||cv.dataset.ok)return;cv.
     if(r.envases){r.precioEnv=r.precioEnv||{};FORMATOS.forEach(f=>{const v=(D.preciosEnvase||{})[f.id]||0;if(r.precioEnv[f.id]!==v)r.precioEnv[f.id]=v})}}}catch(e){}
   return r}}
 
-/* ===== Venta mayorista: cada venta se rinde por separado (como el ERP Local) =====
+/* ===== Venta mayorista: cada venta se rinde por separado (como Venta Local) =====
    Una rendición por venta (r.venta = k de la venta). Los abonos y pagos sin venta van a la rendición del día sin venta.
    Las ventas antiguas que no tienen rendición propia siguen en la rendición del día (como antes). */
 let mayVenta=null,mayVentaFija=false;
@@ -4617,7 +4617,7 @@ function sinVentasMay(fechaSel){const c=cliMay(mayCli),S=saldosMay(mayCli),mays=
   <div class="caja" style="margin-top:10px"><p style="margin:0 0 8px"><b>${esc((c||{}).nombre||"")}</b> no tiene ventas el ${fF(fechaCuad)}.</p>
   ${pend.length?`<p class="nota" style="margin:0 0 6px">Deudas pendientes (toque una para rendirla):</p><div class="mv-bar" style="margin:0">${pend.map(r=>`<button type="button" class="mv-ch" data-mvdeuda="${r.fecha}|${r.venta??""}">${fF(r.fecha)}<small>debe ${clp(S.ef.get(r))}</small></button>`).join("")}</div>`:'<p class="nota" style="margin:0">No tiene deudas pendientes.</p>'}</div>`}
 
-/* ===== Control de Bodega: stock de cada sucursal del ERP Local ===== */
+/* ===== Control de Bodega: stock de cada sucursal de Venta Local ===== */
 async function stockSucursales(){const z=$("#bd-sucs");if(!z)return;
   try{const r=await fetch("local/api/docs.php?a=sucursales",{credentials:"same-origin",cache:"no-store"});const j=await r.json();if(!r.ok)throw new Error(j.error);
     const sucs=j.list.filter(x=>x.activa!==false&&(x.bodega==null)).map(x=>x.nombre);const docs=await locLeer(sucs.map(n=>"suc/"+lslug(n)));if(!$("#bd-sucs"))return;
@@ -4632,15 +4632,15 @@ async function stockSucursales(){const z=$("#bd-sucs");if(!z)return;
         [["bl","ll"],["bv","va"],["bp","pe"]].forEach(([a,k])=>{const e=document.querySelector(`[data-${a}="${f.id}"]`);if(!e)return;const v=T[k][f.id]||0,b=e.querySelector("b");if(b){b.textContent=v;b.classList.toggle("neg",v<0)}if(a==="bl")e.classList.toggle("bajo",!!min&&v<min)})});
       [["bd-k-ll","ll"],["bd-k-va","va"],["bd-k-pe","pe"]].forEach(([id,k])=>{const e=document.getElementById(id);if(e)e.textContent=tot(T[k])});
       const tit=document.querySelector(".bd-bod h3");if(tit&&!tit.dataset.suma&&filas.length){tit.dataset.suma=1;tit.insertAdjacentHTML("beforeend",` <small class="nota" style="margin:0;font-weight:500">matriz + ${filas.length} sucursal${filas.length===1?"":"es"}</small>`)}
-      const u=$("#bd-univ-t");if(u)u.innerHTML=!filas.length?`Stock total = bodega matriz (llenos + vacíos + prestados): <b class="num">${gt}</b>. Los camiones van aparte.`:`Llenos, vacíos y prestados = bodega matriz + ${filas.length} sucursal${filas.length===1?"":"es"} del ERP Local. Stock total: <b class="num">${gt}</b>. Los camiones van aparte.`}
+      const u=$("#bd-univ-t");if(u)u.innerHTML=!filas.length?`Stock total = bodega matriz (llenos + vacíos + prestados): <b class="num">${gt}</b>. Los camiones van aparte.`:`Llenos, vacíos y prestados = bodega matriz + ${filas.length} sucursal${filas.length===1?"":"es"} de Venta Local. Stock total: <b class="num">${gt}</b>. Los camiones van aparte.`}
     z.innerHTML=`<div class="bd-sh"><h3>Stock de cada sucursal</h3><span class="nota" style="margin:0">llenos por cilindro · vacíos y prestados en total</span><button class="btn chico linea" type="button" id="bd-sucs-rec">Actualizar</button></div>
     <div class="tabla-wrap"><table class="bd-st"><thead><tr><th>Sucursal</th>${FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15":f.kg+" kg"}</th>`).join("")}<th class="c">Llenos</th><th class="c">Vacíos</th><th class="c">Prestados</th><th class="c">Total</th></tr></thead><tbody>
-    ${todas.map(x=>`<tr class="${x.mz?"mz":""}"><td class="nom"${x.sin?' title="Todavía no tiene datos en el ERP Local"':""}><b>${esc(x.n.replace(" (Matriz)",""))}</b>${x.mz?' <small class="nota" style="margin:0">matriz</small>':""}</td>${FORMATOS.map(f=>{const v=+x.ll[f.id]||0;return `<td class="c num ${min&&v<min&&!x.sin?"bajo":""}">${v}</td>`}).join("")}
+    ${todas.map(x=>`<tr class="${x.mz?"mz":""}"><td class="nom"${x.sin?' title="Todavía no tiene datos en Venta Local"':""}><b>${esc(x.n.replace(" (Matriz)",""))}</b>${x.mz?' <small class="nota" style="margin:0">matriz</small>':""}</td>${FORMATOS.map(f=>{const v=+x.ll[f.id]||0;return `<td class="c num ${min&&v<min&&!x.sin?"bajo":""}">${v}</td>`}).join("")}
       <td class="c num"><b>${tot(x.ll)}</b></td><td class="c num">${tot(x.va)}</td><td class="c num">${tot(x.pe)}</td><td class="c num"><b>${tot(x.ll)+tot(x.va)+tot(x.pe)}</b></td></tr>`).join("")}
     <tr class="tt"><td><b>Total empresa</b></td>${FORMATOS.map(f=>`<td class="c num"><b>${T.ll[f.id]}</b></td>`).join("")}<td class="c num"><b>${tot(T.ll)}</b></td><td class="c num"><b>${tot(T.va)}</b></td><td class="c num"><b>${tot(T.pe)}</b></td><td class="c num"><b>${tot(T.ll)+tot(T.va)+tot(T.pe)}</b></td></tr>
     </tbody></table></div>`;
     const b=$("#bd-sucs-rec");if(b)b.onclick=()=>{z.innerHTML='<p class="nota">Actualizando…</p>';stockSucursales()}}
-  catch(e){z.innerHTML=`<p class="nota" style="margin:0">No se pudo leer el stock de las sucursales del ERP Local${e&&e.message?": "+esc(e.message):""}.</p>`}}
+  catch(e){z.innerHTML=`<p class="nota" style="margin:0">No se pudo leer el stock de las sucursales de Venta Local${e&&e.message?": "+esc(e.message):""}.</p>`}}
 {const l0=L.bodega;L.bodega=function(){const r=l0.apply(this,arguments);
   try{if(false&&bTab==="stock"&&NUBE.activo&&(esAdmin()||(Array.isArray(yo.permisos)&&yo.permisos.includes("app.local")))&&!$("#bd-sucs")){
     const bod=document.querySelector(".bd-dos>.bd-bod"),ancla=bod||document.querySelector(".bd-dos");if(ancla){ancla.insertAdjacentHTML(bod?"beforeend":"afterend",'<section class="'+(bod?"bd-sucs-in":"caja")+'" id="bd-sucs"><p class="nota" style="margin:0">Cargando stock de las sucursales…</p></section>');stockSucursales()}}}catch(e){}
@@ -4699,7 +4699,7 @@ function vistaResumenInf(){cargarResLocal();const R=datosResumen(),C=R.C,canales
   const tot=canales.reduce((s,k)=>s+C[k].monto,0),cil=k=>FORMATOS.reduce((s,f)=>s+C[k].cil[f.id],0),kg=k=>FORMATOS.reduce((s,f)=>s+C[k].cil[f.id]*f.kg,0);
   const filtros=`<div class="acc"><label>Período<select id="res-per">${[["0","Hoy"],["7","Últimos 7 días"],["30","Últimos 30 días"],["mes","Este mes"]].map(([v,t])=>`<option value="${v}" ${resPer===v?"selected":""}>${t}</option>`).join("")}</select></label></div>`;
   const carta=(k)=>`<div class="res-k" style="--c:${RES_COL[k]}"><span>${RES_TXT[k]}</span><b class="num">${clp(C[k].monto)}</b><small>${cil(k)} cilindros · ${kg(k).toLocaleString("es-CL")} kg · ${tot?Math.round(C[k].monto/tot*100):0}%</small></div>`;
-  const aviso=resLocal&&resLocal.error?`<p class="nota" style="margin:0 0 8px">No se pudo leer la venta del ERP Local (${esc(resLocal.error)}).</p>`:(!resLocal&&NUBE.activo?'<p class="nota" style="margin:0 0 8px">Cargando venta del ERP Local…</p>':"");
+  const aviso=resLocal&&resLocal.error?`<p class="nota" style="margin:0 0 8px">No se pudo leer la venta de Venta Local (${esc(resLocal.error)}).</p>`:(!resLocal&&NUBE.activo?'<p class="nota" style="margin:0 0 8px">Cargando venta de Venta Local…</p>':"");
   const ley=`<div class="res-ley">${canales.map(k=>`<span><i style="background:${RES_COL[k]}"></i>${RES_TXT[k]}</span>`).join("")}</div>`;
   return cabeza("Informes",filtros)+tabsInf()+aviso+`<div class="res-ks">${canales.map(carta).join("")}<div class="res-k tot"><span>Total vendido</span><b class="num">${clp(tot)}</b><small>${canales.reduce((s,k)=>s+cil(k),0)} cilindros · ${fF(R.d1)}${R.d1!==R.d2?" al "+fF(R.d2):""}</small></div></div>
   ${tablaResumen(C,canales)}
@@ -4721,7 +4721,7 @@ function tablaResumen(C,canales){const sum=(fn)=>canales.reduce((s,k)=>s+fn(C[k]
   ${fila("Total vendido",c=>c.monto,pesos,"tot")}
   </tbody></table></div></section>`}
 
-/* ===== Informes → Resumen (formato del informe del ERP Local, con local, choferes y mayoristas) ===== */
+/* ===== Informes → Resumen (formato del informe de Venta Local, con local, choferes y mayoristas) ===== */
 let resD1=null,resD2=null,resSucs={};
 function rangoRes(){const h=hoyStr();if(!resD1){const d=new Date(h+"T12:00");d.setDate(d.getDate()-6);resD1=fechaISO(d);resD2=h}
   return [resD1,resD2&&resD2>=resD1?resD2:resD1]}
@@ -4768,7 +4768,7 @@ function vistaResumenInf(){cargarResLocal();const R=datosResumen2(),C=R.C,canale
   const T={venta:0,cil:0,kg:0,rend:0,saldo:0};canales.forEach(k=>Object.keys(T).forEach(x=>T[x]+=C[k][x]));
   const per=R.d1===R.d2?fF(R.d1):`${fF(R.d1)} al ${fF(R.d2)}`,kg=v=>Number(v).toLocaleString("es-CL");
   const ley=`<div class="res-ley">${canales.map(k=>`<span><i style="background:${RES_COL[k]}"></i>${RES_TXT[k]}</span>`).join("")}</div>`;
-  const aviso=resLocal&&resLocal.error?`<p class="nota" style="margin:0 0 8px">No se pudo leer la venta del ERP Local (${esc(resLocal.error)}).</p>`:(!resLocal&&NUBE.activo?'<p class="nota" style="margin:0 0 8px">Cargando venta del ERP Local…</p>':"");
+  const aviso=resLocal&&resLocal.error?`<p class="nota" style="margin:0 0 8px">No se pudo leer la venta de Venta Local (${esc(resLocal.error)}).</p>`:(!resLocal&&NUBE.activo?'<p class="nota" style="margin:0 0 8px">Cargando venta de Venta Local…</p>':"");
   const fila=o=>[o.n,o.venta,o.cil,o.kg,o.rend,o.saldo],TOT=["TOTAL",T.venta,T.cil,T.kg,T.rend,T.saldo];
   const colsB=n=>[[n,"t"],["Ventas $","$"],["Cilindros","n"],["Kilos","n"],["Rendido","$"],["Saldo","$",1]];
   const colsF=n=>[[n,"t"],...FORMATOS.map(f=>[f.tipo==="h"?"H15":f.kg+" kg","n"]),["Total cil.","n"],["Kilos","n"]];
@@ -4807,18 +4807,18 @@ function resCSV(){const [d1,d2]=rangoRes(),q=v=>`"${String(v??"").replace(/"/g,'
       (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>aviso("Tabla copiada","Péguela en Excel."),()=>aviso("No se pudo copiar","Use Exportar a Excel."))})}
   return r}}
 
-/* ===== Informes → Venta Local: el informe que antes tenía el ERP Local ===== */
-{const v1=V.informes;V.informes=function(){if(infTab==="vlocal"){if(!esAdmin())infTab="resumen";else return cabeza("Informes",'<span class="nota" style="margin:0">Informe de las sucursales del ERP Local</span>')+tabsInf()+'<iframe id="inf-local" class="inf-local" src="local/?solo=inf" title="Informe de Venta Local"></iframe>'}return v1.apply(this,arguments)}}
+/* ===== Informes → Venta Local: el informe que antes tenía Venta Local ===== */
+{const v1=V.informes;V.informes=function(){if(infTab==="vlocal"){if(!esAdmin())infTab="resumen";else return cabeza("Informes",'<span class="nota" style="margin:0">Informe de las sucursales de Venta Local</span>')+tabsInf()+'<iframe id="inf-local" class="inf-local" src="local/?solo=inf" title="Informe de Venta Local"></iframe>'}return v1.apply(this,arguments)}}
 
-/* ===== Configuraciones → Sucursales: matriz y ERP Local en una sola lista ===== */
+/* ===== Configuraciones → Sucursales: matriz y Venta Local en una sola lista ===== */
 {const s0=CFG_MAY.sucLocal,v0=s0.v,l0=s0.l;
   s0.v=function(){let h=v0.call(this);
     const a=V.admin(),i=a.indexOf('<form class="caja" id="f-suc"'),j=a.indexOf('<h3 style="margin-bottom:12px">Sucursales</h3>'),form=i>=0&&j>i?a.slice(i,j):"";
     const filas=D.locales.map(x=>`<tr class="suc-mz"><td><b>${esc(x.nombre)}</b> <span class="pill">Matriz</span><small class="suc-d">Pedidos, choferes y bodega</small></td>
       <td class="c nota">Precio Domicilio</td><td class="c nota">Bodega principal</td><td class="c"><span class="estado ${x.abierto?"abierto":"cerrado"}">${x.abierto?"Abierta":"Cerrada"}</span></td>
       <td class="c"><button class="btn chico linea" type="button" data-editsuc="${x.id}">Editar datos</button></td></tr>`).join("");
-    h=h.replace("<h3>Sucursales del ERP Local</h3>","<h3>Sucursales</h3>")
-     .replace(/<p class="cfgp-nota">Aquí decides cuántas sucursales tiene el ERP Local\./,'<p class="cfgp-nota">Todas las sucursales en una sola lista: la <b>Casa Matriz</b> (pedidos, choferes y bodega) y los locales de <b>Venta Local</b>.')
+    h=h.replace("<h3>Sucursales de Venta Local</h3>","<h3>Sucursales</h3>")
+     .replace(/<p class="cfgp-nota">Aquí decides cuántas sucursales tiene Venta Local\./,'<p class="cfgp-nota">Todas las sucursales en una sola lista: la <b>Casa Matriz</b> (pedidos, choferes y bodega) y los locales de <b>Venta Local</b>.')
      .replace('<th class="c">Eliminar</th>','<th class="c">Acciones</th>')
      .replace("<tbody>","<tbody>"+filas)
      .replace('<section class="cfgp" id="s-sucl" style="max-width:860px">','<section class="cfgp" id="s-sucl" style="max-width:920px">'+(form?form.replace('<form class="caja" id="f-suc" style="margin-bottom:24px">','<form class="caja" id="f-suc" style="margin-bottom:16px">'):""));
@@ -4826,10 +4826,10 @@ function resCSV(){const [d1,d2]=rangoRes(),q=v=>`"${String(v??"").replace(/"/g,'
   s0.l=function(){const r=l0.apply(this,arguments);try{L.admin()}catch(e){}return r}}
 {const vc=V.config;V.config=function(){if(cfgTab==="sucursal"&&esAdmin())cfgTab="sucLocal";if(cfgTab==="descQR")cfgTab=esAdmin()?"preciosLocal":"precios";return vc.apply(this,arguments)}}
 
-/* Precio de envases: uno solo para la matriz y todas las sucursales del ERP Local */
+/* Precio de envases: uno solo para la matriz y todas las sucursales de Venta Local */
 function envLocal(){const o={};FORMATOS.forEach(f=>{const id=LID[f.id];if(id)o[id]=Math.max(0,Math.round(+((D.preciosEnvase||{})[f.id])||0))});return o}
 async function envALocal(){if(!NUBE.activo||!esAdmin())return;const e=envLocal(),sucs={};LOCAL_SUCS.forEach(x=>sucs[lslug(x)]={envase:e});
-  try{await locPrecios({sucs})}catch(x){aviso("Envases del ERP Local","No se pudieron actualizar en el ERP Local: "+x.message)}}
+  try{await locPrecios({sucs})}catch(x){aviso("Envases de Venta Local","No se pudieron actualizar en Venta Local: "+x.message)}}
 
 /* ===== Historial de cambios por fechas (no carga todo de una vez) ===== */
 let hcD1=null,hcD2=null;
@@ -5364,7 +5364,7 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
  .sis .top-info{display:none}
 }
 
-/* barra CHOFER / CLIENTE como en ERP Local */
+/* barra CHOFER / CLIENTE como en Venta Local */
 .sis .mrbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin:0 0 8px;padding:5px 10px;border:1px solid var(--b2);border-left:3px solid var(--b6);border-radius:8px;background:var(--b1)}
 .sis .mrbar .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .sis .mrbar .lbl{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--b8)}
@@ -5532,7 +5532,7 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .bd-mini td.cero{color:#c7ccd6}
 .sis .bd-cam-p{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--mu)}
 
-/* ===== Configuraciones como ERP Local ===== */
+/* ===== Configuraciones como Venta Local ===== */
 .sis .cfg-lay{display:grid;grid-template-columns:230px minmax(0,1fr);gap:20px;align-items:start}
 .sis .cfg-side{display:grid;gap:2px;padding:10px;position:sticky;top:70px}
 .sis .cfg-side hr{border:0;border-top:1px solid var(--line,#e7eaf0);margin:6px 4px}

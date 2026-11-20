@@ -1,8 +1,8 @@
 <?php
-// MR Gas · ERP Local dentro del ERP Matriz.
-// Guarda los datos del ERP Local en la misma base de datos MySQL (tabla local_docs).
-// Pueden entrar los usuarios del ERP Matriz que son administradores o tienen el permiso «ERP Local».
-// Los permisos de cada sección y sucursal del ERP Local se dan en ERP Matriz → Configuraciones → Usuarios.
+// MR Gas · Venta Local dentro del Panel General.
+// Guarda los datos de Venta Local en la misma base de datos MySQL (tabla local_docs).
+// Pueden entrar los usuarios del Panel General que son administradores o tienen el permiso «Venta Local».
+// Los permisos de cada sección y sucursal de Venta Local se dan en Panel General → Configuraciones → Usuarios.
 declare(strict_types=1);
 require dirname(__DIR__, 2) . '/api/nucleo.php';
 require dirname(__DIR__, 2) . '/api/push.php';
@@ -17,7 +17,7 @@ function tablaLocal(): void {
     db()->exec(esSqlite() ? "INSERT OR IGNORE INTO contadores (nombre, valor) VALUES ('local', 0)" : "INSERT IGNORE INTO contadores (nombre, valor) VALUES ('local', 0)");
     db()->exec("DELETE FROM local_docs WHERE path = 'app/users'");
 }
-// Los usuarios del ERP Local son los mismos del ERP Matriz (tabla usuarios, claves cifradas).
+// Los usuarios de Venta Local son los mismos del Panel General (tabla usuarios, claves cifradas).
 // Permisos guardados en el usuario: «app.local», «loc.<permiso>» y «lsuc.<sucursal>».
 function puedeLocalU(array $p): bool {
     if ($p['rol'] === 'chofer' || !$p['activo']) return false;
@@ -28,7 +28,7 @@ function quien(): ?array {
     if ($m && puedeLocalU($m)) return ['modo' => 'matriz', 'perfil' => $m];
     return null;
 }
-// Sucursales del ERP Local: se configuran desde el ERP Matriz (documento app/sucursales)
+// Sucursales de Venta Local: se configuran desde el Panel General (documento app/sucursales)
 const SUCS_INICIALES = ['Cervantes', 'El Tranque', 'Maipo', 'Padre Damián', 'Olivos', 'Jr Coyhaique', 'Jr Parcelas', 'Chillán'];
 function sucursalesLocal(): array {
     $st = db()->prepare("SELECT data FROM local_docs WHERE path = 'app/sucursales'"); $st->execute();
@@ -36,7 +36,7 @@ function sucursalesLocal(): array {
     if (is_array($d['list'] ?? null) && $d['list']) return $d['list'];
     return array_map(fn($n) => ['nombre' => $n, 'indep' => $n === 'Chillán', 'activa' => true], SUCS_INICIALES);
 }
-// Una sola bodega: la sucursal del ERP Local usa el stock de la bodega de la matriz (documento estado/loc-N)
+// Una sola bodega: la sucursal de Venta Local usa el stock de la bodega de la matriz (documento estado/loc-N)
 const LMAP = ['5' => 'c5', '11' => 'c11', '15' => 'c15', '45' => 'c45', 'H15A' => 'h15a'];
 function bodegaDe(string $slug): ?int {
     foreach (sucursalesLocal() as $x) if (slugLocal($x['nombre']) === $slug) {
@@ -108,8 +108,8 @@ try {
     }
 
     $q = quien();
-    if (!$q) salida(['error' => 'Inicie sesión en el ERP Matriz.'], 401);
-    // ---- Precios del ERP Local manejados desde el ERP Matriz (solo administrador) ----
+    if (!$q) salida(['error' => 'Inicie sesión en el Panel General.'], 401);
+    // ---- Precios de Venta Local manejados desde el Panel General (solo administrador) ----
     if ($a === 'leer') { // documentos puntuales: ?paths=app/global,suc/cervantes
         $ps = array_slice(array_filter(explode(',', (string) ($_GET['paths'] ?? ''))), 0, 20);
         $out = [];
@@ -174,7 +174,7 @@ try {
         foreach (LMAP as $lid => $mid) foreach (['stock', 'vacios', 'prestados'] as $k) $out[$k][$lid] = (int) ($o->$k->$mid ?? 0);
         salida($out);
     }
-    // Resumen para Informes del ERP Matriz: ventas del local por día (sin anuladas)
+    // Resumen para Informes del Panel General: ventas del local por día (sin anuladas)
     if ($a === 'resumen') {
         $d1 = preg_replace('/[^0-9-]/', '', (string) ($_GET['desde'] ?? '')); $d2 = preg_replace('/[^0-9-]/', '', (string) ($_GET['hasta'] ?? ''));
         $st = db()->prepare("SELECT path, data FROM local_docs WHERE path LIKE 'suc/%/ventas/%'"); $st->execute();
@@ -207,7 +207,7 @@ try {
         salida(['dias' => $out, 'sucs' => $nom]);
     }
     if ($a === 'precios' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        if ($q['perfil']['rol'] !== 'admin') salida(['error' => 'Solo el administrador puede cambiar precios del ERP Local.'], 403);
+        if ($q['perfil']['rol'] !== 'admin') salida(['error' => 'Solo el administrador puede cambiar precios de Venta Local.'], 403);
         $b = json_decode(file_get_contents('php://input') ?: '{}', false);
         $quien = $q['perfil']['nombre']; $hoy = date('Y-m-d'); $hora = date('H:i:s');
         $p = db(); $p->beginTransaction();
@@ -255,7 +255,7 @@ try {
         $b = json_decode($raw, false);
         $path = is_object($b) ? (string) ($b->path ?? '') : '';
         if (!preg_match('~^[a-z0-9_]+(/[a-z0-9_.\-]+){1,3}$~i', $path) || strlen($path) > 190 || !property_exists($b, 'data')) salida(['error' => 'Ruta no válida.'], 400);
-        if ($path === 'app/users') salida(['ok' => true]); // los usuarios ahora viven en el ERP Matriz
+        if ($path === 'app/users') salida(['ok' => true]); // los usuarios ahora viven en el Panel General
         if (!puedeGuardar($q['perfil'], $path)) salida(['error' => 'Sin permiso para guardar esto.'], 403);
         $json = json_encode($b->data, JSON_UNESCAPED_UNICODE);
         $p = db(); $p->beginTransaction();

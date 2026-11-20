@@ -63,8 +63,9 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--b9);color:#fff}
 .top .in{max-width:1300px;margin:0 auto;display:flex;align-items:center;gap:10px;min-height:56px;padding:6px max(16px,env(safe-area-inset-left,0px))}
 .top .t{flex:1;min-width:0}.top .t b{display:block;font-size:15px}.top .t span{display:block;font-size:11.5px;color:rgba(255,255,255,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.con{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#d6e0f2;border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:3px 10px;white-space:nowrap}
-.con i{width:8px;height:8px;border-radius:50%;background:#5fcb8c}.con.off i{background:#f08a80}
+.con{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#fff;background:#12b76a;border-radius:999px;padding:4px 11px;white-space:nowrap}
+.con i{width:8px;height:8px;border-radius:50%;background:#fff}
+.con.off{background:#d92d20}
 .top .salir{background:none;border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:10px;min-height:36px;padding:0 12px;font-weight:600;font-size:13px;cursor:pointer}
 .tabs{background:var(--b9);border-top:1px solid rgba(255,255,255,.08)}
 .tabs .in{max-width:1300px;margin:0 auto;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding:6px max(12px,env(safe-area-inset-left,0px))}
@@ -123,6 +124,8 @@ dialog.hoja::backdrop{background:rgba(4,16,40,.55)}
 .contacto a{display:grid;justify-items:center;gap:4px;padding:10px 6px;border-radius:12px;background:var(--b1);color:var(--b8);text-decoration:none;font-weight:700;font-size:13px}
 .acciones{display:grid;gap:8px}
 .fila2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.confirma .motivo-l{display:grid;gap:4px;font-size:13px;color:var(--tx2,#344054);font-weight:600}.confirma select,.confirma input{width:100%;min-height:46px;border:1px solid #d0d7e2;border-radius:10px;padding:8px 10px;font:inherit;font-size:16px;background:#fff;color:#101828;box-sizing:border-box}
+.mot-err{margin:0;font-size:13px}.mini button.anu{color:var(--red);border-color:#f3c5c0}
 .confirma{display:grid;gap:8px;padding:12px;border-radius:12px;background:var(--red1);color:var(--red);font-weight:600}
 
 /* ---------- reparto (Reparto Gas Licuado) ---------- */
@@ -196,6 +199,7 @@ td select.pill{border:0;padding:3px 9px}
 .pc .go{width:100%;min-height:52px;font-size:16px;border-radius:12px}
 .pc .go.armed{background:var(--warn);border-color:var(--warn)}
 .pc .mini{display:flex;gap:8px}
+.mini a.wsp{background:#25d366;border-color:#25d366;color:#fff}.mini a.wsp svg{width:16px;height:16px;stroke:#fff}
 .pc .mini button,.pc .mini a{flex:1;min-height:42px;border-radius:10px;border:1px solid var(--line2);background:var(--card);color:var(--tx2);font-weight:600;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;cursor:pointer}
 .pc .mini button:disabled{opacity:.4}
 .pc.hecho{opacity:.8}
@@ -270,7 +274,7 @@ article.resalta{outline:3px solid #f79009;outline-offset:2px;transition:outline-
   <header class="top"><div class="in">
     <span class="sq">MR</span>
     <div class="t"><b id="top-tit">Pedidos</b><span id="top-sub"></span></div>
-    <span class="con" id="con"><i></i><span>En línea</span></span>
+    <span class="con" id="con"><i></i><span>Conectado al servidor</span></span>
     <button class="salir" id="b-salir" type="button">Salir</button>
   </div></header>
   <nav class="tabs" id="tabs" aria-label="Secciones"><div class="in" id="tabs-in"></div></nav>
@@ -501,7 +505,7 @@ async function guardarDoc(col,id,data){
     return true}
   catch(e){if(col==="estado")S.est[id]=ant;else if(ant)M.set(id,ant);else M.delete(id);render();aviso("Sin conexión","El cambio no se guardó. Revise la señal e intente otra vez.",false);return false}
 }
-function conexion(ok){const c=$("#con");c.classList.toggle("off",!ok);c.querySelector("span").textContent=ok?"En línea":"Sin conexión"}
+function conexion(ok){const c=$("#con");c.classList.toggle("off",!ok);c.querySelector("span").textContent=ok?"Conectado al servidor":"No conectado al servidor"}
 addEventListener("online",()=>sondear());addEventListener("offline",()=>conexion(false));
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&S.yo){clearTimeout(S.timer);sondear()}});
 
@@ -515,8 +519,8 @@ async function moverStock(p,signo){ // signo -1 al entregar, +1 al deshacer
   const lk="loc-"+(p.local||1),l=S.est[lk];
   if(l&&l.stock){const n=JSON.parse(JSON.stringify(l));itemsDom(p).forEach(i=>n.stock[i.formato]=(n.stock[i.formato]||0)+signo*i.cant);await guardarDoc("estado",lk,{v:n})}
   return null}
-async function cambiarDom(p,e,chofer){
-  const n=JSON.parse(JSON.stringify(p));
+async function cambiarDom(p,e,chofer,extra){
+  const n=JSON.parse(JSON.stringify(p));if(extra)Object.assign(n,extra);
   if(n.desc&&e!=="entregado"){await moverStock(n,1);n.desc=false;n.entregado=null;n.descCh=null}
   if(e==="ruta"){n.chofer=chofer;if(!n.despacho)n.despacho=ahora()}
   if(e==="entregado"&&!n.desc){n.descCh=await moverStock(n,-1);n.desc=true;n.entregado=ahora()}
@@ -525,12 +529,28 @@ async function cambiarDom(p,e,chofer){
   const ok=await guardarDoc("pedidos",n.id,n);
   if(ok)guardarDoc("bitacora","r"+Date.now(),{id:Date.now()+Math.random(),fecha:ahora(),user:S.yo.nombre||S.yo.user,local:n.local||1,area:"pedidos",
     accion:{ruta:"Pedido despachado",entregado:"Pedido entregado",pendiente:"Pedido devuelto a por despachar",anulado:"Pedido anulado"}[e]||"Pedido actualizado",
-    detalle:`Pedido N° ${n.id}${n.chofer?" · "+nomChofer(n.chofer):""} · desde App repartidores`,chofer:n.chofer||null,pedido:n.id});
+    detalle:`Pedido N° ${n.id}${n.chofer?" · "+nomChofer(n.chofer):""}${e==="anulado"&&n.motivoAnula?" · Causa: "+n.motivoAnula:""} · desde App repartidores`,chofer:n.chofer||null,pedido:n.id});
   return ok}
 async function cambiarRep(p,cambios){
   const n={...p,...cambios,actualizado:new Date().toISOString()};
   if(cambios.chofer!==undefined)n.chofer=cambios.chofer===""||cambios.chofer==null?null:+cambios.chofer;
   return guardarDoc("reparto",n.id,n)}
+
+/* ===================== Anular pedido con su causa ===================== */
+const MOTIVOS_ANULA=["Casa cerrada / no hay nadie","Compró a otro distribuidor","Cliente ya no lo necesita","Cliente no contesta","Dirección incorrecta o no existe","No tenía el dinero","Pedido repetido","Otro motivo"];
+function leerMotivo(z){const s=z.querySelector("[data-motivo]"),d=z.querySelector("[data-motivo-det]"),er=z.querySelector(".mot-err");
+  const m=s?s.value:"",det=d?d.value.trim():"";if(!m||(m==="Otro motivo"&&!det)){if(er){er.textContent=m?"Escriba el detalle del motivo.":"Elija una causa.";er.hidden=false}(m?d:s).focus();return null}
+  return {motivoAnula:m+(det?" · "+det:""),anuladoPor:S.yo.nombre||S.yo.user,anuladoEn:ahora()}}
+document.addEventListener("input",e=>{if(e.target.matches("[data-motivo],[data-motivo-det]")){const er=e.target.closest(".confirma");const x=er&&er.querySelector(".mot-err");if(x)x.hidden=true}});
+function abrirAnular(t,p){const v=vistaDe(p,t);let dl=$("#h-anular");if(!dl){dl=document.createElement("dialog");dl.className="hoja";dl.id="h-anular";document.body.appendChild(dl)}
+  dl.innerHTML=`<div class="asa"></div><div class="hoja-in"><div class="hoja-cab"><div><p class="note">Anular pedido</p><h2>${esc(v.nombre)}</h2></div><button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button></div>
+    <div class="confirma"><span>¿Por qué no se entregó? El pedido quedará anulado.</span><label class="motivo-l">Causa<select data-motivo><option value="">Elija la causa…</option>${MOTIVOS_ANULA.map(m=>`<option>${m}</option>`).join("")}</select></label><input data-motivo-det placeholder="Detalle (opcional)" maxlength="120"><p class="mot-err" hidden>Elija una causa.</p>
+    <div class="fila2"><button class="btn sec" type="button" data-cerrar>No, volver</button><button class="btn bad" type="button" data-ok>Sí, anular</button></div></div></div>`;
+  dl.onclick=async e=>{if(e.target===dl||e.target.closest("[data-cerrar]")){dl.close();return}const b=e.target.closest("[data-ok]");if(!b)return;
+    const ex=leerMotivo(dl);if(!ex)return;b.disabled=true;
+    const ok=t==="dom"?await cambiarDom(p,"anulado",p.chofer,ex):await cambiarRep(p,{estado:"Cancelado",...ex});
+    if(ok){dl.close();aviso("Pedido anulado",v.nombre+" · "+ex.motivoAnula,false);render()}else{b.disabled=false;aviso("Sin conexión","No se pudo anular. Intente otra vez.",false)}};
+  dl.showModal()}
 
 /* ===================== Modelo común de pedido (bandeja) ===================== */
 const totalDom=p=>Math.max(0,itemsDom(p).reduce((s,i)=>s+(i.precio||0)*(i.cant||0)+(i.env||0)*(i.precioEnv||0),0)-(p.dcto||0));
@@ -612,6 +632,8 @@ const ICO={fono:'<svg class="i" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a
   wsp:'<svg class="i" viewBox="0 0 24 24"><path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.4z"/></svg>',mapa:'<svg class="i" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'};
 const buscar=k=>todas().find(v=>v.key===k);
 function abrir(k){S.abierto=k;S.confirmar=false;pintarDetalle();const d=$("#h-detalle");if(!d.open)d.showModal()}
+/* número para WhatsApp: celular chileno de 9 dígitos con 56 adelante */
+function waNum(t){const f=String(t||"").replace(/\D/g,"").slice(-9);return f.length===9?"56"+f:f}
 function pintarDetalle(){
   const v=buscar(S.abierto),el=$("#det-in");if(!v){$("#h-detalle").close();return}
   const f=String(v.fono||"").replace(/\D/g,"").slice(-9),wsp=f?(f.length===9?"56"+f:f):"";
@@ -628,7 +650,7 @@ function pintarDetalle(){
     if(v.estado==="pendiente")acc=selCh(v.p.chofer)+`<button class="btn full" data-acc="despachar">Despachar pedido</button><button class="btn ok full" data-acc="entregar">Marcar entregado</button>`;
     else if(v.estado==="ruta")acc=`<button class="btn ok full" data-acc="entregar">Marcar entregado</button><button class="btn sec full" data-acc="volver">Devolver a por despachar</button>`;
     else if(v.estado==="entregado")acc=`<button class="btn sec full" data-acc="volver">Reabrir pedido</button>`;
-    if(v.estado!=="anulado"&&v.estado!=="entregado")acc+=S.confirmar?`<div class="confirma"><span>¿Anular este pedido? El cliente ya no recibirá el gas.</span><div class="fila2"><button class="btn sec" data-acc="no">No, volver</button><button class="btn bad" data-acc="anular">Sí, anular</button></div></div>`
+    if(v.estado!=="anulado"&&v.estado!=="entregado")acc+=S.confirmar?`<div class="confirma"><span>¿Anular este pedido? Indique la causa.</span><label class="motivo-l">Causa<select data-motivo><option value="">Elija la causa…</option>${MOTIVOS_ANULA.map(m=>`<option>${m}</option>`).join("")}</select></label><input data-motivo-det placeholder="Detalle (opcional)" maxlength="120"><p class="mot-err" hidden>Elija una causa.</p><div class="fila2"><button class="btn sec" data-acc="no">No, volver</button><button class="btn bad" data-acc="anular">Sí, anular</button></div></div>`
       :`<button class="btn sec full" data-acc="preguntar" style="color:var(--red)">Anular pedido</button>`;
   }
   el.innerHTML=`<div class="hoja-cab"><div><p class="note">${esc(v.tipo==="may"?"Pedido mayorista":v.num)}</p><h2 id="det-titulo">${esc(v.nombre)}</h2></div><button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button></div>
@@ -641,9 +663,10 @@ $("#h-detalle").addEventListener("click",async e=>{
   if(a==="preguntar"){S.confirmar=true;pintarDetalle();return}if(a==="no"){S.confirmar=false;pintarDetalle();return}
   const sel=$("#det-chofer"),ch=sel&&sel.value?+sel.value:null;
   if(a==="despachar"&&!ch){$("#det-err").hidden=false;sel.focus();return}
+  let ex={};if(a==="anular"){ex=leerMotivo($("#det-in"));if(!ex)return}
   b.disabled=true;let ok;
-  if(v.tipo==="dom")ok=await cambiarDom(v.p,{despachar:"ruta",entregar:"entregado",volver:"pendiente",anular:"anulado"}[a],ch);
-  else ok=await cambiarRep(v.p,{estado:{despachar:"En ruta",entregar:"Entregado",volver:"Pendiente",anular:"Cancelado"}[a],...(a==="despachar"?{chofer:ch}:{})});
+  if(v.tipo==="dom")ok=await cambiarDom(v.p,{despachar:"ruta",entregar:"entregado",volver:"pendiente",anular:"anulado"}[a],ch,ex);
+  else ok=await cambiarRep(v.p,{estado:{despachar:"En ruta",entregar:"Entregado",volver:"Pendiente",anular:"Cancelado"}[a],...(a==="despachar"?{chofer:ch}:{}),...ex});
   if(ok){aviso({despachar:"Pedido despachado",entregar:"Pedido entregado",volver:"Pedido devuelto",anular:"Pedido anulado"}[a],v.nombre,false);$("#h-detalle").close()}else b.disabled=false;
 });
 
@@ -805,7 +828,7 @@ function renderChofer(){
         <div class="qchips">${v.items.map(it=>`<span class="qchip"><b>${it.cant}</b>× ${esc(it.et)}</span>`).join("")}</div>
         <div class="kgline"><span>${x.t==="may"?(cam?'Camión <span class="plate">'+esc(cam)+"</span>":"Sin camión"):(MEDIOS[p.medio]||"")}</span><span class="kgtag">${x.t==="may"?kgTxt(v.kg):clp(v.total)}</span></div></div>
       <div class="acts">${S.cvTab==="pend"&&accion?`<button type="button" class="btn go${accion[0].toLowerCase()==="entregado"?" ok":""}" data-go="${key}" data-to="${accion[0]}">${accion[1]}</button>`:""}
-        ${S.cvTab==="pend"?`<div class="mini"><button type="button" data-mv="${key}" data-d="-1"${i===0?" disabled":""}>▲ Subir</button><button type="button" data-mv="${key}" data-d="1"${i===L.length-1?" disabled":""}>▼ Bajar</button>${tel?`<a href="tel:${esc(String(tel).replace(/[^\d+]/g,""))}">Llamar</a>`:""}</div>`
+        ${S.cvTab==="pend"?`<div class="mini"><button type="button" data-mv="${key}" data-d="-1"${i===0?" disabled":""}>▲ Subir</button><button type="button" data-mv="${key}" data-d="1"${i===L.length-1?" disabled":""}>▼ Bajar</button><button type="button" class="anu" data-anu="${key}">Anular</button>${tel?`<a href="tel:${esc(String(tel).replace(/[^\d+]/g,""))}">Llamar</a><a class="wsp" href="https://wa.me/${waNum(tel)}" target="_blank" rel="noopener">${ICO.wsp}WhatsApp</a>`:""}</div>`
           :`<div class="mini"><button type="button" data-undo="${key}">Deshacer entrega</button></div>`}</div></article>`}).join("");
   const get=k=>{const [t,id]=k.split("|");return {t,p:S.col[t==="dom"?"pedidos":"reparto"].get(id)}};
   $$("#cv-lista [data-go]").forEach(b=>b.onclick=async()=>{const fin=b.dataset.to.toLowerCase()==="entregado";
@@ -816,6 +839,7 @@ function renderChofer(){
     [arr[i],arr[j]]=[arr[j],arr[i]];$("#cv-msg").textContent="Guardando orden…";
     for(let k=0;k<arr.length;k++){const x=arr[k];if(x.t==="may")await cambiarRep(x.p,{orden:k});else{const OD=leer("ordenDom",{});OD[x.p.id]=k;grabar("ordenDom",OD)}}
     $("#cv-msg").textContent="Orden guardado.";render()});
+  $$("#cv-lista [data-anu]").forEach(b=>b.onclick=()=>{const {t,p}=get(b.dataset.anu);if(p)abrirAnular(t,p)});
   $$("#cv-lista [data-undo]").forEach(b=>b.onclick=async()=>{b.disabled=true;const {t,p}=get(b.dataset.undo);if(!p)return;const ok=t==="dom"?await cambiarDom(p,"ruta",p.chofer):await cambiarRep(p,{estado:"En cliente"});$("#cv-msg").textContent=ok?"Entrega deshecha.":"No se pudo guardar."});
 }
 $("#cv-tab-pend").onclick=()=>{S.cvTab="pend";renderChofer()};$("#cv-tab-ent").onclick=()=>{S.cvTab="ent";renderChofer()};
@@ -879,7 +903,7 @@ function llego(v){recien.add(v.key);aviso(v.tipo==="dom"?`Nuevo pedido ${v.num}`
 /* ===================== Sesión ===================== */
 async function entrar(perfil){
   if(perfil.rol!=="admin"&&Array.isArray(perfil.permisos)&&perfil.permisos.includes("_v2")&&!perfil.permisos.includes("app.repartidores")){
-    $("#v-app").hidden=true;$("#v-login").hidden=false;const e=$("#lg-err");e.textContent="Su usuario no tiene permiso para la App repartidores. Pídalo al administrador en ERP Matriz → Configuraciones → Usuarios y permisos.";e.hidden=false;return}
+    $("#v-app").hidden=true;$("#v-login").hidden=false;const e=$("#lg-err");e.textContent="Su usuario no tiene permiso para la App repartidores. Pídalo al administrador en Panel General → Configuraciones → Usuarios y permisos.";e.hidden=false;return}
   S.yo=perfil;$("#v-login").hidden=true;$("#v-app").hidden=false;
   $("#top-sub").textContent=`${perfil.nombre||perfil.user} · ${perfil.rol==="chofer"?"Repartidor":perfil.rol==="admin"?"Administrador":"Encargado"}`;
   $("#aj-yo").textContent=`${perfil.nombre||perfil.user} (${perfil.rol==="chofer"?"Repartidor":perfil.rol==="admin"?"Administrador":"Encargado"})`;

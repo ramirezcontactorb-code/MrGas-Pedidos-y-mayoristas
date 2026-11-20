@@ -115,7 +115,7 @@ function limitarUsuario(string $user, int $max, int $segundos): void {
 function anotarIntentoUsuario(string $user): void { db()->prepare('INSERT INTO intentos (ip, tipo, t) VALUES (?, ?, ?)')->execute([substr('u:' . $user, 0, 45), 'login-u', time()]); }
 
 // ---------- sesión ----------
-// Igual que el ERP Local: en la oficina la sesión se cierra al cerrar el navegador
+// Igual que Venta Local: en la oficina la sesión se cierra al cerrar el navegador
 // (y también tras 10 horas sin uso). En las apps de los choferes dura hasta las 00:00,
 // para que no tengan que volver a poner la clave mientras conducen.
 function cookieSesion(int $expira): void {
@@ -169,7 +169,7 @@ function yo(): ?array {
     }
     return perfilDe($u);
 }
-// Encargado que solo tiene permisos del ERP Local (ningún cuadro del ERP Matriz)
+// Encargado que solo tiene permisos de Venta Local (ningún cuadro del Panel General)
 function soloLocal(array $p): bool {
     if ($p['rol'] !== 'encargado' || !is_array($p['permisos']) || !in_array('app.local', $p['permisos'], true)) return false;
     foreach ($p['permisos'] as $c) if (!preg_match('/^(_v2|app\.|loc\.|lsuc\.|clave\.)/', (string) $c)) return false;
@@ -209,7 +209,7 @@ function puedeLeer(array $u, array $fila): bool {
     if ($fila['local_id'] !== null && !in_array((int) $fila['local_id'], sucs($u), true)) return false;
     return true;
 }
-const CAMPOS_CHOFER = ['estado', 'entregado', 'desc', 'descCh', 'chofer', 'despacho'];
+const CAMPOS_CHOFER = ['estado', 'entregado', 'desc', 'descCh', 'chofer', 'despacho', 'motivoAnula', 'anuladoPor', 'anuladoEn'];
 function puedeEscribir(array $u, string $col, string $id, array $m, ?array $nuevo, ?array $antes, ?array $metaAntes): bool {
     if ($u['rol'] === 'admin') return true;
     if ($col === 'bitacora') return $antes === null; // solo agregar
@@ -218,7 +218,7 @@ function puedeEscribir(array $u, string $col, string $id, array $m, ?array $nuev
         if ($col === 'reparto') { // el repartidor solo avanza el estado y ordena sus entregas
             if (!$antes || $nuevo === null || (int) ($antes['chofer'] ?? 0) !== (int) $u['chofer'] || (int) ($nuevo['chofer'] ?? 0) !== (int) $u['chofer']) return false;
             foreach (array_unique(array_merge(array_keys($antes), array_keys($nuevo))) as $k)
-                if (!in_array($k, ['estado', 'actualizado', 'orden'], true) && json_encode($antes[$k] ?? null) !== json_encode($nuevo[$k] ?? null)) return false;
+                if (!in_array($k, ['estado', 'actualizado', 'orden', 'motivoAnula', 'anuladoPor', 'anuladoEn'], true) && json_encode($antes[$k] ?? null) !== json_encode($nuevo[$k] ?? null)) return false;
             return true;
         }
         if ($col !== 'pedidos' || !$antes || $nuevo === null) return false;

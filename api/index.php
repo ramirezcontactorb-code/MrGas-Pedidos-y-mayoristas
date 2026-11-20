@@ -46,7 +46,7 @@ try {
         if (!empty($_SESSION['uid'])) try { db()->prepare('DELETE FROM presencia WHERE uid = ?')->execute([(int) $_SESSION['uid']]); } catch (Throwable $e) {}
         $_SESSION = []; session_destroy(); salida(['ok' => true]);
 
-    // ---------- como en el ERP Local ----------
+    // ---------- como en Venta Local ----------
     // Informes: alguien sin permiso puede abrirlos si otra persona con permiso escribe su usuario y clave
     case 'autorizar': {
         $u = requiereYo(); $b = cuerpo();
