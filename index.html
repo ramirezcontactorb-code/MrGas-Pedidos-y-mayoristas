@@ -319,7 +319,6 @@ body.arrancando::after{content:"Cargando MR Gas…";position:fixed;inset:0;displ
       <a class="pt-b" id="pt-erp" href="#acceso"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M8 20h8M12 16v4"/></svg></span><b>ERP Matriz</b><small>Pedidos, rutas, cuadratura y bodega</small><i>Entrar →</i></a>
       <a class="pt-b" id="pt-erplocal" href="local/"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6v10H3z"/><path d="M9 20v-6h6v6"/></svg></span><b>ERP Local</b><small>Venta local y bodega</small><i>Entrar →</i></a>
       <a class="pt-b" href="repartidores/"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7z"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></svg></span><b>App repartidores</b><small>Pedidos a domicilio y reparto a mayoristas</small><i>Entrar →</i></a>
-      <a class="pt-b" id="pt-dist" href="distribucion/"><span class="pt-ico"><svg viewBox="0 0 24 24"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="3" y="13" width="4" height="6" rx="1"/><rect x="17" y="13" width="4" height="6" rx="1"/></svg></span><b>App distribución</b><small>Reparto a mayoristas: pedidos, camiones y choferes</small><i>Entrar →</i></a>
     </div>
   </div>
 </div>
@@ -1148,6 +1147,7 @@ async function loginNube(){
   catch(e){err.textContent=e.status===401||e.status===403||e.status===429?e.message:"No hay conexión con el servidor. Revise internet y vuelva a intentar.";err.hidden=false}
   finally{btn.disabled=false}}
 async function entrarComo(p){
+  if(p.rol!=="admin"&&Array.isArray(p.permisos)&&p.permisos.includes("app.local")&&p.permisos.every(c=>/^(_v2|app\.|loc\.|lsuc\.|clave\.)/.test(c))){location.href="local/";return}
   yo={...p,uid:String(p.uid)};
   if(esAdmin()){suc=loc(D.ultimaSuc)?D.ultimaSuc:D.locales[0].id;mod="menu"}else{suc=(p.sucursales&&p.sucursales[0])||p.local||D.locales[0].id;mod=p.rol==="chofer"?"chofer":"menu"}
   guardarSesion();
@@ -1292,16 +1292,16 @@ const MOD_PERM=["pedidos","ruta","choferes","sectorizar","mayorista","ventachofe
 /* Permisos detallados (versión 2, marcada con "_v2"):
    "pedidos" = ver y trabajar · "pedidos:ver" = solo ver · acciones y apps aparte */
 const PERM_EXTRA=[["pedidos.anular","Anular pedidos"],["cfg.choferes","Configurar choferes y móviles"],["cfg.clientes","Configurar clientes mayoristas"],["cfg.precios","Cambiar precios (gas, mayoristas, vales y QR)"],["rend.historico","Editar rendiciones de días pasados"]];
-const PERM_APPS=[["app.repartidores","App repartidores (oficina)"],["app.distribucion","App distribución"],["app.local","ERP Local"]];
+const PERM_APPS=[["app.repartidores","App repartidores (oficina)"],["app.local","ERP Local"]];
 const CFG_PERM={choferes:"cfg.choferes",clientesMay:"cfg.clientes",precios:"cfg.precios",envases:"cfg.precios",preciosMay:"cfg.precios",comVale:"cfg.precios",descQR:"cfg.precios",histPrecios:"cfg.precios"};
 const ESTADO_PRECIOS=["precios","preciosMayor","preciosEnvase","preciosConvenio","listas","historico","listasMay","comisionVale","descQR"];
 const PLANTILLAS=[
   ["Telefonista",["pedidos","ruta:ver","app.repartidores"]],
-  ["Despachador",["pedidos","pedidos.anular","ruta","choferes","sectorizar","informes:ver","app.repartidores","app.distribucion"]],
+  ["Despachador",["pedidos","pedidos.anular","ruta","choferes","sectorizar","informes:ver","app.repartidores"]],
   ["Cajero / cuadratura",["pedidos:ver","ruta:ver","ventachofer","cuadratura","mayorista","informes"]],
-  ["Vendedor mayorista",["mayorista","informes:ver","cfg.clientes","app.distribucion"]],
+  ["Vendedor mayorista",["mayorista","informes:ver","cfg.clientes"]],
   ["Bodeguero",["ruta:ver","bodega","compras"]],
-  ["Supervisor",["pedidos","pedidos.anular","ruta","choferes","sectorizar","mayorista","ventachofer","cuadratura","bodega","compras","informes","cfg.choferes","cfg.clientes","app.repartidores","app.distribucion"]]];
+  ["Supervisor",["pedidos","pedidos.anular","ruta","choferes","sectorizar","mayorista","ventachofer","cuadratura","bodega","compras","informes","cfg.choferes","cfg.clientes","app.repartidores"]]];
 const esV2=p=>Array.isArray(p)&&p.includes("_v2");
 // acciones especiales y apps: los usuarios antiguos (sin "_v2") conservan lo que podían hacer antes
 const tieneExtra=c=>{if(!yo)return false;if(esAdmin())return true;if(yo.rol!=="encargado")return false;
@@ -1512,7 +1512,7 @@ function vistaRend(r,fechaSel){
   </aside></div></fieldset>`;
 }
 
-function tabsInf(){return `<div class="tabs" role="tablist">${[["resumen","Resumen"],["catalogo","Informes"],["diario","Registro diario del mes"]].map(([k,v])=>`<button type="button" role="tab" data-itab="${k}" aria-selected="${infTab===k}">${v}</button>`).join("")}</div>`}
+function tabsInf(){return `<div class="tabs" role="tablist">${[["resumen","Resumen"],...(esAdmin()&&NUBE.activo?[["vlocal","Venta Local"]]:[]),["catalogo","Informes"],["diario","Registro diario del mes"]].map(([k,v])=>`<button type="button" role="tab" data-itab="${k}" aria-selected="${infTab===k}">${v}</button>`).join("")}</div>`}
 const Gr=(arr,k)=>arr.reduce((m,x)=>{const key=k(x);(m[key]=m[key]||[]).push(x);return m},{});
 const itsDe=ps=>ps.flatMap(items);
 const uniDe=its=>its.reduce((s,i)=>s+(i.cant||0),0);
@@ -4419,7 +4419,7 @@ CFG_MAY.sucLocal={v(){const L=(LOCAL_CFG||LOCAL_SUCS.map(n=>({nombre:n,indep:LOC
     <div class="tabla-wrap cfgt"><table><thead><tr><th>Sucursal</th><th class="c">Precios</th><th class="c">Bodega</th><th class="c">Activa</th><th class="c">Eliminar</th></tr></thead><tbody>
     ${L.map((x,i)=>`<tr class="${x.activa?"":"apagada"} ${sucLocBorrar.has(x.nombre)?"borrar":""}"><td><b>${esc(x.nombre)}</b>${i>=L.length-sucLocNueva.length?' <span class="pill">nueva</span>':""}${sucLocBorrar.has(x.nombre)?' <span class="pill rojo">se eliminará</span>':""}</td>
       <td class="c"><select data-sli="${i}"><option value="0" ${x.indep?"":"selected"}>Iguales a las demás</option><option value="1" ${x.indep?"selected":""}>Propios (independientes)</option></select></td>
-      <td class="c"><select data-slb="${i}" title="Si es la misma bodega de una sucursal de la matriz, su venta local descuenta de esa bodega"><option value="">Propia</option>${D.locales.map(l=>`<option value="${l.id}" ${x.bodega===l.id?"selected":""}>Misma que ${esc(l.nombre)}</option>`).join("")}</select></td>
+      <td class="c"><select data-slb="${i}" title="La venta local descuenta del stock de esa bodega de la matriz">${D.locales.map((l,j)=>`<option value="${l.id}" ${x.bodega===l.id||(x.bodega==null&&j===0)?"selected":""}>Misma que ${esc(l.nombre)}</option>`).join("")}<option value="-1" ${x.bodega===-1?"selected":""}>Propia (aparte)</option></select></td>
       <td class="c"><input type="checkbox" data-sla="${i}" ${x.activa?"checked":""} aria-label="Activa ${esc(x.nombre)}"></td>
       <td class="c">${sucLocBorrar.has(x.nombre)?`<button class="btn chico linea" type="button" data-sld="${i}">Deshacer</button>`:`<button class="x-rojo" type="button" data-sld="${i}" aria-label="Eliminar ${esc(x.nombre)}">✕</button>`}</td></tr>`).join("")}
     </tbody></table></div>
@@ -4798,6 +4798,9 @@ function resCSV(){const [d1,d2]=rangoRes(),q=v=>`"${String(v??"").replace(/"/g,'
       const txt=[t.cols.map(c=>c[0]),...t.filas,...(t.total&&t.filas.length>1?[t.total]:[])].map(f=>f.join("\t")).join("\n");
       (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>aviso("Tabla copiada","Péguela en Excel."),()=>aviso("No se pudo copiar","Use Exportar a Excel."))})}
   return r}}
+
+/* ===== Informes → Venta Local: el informe que antes tenía el ERP Local ===== */
+{const v1=V.informes;V.informes=function(){if(infTab==="vlocal"){if(!esAdmin())infTab="resumen";else return cabeza("Informes",'<span class="nota" style="margin:0">Informe de las sucursales del ERP Local</span>')+tabsInf()+'<iframe id="inf-local" class="inf-local" src="local/?solo=inf" title="Informe de Venta Local"></iframe>'}return v1.apply(this,arguments)}}
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -5823,6 +5826,8 @@ html:has(.sis:not([hidden])),body:has(.sis:not([hidden])){background:#f4f6f9}
 .sis .res-t table td.rojo{color:#d92d20;font-weight:600}.sis .res-t tr.tot td{background:#f5f8fd;font-weight:700;color:#0a2557;border-top:1.5px solid #c3d4ef}
 @media (max-width:700px){.sis .res-kpi{grid-template-columns:minmax(0,1fr)}.sis .res-kpi>div{border-left:0;border-top:1px solid #e4e8ee}}
 @media print{.sis .res-top,.sis [data-copiar],.sis #res-xls{display:none!important}}
+
+.sis .inf-local{display:block;width:100%;height:calc(100vh - 190px);min-height:520px;border:1px solid #e4e8ee;border-radius:12px;background:#fff}
 </style>
 </body>
 </html>

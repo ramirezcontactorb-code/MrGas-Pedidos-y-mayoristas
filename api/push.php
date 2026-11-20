@@ -152,14 +152,14 @@ function avisosDe(array $cambios, int $autor): array {
         if ($esNuevo) // oficina: administradores y encargados con la App repartidores, de esa sucursal
             foreach (subsDe("u.rol IN ('admin','encargado') AND s.uid <> ?", [$autor]) as $s) {
                 if ($s['app'] === 'distribucion' && $col === 'pedidos') continue;
-                if (!puedeApp($s, $s['app'] === 'distribucion' ? 'app.distribucion' : 'app.repartidores')) continue;
+                if ($s['app'] === 'distribucion' || !puedeApp($s, 'app.repartidores')) continue;
                 $sucs = json_decode($s['sucursales'] ?? '[]', true) ?: ($s['local_id'] !== null ? [(int) $s['local_id']] : []);
                 if ($s['rol'] !== 'admin' && $local !== null && $sucs && !in_array($local, array_map('intval', $sucs), true)) continue;
                 $envios[] = [$s, ['titulo' => "Nuevo pedido $num", 'cuerpo' => $cuerpo, 'tag' => "$col-$id"]];
             }
         if ($asignado)
             foreach (subsDe("u.rol = 'chofer' AND u.chofer = ? AND s.uid <> ?", [(int) $n['chofer'], $autor]) as $s) {
-                if (!puedeApp($s, $s['app'] === 'distribucion' ? 'app.distribucion' : 'app.repartidores')) continue;
+                if ($s['app'] === 'distribucion' || !puedeApp($s, 'app.repartidores')) continue;
                 if ($s['app'] === 'distribucion' && $col === 'pedidos') continue;
                 $envios[] = [$s, ['titulo' => 'Nuevo pedido asignado', 'cuerpo' => $cuerpo, 'tag' => "$col-$id"]];
             }

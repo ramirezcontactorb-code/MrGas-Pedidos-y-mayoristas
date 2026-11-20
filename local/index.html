@@ -1023,9 +1023,9 @@ async function mgGate(){
   if(!j||j.error){mgPantalla('Sin conexión','No se pudo conectar con el servidor. Revise internet y vuelva a intentar.');return false;}
   mgSucs(j.sucursales);
   if(j.quien){MGU={modo:j.quien.modo,user:j.quien.perfil.user};USERS=[mgUsuario(j.quien.perfil)];return true;}
-  /* sin sesión: login propio del ERP Local (la clave la revisa el servidor) */
-  MG_LOGIN=true;S.user=null;S.view='login';try{sessionStorage.removeItem('gl_user');}catch(e){}
-  READY=true;MODE='login';render();return false;
+  /* sin sesión: se entra con el usuario y clave del ERP Matriz */
+  try{sessionStorage.removeItem('gl_user');}catch(e){}
+  location.replace('../?volver=local#acceso');return false;
 }
 async function mgServerLogin(){
   const u=$('#lu').value.trim().toLowerCase(),p=$('#lp').value;if(!u||!p)return toast('Completa usuario y contraseña','err');
@@ -1035,8 +1035,8 @@ async function mgServerLogin(){
   location.reload();
 }
 {const d0=doLogin;doLogin=function(e){if(!MG_LOGIN)return d0(e);e.preventDefault();mgServerLogin();};}
-{const o0=logout;logout=async function(){try{await fetch(MG_API+'?a=salir',{credentials:'same-origin'});}catch(e){}
-  try{o0();}catch(e){}try{sessionStorage.removeItem('gl_user');}catch(e){}location.reload();};}
+{const o0=logout;logout=async function(){try{await fetch('../api/index.php?a=salir',{credentials:'same-origin',cache:'no-store'});}catch(e){}
+  try{o0();}catch(e){}try{sessionStorage.removeItem('gl_user');}catch(e){}location.replace('../');};}
 /* usuario del ERP Local armado con los permisos dados en el ERP Matriz */
 function mgUsuario(p){const per=Array.isArray(p.permisos)?p.permisos:[];
   if(p.rol==='admin')return {u:p.user,nombre:p.nombre,rol:'admin',verInf:true,mvmig:1,ctamig:1,p:''};
@@ -2774,6 +2774,22 @@ function mgVolver(){if(!/^https?:$/.test(location.protocol))return;const ab=docu
   if(ab&&MGU&&MGU.modo==='matriz'&&!document.getElementById('mg-volver'))ab.insertAdjacentHTML('afterbegin','<a class="hb" id="mg-volver" href="../#panel" style="text-decoration:none">← ERP Matriz</a>');
   const lg=document.querySelector('.login');if(lg&&!document.getElementById('mg-volver2'))lg.insertAdjacentHTML('beforeend','<a id="mg-volver2" class="hint" href="../" style="text-align:center">← Volver al inicio</a>');}
 {const r0=render;render=function(){const x=r0.apply(this,arguments);try{mgVolver();}catch(e){}return x;};}
+/* El ERP Local es una sola sucursal: entra directo a Venta Local, sin menú propio.
+   Su informe se ve en ERP Matriz → Informes → Venta Local (esta misma página con ?solo=inf). */
+const MG_EMB=/[?&]solo=inf\b/.test(location.search);
+if(MG_EMB)document.documentElement.classList.add('mg-emb');
+{const r1=render;render=function(){
+  if(MGU&&S.user&&db&&READY){
+    if(MG_EMB)S.view='inf';
+    else if(S.view==='home'||S.view==='inf'||!VIEWS[S.view])S.view=canView('venta')?'venta':canView('rend')?'rend':S.view;}
+  const x=r1.apply(this,arguments);
+  try{if(MGU&&S.user&&!MG_EMB){
+    document.querySelectorAll('.ab-right .hb').forEach(b=>{if(b.id!=='mg-volver'&&/Volver/.test(b.textContent))b.remove();});
+    const br=document.querySelector('.appbar .brand');if(br){br.removeAttribute('onclick');br.style.cursor='default';}
+    const ab=document.querySelector('.ab-right'),u=USERS[0];
+    if(ab&&u&&userSucs(u).length>1&&!document.getElementById('mg-suc'))ab.insertAdjacentHTML('afterbegin','<button class="hb" id="mg-suc" onclick="cambioSuc()">Cambiar sucursal</button>');}}catch(e){}
+  return x;};}
+const mgCss=document.createElement('style');mgCss.textContent='.mg-emb .appbar,.mg-emb .foot,.mg-emb .phead{display:none!important}.mg-emb body{background:transparent}.mg-emb .frame{margin:0;max-width:none;padding:0}';document.head.appendChild(mgCss);
 function render(){
   if(S.user&&!READY){$('#app').innerHTML=`<div class="login-wrap"><div class="login" style="text-align:center"><div class="lbrand" style="justify-content:center"><span class="sq">MR</span><div style="text-align:left"><b>MR</b><small>Sistema Local</small></div></div><p>Cargando datos compartidos…</p></div></div>`;return;}
   if((!S.user||!db)&&S.view!=='login')S.view='login';

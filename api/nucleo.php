@@ -13,7 +13,7 @@ const PERMISO_COL = [
     'rendiciones' => ['cuadratura','ventachofer','mayorista'], 'cargas' => ['cuadratura','ventachofer'], 'cargasDist' => ['cuadratura','mayorista'], 'anticipos' => ['cuadratura','ventachofer'], 'peonetas' => ['cuadratura','ventachofer'],
     'ventas' => ['caja','cuadratura'], 'gastos' => ['caja','cuadratura'], 'ventasAnuladas' => ['caja','cuadratura'],
     'movimientos' => ['compras','bodega'], 'recuentos' => ['bodega'],
-    'pedidos' => ['pedidos','ruta','chofer','app.repartidores'], 'reparto' => ['mayorista','ruta','pedidos','app.repartidores','app.distribucion'], 'camiones' => ['mayorista','ruta','app.distribucion'], 'clientes' => ['pedidos','ruta'], 'petroleo' => ['petroleo','cuadratura'],
+    'pedidos' => ['pedidos','ruta','chofer','app.repartidores'], 'reparto' => ['mayorista','ruta','pedidos','app.repartidores'], 'camiones' => ['mayorista','ruta'], 'clientes' => ['pedidos','ruta'], 'petroleo' => ['petroleo','cuadratura'],
 ];
 
 // Dónde buscar la configuración. Lo recomendado es FUERA de public_html (un nivel arriba),

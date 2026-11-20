@@ -26,14 +26,6 @@ function puedeLocalU(array $p): bool {
 function quien(): ?array {
     $m = yo();
     if ($m && puedeLocalU($m)) return ['modo' => 'matriz', 'perfil' => $m];
-    if (!empty($_SESSION['local_uid'])) {
-        if (time() - (int) ($_SESSION['local_uso'] ?? time()) > OFICINA_INACTIVA) { unset($_SESSION['local_uid']); return null; }
-        $s = db()->prepare('SELECT * FROM usuarios WHERE uid = ?'); $s->execute([(int) $_SESSION['local_uid']]);
-        $u = $s->fetch();
-        if (!$u || !puedeLocalU(perfilDe($u))) { unset($_SESSION['local_uid']); return null; }
-        $_SESSION['local_uso'] = time();
-        return ['modo' => 'local', 'perfil' => perfilDe($u)];
-    }
     return null;
 }
 // Sucursales del ERP Local: se configuran desde el ERP Matriz (documento app/sucursales)
@@ -47,8 +39,17 @@ function sucursalesLocal(): array {
 // Una sola bodega: la sucursal del ERP Local usa el stock de la bodega de la matriz (documento estado/loc-N)
 const LMAP = ['5' => 'c5', '11' => 'c11', '15' => 'c15', '45' => 'c45', 'H15A' => 'h15a'];
 function bodegaDe(string $slug): ?int {
-    foreach (sucursalesLocal() as $x) if (slugLocal($x['nombre']) === $slug) return isset($x['bodega']) && $x['bodega'] !== null ? (int) $x['bodega'] : null;
+    foreach (sucursalesLocal() as $x) if (slugLocal($x['nombre']) === $slug) {
+        $b = isset($x['bodega']) && $x['bodega'] !== null ? (int) $x['bodega'] : 0;
+        if ($b < 0) return null;
+        return $b > 0 ? $b : bodegaPrincipal();
+    }
     return null;
+}
+function bodegaPrincipal(): ?int {
+    $st = db()->prepare("SELECT id FROM docs WHERE col = 'estado' AND id LIKE 'loc-%' AND borrado = 0"); $st->execute();
+    $min = null; foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $id) { $n = (int) substr((string) $id, 4); if ($n > 0 && ($min === null || $n < $min)) $min = $n; }
+    return $min;
 }
 function leerLoc(int $id): ?array {
     $st = db()->prepare("SELECT data FROM docs WHERE col = 'estado' AND id = ? AND borrado = 0"); $st->execute(['loc-' . $id]);
@@ -95,21 +96,6 @@ try {
     tablaLocal();
     $a = $_GET['a'] ?? '';
     if ($a === 'estado') { $q = quien(); salida(['quien' => $q ? ['modo' => $q['modo'], 'perfil' => $q['perfil']] : null, 'sucursales' => sucursalesLocal()]); }
-    if ($a === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        limitar('local', 8, 900);
-        $b = json_decode(file_get_contents('php://input') ?: '{}', true) ?: [];
-        $usr = strtolower(trim((string) ($b['user'] ?? '')));
-        limitarUsuario($usr, 10, 1800);
-        $s = db()->prepare('SELECT * FROM usuarios WHERE usuario = ?'); $s->execute([$usr]); $u = $s->fetch();
-        $ok = $u && !esDiaria($u) && password_verify((string) ($b['pass'] ?? ''), $u['hash']);
-        if (!$ok) { anotarIntento('local'); anotarIntentoUsuario($usr); salida(['error' => 'Usuario o contraseña incorrectos'], 401); }
-        if (!puedeLocalU(perfilDe($u))) salida(['error' => $u['activo'] ? 'Su usuario no tiene permiso para el ERP Local. Pídalo al administrador.' : 'Este usuario está desactivado.'], 403);
-        session_regenerate_id(true);
-        $_SESSION['local_uid'] = (int) $u['uid']; $_SESSION['local_uso'] = time();
-        db()->prepare('DELETE FROM intentos WHERE ip = ? AND tipo = ?')->execute([substr('u:' . $usr, 0, 45), 'login-u']);
-        salida(['ok' => true]);
-    }
-    if ($a === 'salir') { unset($_SESSION['local_uid'], $_SESSION['local_uso']); salida(['ok' => true]); }
     if ($a === 'clave' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $q = quien(); if (!$q) salida(['error' => 'Sesión vencida.'], 401);
         $b = json_decode(file_get_contents('php://input') ?: '{}', true) ?: [];
@@ -122,7 +108,7 @@ try {
     }
 
     $q = quien();
-    if (!$q) salida(['error' => 'Inicie sesión en el ERP Local.'], 401);
+    if (!$q) salida(['error' => 'Inicie sesión en el ERP Matriz.'], 401);
     // ---- Precios del ERP Local manejados desde el ERP Matriz (solo administrador) ----
     if ($a === 'leer') { // documentos puntuales: ?paths=app/global,suc/cervantes
         $ps = array_slice(array_filter(explode(',', (string) ($_GET['paths'] ?? ''))), 0, 20);
@@ -168,7 +154,7 @@ try {
         // al unir una sucursal a la bodega de la matriz, su stock se suma a la matriz (una sola bodega)
         foreach ($l as $x) {
             $antes = $ant[$x['nombre']]['bodega'] ?? null;
-            if ($x['bodega'] !== null && $antes === null) unirBodega(slugLocal($x['nombre']), $x['bodega'], (int) $q['perfil']['uid']);
+            if ($x['bodega'] !== null && $x['bodega'] > 0 && $antes !== null && (int) $antes < 0) unirBodega(slugLocal($x['nombre']), $x['bodega'], (int) $q['perfil']['uid']);
         }
         $p->commit();
         salida(['ok' => true, 'list' => $l, 'borradas' => $aBorrar]);
