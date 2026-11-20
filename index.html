@@ -4985,14 +4985,22 @@ function guardarEmpresa(o){if(!rutLimpio(o.rut)&&!o.razon)return null;D.empresas
   ["rut","razon","giro","dir","comuna","email","fono"].forEach(k=>{if(o[k])e[k]=o[k]});return e}
 /* las empresas de pedidos con factura pasan solas a la base */
 function empresasDePedidos(){let n=0;(D.pedidos||[]).forEach(p=>{const f=p.factura;if(f&&rutLimpio(f.rut)&&!empresaPorRut(f.rut)){guardarEmpresa({rut:f.rut,razon:f.razon,giro:f.giro,dir:f.dir||p.dir,comuna:f.comuna||p.comuna,fono:p.fono});n++}});return n}
-function facItems(){const ped=facLista().map(p=>({t:"ped",o:p,id:"p"+p.id,fecha:String(p.fecha||""),f:p.factura,total:totalP(p),cli:nomCli(p),det:(typeof resumenP==="function"?resumenP(p):""),ref:"Pedido N° "+p.id}));
-  const man=(D.facturas||[]).filter(x=>misSucs().includes(x.local??suc)).map(x=>({t:"man",o:x,id:"m"+x.id,fecha:String(x.fecha||""),f:x,total:+x.total||0,cli:x.razon||"",det:x.detalle||"",ref:"Sin pedido"}));
+let facMes=null,facHist={k:"",ped:[],man:[]},facCargando=false;
+function rangoMes(m){const [y,mm]=m.split("-").map(Number),fin=new Date(y,mm,0,12),ini=new Date(y,mm-1,1,12);ini.setDate(ini.getDate()-90);return [fechaISO(ini),fechaISO(fin)]}
+async function cargarFacMes(){if(!NUBE.activo||facCargando||facHist.k===facMes)return;facCargando=true;const [d1,d2]=rangoMes(facMes);
+  try{const j=await api("rango",null,`&cols=pedidos,facturas&desde=${d1}&hasta=${d2}`);const ped=[],man=[];(j.docs||[]).forEach(d=>{if(d.col==="pedidos")ped.push(d.data);else if(d.col==="facturas")man.push(d.data)});facHist={k:facMes,ped,man}}catch(e){facHist={k:facMes,ped:[],man:[]}}
+  facCargando=false;if(mod==="facturas"&&facTab==="emit")pintarSistema()}
+function facItems(){const idsP=new Set((D.pedidos||[]).map(p=>String(p.id))),idsF=new Set((D.facturas||[]).map(x=>String(x.id)));
+  const pedH=facHist.ped.filter(p=>p&&p.factura&&p.estado!=="anulado"&&!idsP.has(String(p.id))&&misSucs().includes(p.local)),manH=facHist.man.filter(x=>x&&!idsF.has(String(x.id)));
+  const ped=[...facLista(),...pedH].map(p=>({t:"ped",o:p,id:"p"+p.id,fecha:String(p.fecha||""),f:p.factura,total:totalP(p),cli:nomCli(p),det:(typeof resumenP==="function"?resumenP(p):""),ref:"Pedido N° "+p.id}));
+  const man=[...(D.facturas||[]),...manH].filter(x=>misSucs().includes(x.local??suc)).map(x=>({t:"man",o:x,id:"m"+x.id,fecha:String(x.fecha||""),f:x,total:+x.total||0,cli:x.razon||"",det:x.detalle||"",ref:"Sin pedido"}));
   return [...ped,...man].sort((a,b)=>b.fecha.localeCompare(a.fecha))}
 const facEst2=x=>x.o.facturaEst&&x.o.facturaEst.estado==="emitida"?"emitida":"pendiente";
 let empBusca="",empEdit=null;
 V.facturas=function(){const ed=!soloVer("facturas");if(ed&&empresasDePedidos())guardar();
+  if(!facMes)facMes=hoyStr().slice(0,7);if(facTab==="todas")facTab="emit";if(facTab==="emit")cargarFacMes();
   const L=facItems(),pend=L.filter(x=>facEst2(x)==="pendiente"),emit=L.filter(x=>facEst2(x)==="emitida"),q=facBusca.trim().toLowerCase();
-  const tabs=`<div class="tabs" role="tablist">${[["pend",`Por facturar (${pend.length})`],["emit",`Facturadas (${emit.length})`],["todas","Todas"],["emp",`Empresas (${(D.empresas||[]).length})`]].map(([k,v])=>`<button type="button" role="tab" data-ftab="${k}" aria-selected="${facTab===k}">${v}</button>`).join("")}</div>`;
+  const tabs=`<div class="tabs" role="tablist">${[["pend",`Por facturar (${pend.length})`],["emit","Facturadas"],["emp",`Empresas (${(D.empresas||[]).length})`]].map(([k,v])=>`<button type="button" role="tab" data-ftab="${k}" aria-selected="${facTab===k}">${v}</button>`).join("")}</div>`;
   const kpis=`<div class="kpis"><div class="kpi"><span>Por facturar</span><b class="num" style="color:${pend.length?"#d92d20":"inherit"}">${pend.length}</b></div><div class="kpi"><span>Monto por facturar</span><b class="num">${clp(pend.reduce((s,x)=>s+x.total,0))}</b></div><div class="kpi"><span>Facturadas</span><b class="num">${emit.length}</b></div></div>`;
   const acc=ed?`<button class="btn" type="button" id="fac-nueva">＋ Nueva factura</button>`:"";
   const busca=`<label class="fac-busca">Buscar<input id="fac-q" value="${esc(facBusca)}" placeholder="RUT, razón social, N° pedido…"></label>`;
@@ -5006,9 +5014,13 @@ V.facturas=function(){const ed=!soloVer("facturas");if(ed&&empresasDePedidos())g
       <div class="acc"><button class="btn" type="submit">${ee&&ee.id?"Guardar cambios":"Agregar empresa"}</button>${ee&&ee.id?'<button class="btn linea" type="button" id="em-cancel">Cancelar</button>':""}</div></form>`:"";
     return cabeza("Facturas",busca+acc)+kpis+tabs+form+`<div class="tabla-wrap"><table class="fac-t"><thead><tr><th>RUT</th><th>Razón social</th><th>Giro</th><th>Dirección</th><th>Contacto</th><th></th></tr></thead><tbody>
       ${E.map(e=>`<tr><td class="num"><b>${esc(e.rut)}</b></td><td><b>${esc(e.razon)}</b></td><td>${esc(e.giro||"")}</td><td>${esc([e.dir,e.comuna].filter(Boolean).join(", "))}</td><td>${esc([e.email,e.fono].filter(Boolean).join(" · "))}</td>
-        <td class="fac-acc"><button class="btn chico linea" type="button" data-ecopiar="${e.id}">⧉ Copiar</button>${ed?`<button class="btn chico linea" type="button" data-efac="${e.id}">＋ Factura</button><button class="btn chico linea" type="button" data-eedit="${e.id}">Editar</button><button class="x-rojo" type="button" data-edel="${e.id}" aria-label="Eliminar ${esc(e.razon)}">✕</button>`:""}</td></tr>`).join("")||'<tr><td colspan="6" class="vacio">Todavía no hay empresas. Agregue la primera arriba; también se agregan solas al facturar.</td></tr>'}
+        <td class="fac-acc">${e.rut?`<button class="btn chico fac-rut" type="button" data-rutc="${esc(e.rut)}" title="Copiar el RUT para pegarlo en el SII">⧉ Copiar RUT</button>`:""}<button class="btn chico linea" type="button" data-ecopiar="${e.id}">⧉ Copiar</button>${ed?`<button class="btn chico linea" type="button" data-efac="${e.id}">＋ Factura</button><button class="btn chico linea" type="button" data-eedit="${e.id}">Editar</button><button class="x-rojo" type="button" data-edel="${e.id}" aria-label="Eliminar ${esc(e.razon)}">✕</button>`:""}</td></tr>`).join("")||'<tr><td colspan="6" class="vacio">Todavía no hay empresas. Agregue la primera arriba; también se agregan solas al facturar.</td></tr>'}
       </tbody></table></div>`}
-  let ver=facTab==="pend"?pend:facTab==="emit"?emit:L;
+  const delMes=emit.filter(x=>String((x.o.facturaEst||{}).fecha||"").slice(0,7)===facMes);
+  let ver=facTab==="pend"?pend:delMes;
+  const MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"],[fy,fm]=facMes.split("-").map(Number);
+  const mesBar=facTab==="emit"?`<div class="fac-mes"><button class="btn chico linea" type="button" data-fmes="-1" aria-label="Mes anterior">←</button><b>${MESES[fm-1]} ${fy}</b><button class="btn chico linea" type="button" data-fmes="1" aria-label="Mes siguiente" ${facMes>=hoyStr().slice(0,7)?"disabled":""}>→</button>
+    <input type="month" id="fac-mesi" value="${facMes}" max="${hoyStr().slice(0,7)}"><span class="nota" style="margin:0 0 0 auto">${delMes.length} factura${delMes.length===1?"":"s"} · <b>${clp(delMes.reduce((s,x)=>s+x.total,0))}</b>${facCargando?" · cargando…":""}</span></div>`:"";
   if(q)ver=ver.filter(x=>[x.ref,x.cli,x.f.rut,x.f.razon,(x.o.facturaEst||{}).num,x.det].join(" ").toLowerCase().includes(q));
   const fila=x=>{const f=x.f,e=x.o.facturaEst||{},em=facEst2(x)==="emitida";
     return `<tr><td class="num"><b>${esc(x.ref)}</b><br><span class="nota" style="margin:0">${esc(fF(x.fecha.slice(0,10)))}</span></td>
@@ -5016,10 +5028,10 @@ V.facturas=function(){const ed=!soloVer("facturas");if(ed&&empresasDePedidos())g
       <td>${esc(x.det||"")}${x.t==="ped"?`<br><span class="nota" style="margin:0">${esc(x.cli)}</span>`:""}</td>
       <td class="der num">${clp(x.total)}</td>
       <td>${em?`<span class="pill entregado">Facturada</span><br><span class="nota" style="margin:0">N° ${esc(e.num||"—")} · ${esc(fF(String(e.fecha||"").slice(0,10)))}${e.por?" · "+esc(e.por):""}</span>`:'<span class="pill bajo">Por facturar</span>'}</td>
-      <td class="fac-acc"><button class="btn chico linea" type="button" data-fcop="${x.id}">⧉ Copiar datos</button>
+      <td class="fac-acc">${f.rut?`<button class="btn chico fac-rut" type="button" data-rutc="${esc(f.rut)}" title="Copiar el RUT para pegarlo en el SII">⧉ Copiar RUT</button>`:""}<button class="btn chico linea" type="button" data-fcop="${x.id}">⧉ Copiar datos</button>
         ${ed?(em?`<button class="btn chico linea" type="button" data-fdes="${x.id}">Deshacer</button>`:`<button class="btn chico" type="button" data-femi="${x.id}">Marcar facturada</button>`):""}${ed&&x.t==="man"?`<button class="x-rojo" type="button" data-fdel="${x.id}" aria-label="Eliminar factura">✕</button>`:""}</td></tr>`};
-  return cabeza("Facturas",busca+acc)+kpis+tabs+`<div class="tabla-wrap"><table class="fac-t"><thead><tr><th>Origen</th><th>Datos de facturación</th><th>Detalle</th><th class="der">Total</th><th>Factura</th><th></th></tr></thead><tbody>
-    ${ver.map(fila).join("")||`<tr><td colspan="6" class="vacio">${facTab==="pend"?"No hay facturas pendientes. ¡Todo al día!":"Sin facturas en esta lista."}</td></tr>`}</tbody></table></div>
+  return cabeza("Facturas",busca+acc)+kpis+tabs+mesBar+`<div class="tabla-wrap"><table class="fac-t"><thead><tr><th>Origen</th><th>Datos de facturación</th><th>Detalle</th><th class="der">Total</th><th>Factura</th><th></th></tr></thead><tbody>
+    ${ver.map(fila).join("")||`<tr><td colspan="6" class="vacio">${facTab==="pend"?"No hay facturas pendientes. ¡Todo al día!":"No hay facturas emitidas en este mes."}</td></tr>`}</tbody></table></div>
     <p class="nota">Aparecen los pedidos con <b>«Solicita factura»</b> y las facturas agregadas aquí con <b>«Nueva factura»</b>. Las por facturar quedan siempre a la vista hasta marcarlas como facturadas.</p>`};
 function dlNuevaFactura(pre){let dl=document.getElementById("dl-nfac");if(!dl){dl=document.createElement("dialog");dl.id="dl-nfac";dl.className="dl-estado";document.body.appendChild(dl)}
   const e=pre||{};
@@ -5047,6 +5059,8 @@ L.facturas=function(){
   $$("[data-ftab]").forEach(b=>b.onclick=()=>{facTab=b.dataset.ftab;empEdit=null;pintarSistema()});
   const q=$("#fac-q");if(q){q.oninput=()=>{facBusca=q.value;const pos=q.selectionStart;pintarSistema();const n=$("#fac-q");if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}}}
   const nb=$("#fac-nueva");if(nb)nb.onclick=()=>dlNuevaFactura();
+  $$("[data-fmes]").forEach(b=>b.onclick=()=>{const [y,m]=facMes.split("-").map(Number),d=new Date(y,m-1+(+b.dataset.fmes),1,12);facMes=fechaISO(d).slice(0,7);pintarSistema()});
+  const mi=$("#fac-mesi");if(mi)mi.onchange=()=>{if(mi.value){facMes=mi.value;pintarSistema()}};
   const X=id=>facItems().find(x=>x.id===id);
   const copiar=(f,extra)=>{const txt=[`Razón social: ${f.razon||""}`,`RUT: ${f.rut||""}`,`Giro: ${f.giro||""}`,`Dirección: ${[f.dir,f.comuna].filter(Boolean).join(", ")}`,f.email?`Correo: ${f.email}`:"",extra||""].filter(Boolean).join("\n");
     (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>aviso("Datos copiados","Péguelos en el sistema de facturación."),()=>aviso("Datos de la factura",txt.replace(/\n/g," · ")))};
@@ -5087,6 +5101,11 @@ L.facturas=function(){
 {const lp=L.pedidos;L.pedidos=function(){const r=lp?lp.apply(this,arguments):undefined;
   try{if(D.precios&&D.precios.sinFacturas){const c=$("#np-factura");if(c){c.checked=false;const l=c.closest("label");if(l)l.hidden=true;const f=$("#np-fact");if(f)f.hidden=true}}}catch(e){}
   return r}}
+
+/* Copiar RUT para el SII (sin puntos y con guion: 76123456-7). Al pegarlo, el SII completa los datos del cliente. */
+const rutSii=r=>{const s=String(r||"").replace(/[^0-9kK]/g,"").toUpperCase();return s.length>1?s.slice(0,-1)+"-"+s.slice(-1):s};
+document.addEventListener("click",e=>{const b=e.target.closest("[data-rutc]");if(!b)return;const r=rutSii(b.dataset.rutc);
+  (navigator.clipboard?navigator.clipboard.writeText(r):Promise.reject()).then(()=>{const t0=b.textContent;b.textContent="✓ Copiado "+r;b.classList.add("ok");setTimeout(()=>{b.textContent=t0;b.classList.remove("ok")},1800)},()=>aviso("RUT",r))});
 </script>
 <style id="tema-erp">
 .rt-sel{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -6180,6 +6199,10 @@ body.vl-abierta{overflow:hidden}
 #dl-nfac .nf-ya{display:flex;align-items:end;gap:16px;margin-top:10px}#dl-nfac .nf-ya .radio{margin:0 0 12px;display:flex!important;flex-direction:row!important;align-items:center;gap:6px;white-space:nowrap}#dl-nfac .nf-ya .radio input{width:auto}#dl-nfac .nf-ya label:last-child{width:200px}#dl-nfac .emp-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .sis .emp-form{margin-bottom:14px}
 @media (max-width:800px){.sis .emp-g,#dl-nfac .emp-g{grid-template-columns:minmax(0,1fr)}}
+
+.sis .fac-rut{background:#0a2557;color:#fff;border-color:#0a2557}.sis .fac-rut.ok{background:#12b76a;border-color:#12b76a}
+
+.sis .fac-mes{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #e4e8ee;border-radius:10px;padding:8px 12px;margin:0 0 10px}.sis .fac-mes b{font-size:15px;min-width:130px;text-align:center}.sis .fac-mes input{width:auto;padding:5px 8px}
 </style>
 </body>
 </html>
