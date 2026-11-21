@@ -149,8 +149,14 @@ async function pintarDrive(){const z=document.getElementById("rb-drive");if(!z)r
   const gc=$("#gd-conectar");if(gc)gc.onclick=async()=>{try{const r=await api("drive_conectar");location.href=r.url}catch(e){aviso("No se pudo conectar",e.message)}};
   const gs=$("#gd-subir");if(gs)gs.onclick=async()=>{gs.disabled=true;gs.textContent="Subiendo…";try{const r=await api("drive_subir",{});aviso("Respaldo subido a Google Drive",r.archivo+(r.borrados?` · se borraron ${r.borrados} copias antiguas`:""));pintarRespBD()}catch(e){aviso("No se pudo subir",e.message);pintarDrive()}};
   const gq=$("#gd-quitar");if(gq)gq.onclick=()=>confirmar(gq,async()=>{try{await api("drive_quitar",{});aviso("Google Drive desconectado","Los respaldos que ya subió siguen en su Drive.");pintarDrive()}catch(e){aviso("No se pudo",e.message)}})}
-{const p0=pintarRespBD;pintarRespBD=async function(){const r=await p0.apply(this,arguments);const z=document.getElementById("resp-bd"),c=z&&z.querySelector(".rb-cron");
-  if(c&&!document.getElementById("rb-drive")){c.insertAdjacentHTML("afterend",'<div class="rb-drive" id="rb-drive"><b>Copia en Google Drive</b><p class="nota">Cargando…</p></div>');pintarDrive()}return r}}
+{const p0=pintarRespBD;pintarRespBD=async function(){let r;try{r=await p0.apply(this,arguments)}catch(e){}const z=document.getElementById("resp-bd");
+  if(z&&!document.getElementById("rb-drive")){const c=z.querySelector(".rb-cron"),h='<div class="rb-drive" id="rb-drive"><b>Copia en Google Drive</b><p class="nota">Cargando…</p></div>';
+    if(c)c.insertAdjacentHTML("afterend",h);else z.insertAdjacentHTML("beforeend",h);pintarDrive()}return r}}
+/* sin servidor (vista de prueba): se explica dónde aparece */
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);
+  try{if(mod==="config"&&cfgTab==="respaldos"&&esAdmin()&&!NUBE.activo&&!document.getElementById("rb-sin")){const z=document.querySelector(".cfg-main");
+    if(z)z.insertAdjacentHTML("afterbegin",'<section class="caja rb-caja" id="rb-sin"><h3>Respaldo de la base de datos y copia en Google Drive</h3><p class="nota" style="margin:0">Estas opciones aparecen cuando el sistema está instalado en su servidor (Hostinger). Esta es una vista de prueba sin servidor.</p></section>')}}catch(e){}
+  return r}}
 /* al volver desde Google con el permiso */
 {const q=new URLSearchParams(location.search).get("drive");if(q){let n=0;const t0=setInterval(()=>{if(++n>40){clearInterval(t0);return}if(!yo||!NUBE.activo)return;clearInterval(t0);
   history.replaceState(null,"",location.pathname+"#panel");cfgTab="respaldos";ir("config");

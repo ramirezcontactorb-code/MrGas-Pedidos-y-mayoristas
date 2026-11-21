@@ -6,6 +6,8 @@ tail = open(SP + "/tail.html").read()
 import json
 PERM = os.environ.get("MRGAS_PERMISOS", "/home/user/mrgas/api/permisos.json")
 pj = json.load(open(PERM)); pj.pop("_nota", None)
+VER = re.search(r"MRGAS_VERSION = '([^']+)'", open(os.path.join(os.path.dirname(PERM), "nucleo.php")).read()).group(1)
+tail = tail.replace("__MRGAS_VERSION__", VER)
 assert tail.count("/*@PERMISOS@*/") == 1
 tail = tail.replace("/*@PERMISOS@*/", "const PERMISOS=" + json.dumps(pj, ensure_ascii=False, separators=(",", ":")) + ";")
 full = open(SP + "/cabeza.html").read() + tail   # cabeza.html = encabezado (head + primera parte)
