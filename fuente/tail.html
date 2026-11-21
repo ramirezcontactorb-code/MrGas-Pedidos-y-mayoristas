@@ -5069,7 +5069,7 @@ async function impEnviar(ver,mapa){const f=$("#imp-arch").files[0];if(!f)throw n
   if(!r.ok||!j){if(r.status===423){respCfg=false;setTimeout(pintarSistema,0)}throw new Error((j&&j.error)||"No se pudo leer el archivo (puede ser muy grande o no ser el correcto).")}
   return j}
 function pintarImp(){const z=$("#imp-cuerpo");if(!z)return;
-  if(!impRes){z.innerHTML=`<p class="nota" style="margin:0 0 8px">En el Venta Local antiguo entre a <b>Informes → Descargar base de datos</b>. Le pide su contraseña especial y descarga un archivo <b>.json</b> con todas sus sucursales, ventas, rendiciones y bodega. Súbalo aquí.</p>
+  if(!impRes){z.innerHTML=`<p class="nota" style="margin:0 0 8px">Sirve cualquiera de estos dos archivos:<br>• <b>Venta Local antiguo:</b> Informes → Descargar base de datos (archivo <b>.json</b>).<br>• <b>Otro MR Gas:</b> Configuraciones → Respaldos y reset → Descargar respaldo (archivo <b>.json.gz</b>). Se toma solo su Venta Local.</p>
     <div class="rb-fila"><input type="file" id="imp-arch" accept=".json,.gz,application/json"><button class="btn linea" type="button" id="imp-ver">Revisar archivo</button></div><p class="error" id="imp-err" hidden></p>`;
     $("#imp-ver").onclick=async()=>{const b=$("#imp-ver"),er=$("#imp-err");er.hidden=true;b.disabled=true;b.textContent="Revisando…";
       try{impRes=await impEnviar(true);impRes.archivoNombre=$("#imp-arch").files[0].name;impRes.file=$("#imp-arch").files[0];pintarImp()}catch(e){er.textContent=e.message;er.hidden=false}b.disabled=false;b.textContent="Revisar archivo"};return}

@@ -79,6 +79,26 @@ function unirBodega(string $slug, int $id, ?int $autor): void {
     $ver = (int) $p->query("SELECT valor FROM contadores WHERE nombre = 'local'")->fetchColumn();
     $p->prepare('UPDATE local_docs SET data = ?, ver = ? WHERE path = ?')->execute([json_encode($d, JSON_UNESCAPED_UNICODE), $ver, 'suc/' . $slug]);
 }
+// Convierte un respaldo completo de MR Gas (tablas) al formato de la «base de datos» de Venta Local
+function desdeRespaldoMrgas(array $r): array {
+    $filas = (array) ($r['tablas']['local_docs'] ?? []); $suc = [];
+    $nombres = []; foreach (SUCS_INICIALES as $n) $nombres[slugLocal($n)] = $n; // nombres con tilde si el respaldo no trae la lista
+    foreach ($filas as $f) if (($f['path'] ?? '') === 'app/sucursales') { $d = json_decode((string) $f['data'], true); foreach ((array) ($d['list'] ?? []) as $x) $nombres[slugLocal((string) $x['nombre'])] = (string) $x['nombre']; }
+    foreach ($filas as $f) {
+        $pth = (string) ($f['path'] ?? ''); if (!preg_match('~^suc/([^/]+)(?:/(ventas|rend|bmovs)/(.+))?$~', $pth, $m)) continue;
+        $sl = $m[1]; $nom = $nombres[$sl] ?? ucwords(str_replace('_', ' ', $sl));
+        $d = json_decode((string) $f['data'], true); if (!is_array($d)) continue;
+        $suc[$nom] = $suc[$nom] ?? ['ventas' => [], 'rend' => [], 'bmovs' => []];
+        if (empty($m[2])) $suc[$nom] = array_merge($d, ['ventas' => $suc[$nom]['ventas'], 'rend' => $suc[$nom]['rend'], 'bmovs' => $suc[$nom]['bmovs']]);
+        elseif ($m[2] === 'ventas') $suc[$nom]['ventas'] = array_merge($suc[$nom]['ventas'], (array) ($d['list'] ?? []));
+        elseif ($m[2] === 'rend') $suc[$nom]['rend'][$m[3]] = $d;
+        else $suc[$nom]['bmovs'] = array_merge($suc[$nom]['bmovs'], (array) ($d['list'] ?? []));
+    }
+    $us = array_map(function ($u) use ($nombres) { $pm = json_decode((string) ($u['permisos'] ?? ''), true);
+        $ss = []; foreach ((array) $pm as $k) if (is_string($k) && str_starts_with($k, 'lsuc.')) $ss[] = $nombres[substr($k, 5)] ?? substr($k, 5);
+        return ['u' => $u['usuario'] ?? '', 'nombre' => $u['nombre'] ?? '', 'rol' => $u['rol'] ?? '', 'sucs' => $ss]; }, array_filter((array) ($r['tablas']['usuarios'] ?? []), fn($u) => ($u['rol'] ?? '') !== 'chofer'));
+    return ['app' => 'MR Sistema Local', 'tipo' => 'respaldo-completo', 'generado' => $r['fecha'] ?? null, 'usuarios' => $us, 'sucursales' => $suc, 'origen' => 'mrgas'];
+}
 function slugLocal(string $s): string {
     $s = strtolower(strtr($s, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u','ñ'=>'n','Ñ'=>'n','ü'=>'u','Ü'=>'u']));
     return preg_replace('/\s+/', '_', $s);
@@ -180,8 +200,11 @@ try {
         $txt = (string) file_get_contents($fa['tmp_name']);
         if (strncmp($txt, "\x1f\x8b", 2) === 0) $txt = (string) @gzdecode($txt);   // la pantalla lo manda comprimido
         $j = json_decode($txt, true); unset($txt);
+        // También sirve un respaldo completo de otra instalación de MR Gas (Respaldos y reset → Descargar): se toma su Venta Local
+        if (is_array($j) && ($j['app'] ?? '') === 'mrgas' && is_array($j['tablas'] ?? null)) $j = desdeRespaldoMrgas($j);
         if (!is_array($j) || !is_array($j['sucursales'] ?? null) || ($j['tipo'] ?? '') !== 'respaldo-completo')
-            salida(['error' => 'El archivo no es una «base de datos» descargada de Venta Local (Informes → Descargar base de datos).'], 400);
+            salida(['error' => 'Este archivo no se puede importar. Sirve: (1) la «base de datos» del Venta Local antiguo (Informes → Descargar base de datos, archivo .json) o (2) un respaldo de otro MR Gas (Respaldos y reset → Descargar respaldo, archivo .json.gz).'], 400);
+        if (!$j['sucursales']) salida(['error' => 'El respaldo no trae datos de Venta Local (ninguna sucursal con ventas).'], 400);
         $RK = ['efectivo','vuelto','vales','valesCil','cheques','transf','descuentos','qr','gastos','transbank','cargos','petroleo'];
         $existentes = []; foreach (sucursalesLocal() as $x) $existentes[slugLocal($x['nombre'])] = $x['nombre'];
         $conDatos = function (string $sl) { $st = db()->prepare("SELECT COUNT(*) FROM local_docs WHERE path LIKE ?"); $st->execute(['suc/' . $sl . '/%']); return (int) $st->fetchColumn() > 0; };

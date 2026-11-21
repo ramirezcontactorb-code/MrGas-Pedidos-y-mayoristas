@@ -1,5 +1,5 @@
 // Importar la «base de datos» de otro Venta Local (formato antiguo) con sus sucursales
-const {A, ok, navegador, entrar, abrirRespaldos, fin} = require('./comun');
+const {A, B, ok, navegador, entrar, abrirRespaldos, fin} = require('./comun');
 const path = require('path');
 (async () => {
   const {b, pagina, errores} = await navegador();
@@ -32,5 +32,12 @@ const path = require('path');
   ok(n2.includes('Talca 2'), 'al repetir, no pisa lo importado: propone «Talca 2»');
   const lista = await p.evaluate(async () => (await fetch('api/index.php?a=respaldo_info', {credentials: 'same-origin'})).json());
   ok(lista.lista.some(x => !x.auto), 'antes de importar se guardó un respaldo');
+  // un respaldo completo de otro MR Gas (sitio A) se importa en el sitio B
+  const gz = await p.evaluate(async () => { const r = await fetch('api/index.php?a=respaldo_bajar', {credentials: 'same-origin'}); const u8 = new Uint8Array(await r.arrayBuffer()); let s = ''; u8.forEach(x => s += String.fromCharCode(x)); return btoa(s); });
+  const tmp = path.join(require('os').tmpdir(), 'mr-manual-prueba.json.gz'); require('fs').writeFileSync(tmp, Buffer.from(gz, 'base64'));
+  const q = await pagina(1440, 1000); await entrar(q, B, 'cliente'); await abrirRespaldos(q);
+  await q.setInputFiles('#imp-arch', tmp); await q.click('#imp-ver'); await q.waitForTimeout(2500);
+  const nb = await q.$$eval('.imp-nom', x => x.map(e => e.value));
+  ok(nb.includes('Talca') && nb.length >= 3, 'un respaldo de otro MR Gas también se puede importar (' + nb.join(', ') + ')');
   await fin(b, errores);
 })();
