@@ -564,3 +564,32 @@ try{if("serviceWorker" in navigator&&location.protocol.startsWith("http"))naviga
 {const u=leer("usuario","");if(u&&$("#lg-user")){$("#lg-user").value=u}}
 /* inicio: si ya hay sesión de MR Gas en este navegador, entra solo */
 (async()=>{if(!location.protocol.startsWith("http"))return;try{const j=await api("yo");if(j.perfil)entrar(j.perfil)}catch(e){}})();
+
+/* ===================== UBICACIÓN EN VIVO (solo repartidores) =====================
+   Mientras la app está abierta, el teléfono del repartidor manda su posición cada ~30 segundos
+   para que la oficina vea los camiones en el mapa (Panel General → Asigna Ruta → Mapa en vivo).
+   Con la app cerrada o la pantalla bloqueada, el teléfono no la manda. */
+const UBI={watch:null,enviado:0,ult:null,estado:"off"};
+{const st=document.createElement("style");st.textContent=".ubi{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#fff;background:#1a66d6;border-radius:999px;padding:4px 11px;white-space:nowrap;border:0;cursor:pointer;font-family:inherit}.ubi em{font-style:normal;font-size:13px;line-height:1}.ubi.esp{background:#667085}.ubi.neg,.ubi.off{background:#b54708}.ubi.neg em,.ubi.off em{filter:grayscale(1)}@media (max-width:520px){.ubi span{display:none}.ubi{padding:5px 8px}}";document.head.appendChild(st)}
+function ubiPintar(){let e=document.getElementById("ubi");
+  if(!e){const c=document.getElementById("con");if(!c)return;c.insertAdjacentHTML("afterend",'<button type="button" class="ubi" id="ubi" aria-live="polite"><em>📍</em><span></span></button>');e=document.getElementById("ubi");e.onclick=ubiAyuda}
+  const t={on:"Ubicación activa",off:"Ubicación apagada",neg:"Ubicación bloqueada",esp:"Buscando GPS…"}[UBI.estado];
+  e.className="ubi "+UBI.estado;e.lastChild.textContent=t;e.title=t;e.hidden=!(S.yo&&S.yo.rol==="chofer")}
+function ubiAyuda(){
+  if(UBI.estado==="neg")alert("La ubicación está bloqueada para esta app.\n\nPara activarla: en el teléfono abra Ajustes → Ubicación (y en el navegador, el candado junto a la dirección → Permisos → Ubicación → Permitir). Después recargue la app.\n\nSe usa solo mientras la app está abierta, para que la oficina vea dónde va el camión.");
+  else if(UBI.estado==="on")alert("Su ubicación se comparte con la oficina mientras la app está abierta, para coordinar el reparto.\nAl cerrar la app o salir, deja de compartirse.");
+  else ubiIniciar()}
+function ubiEnviar(p,forzar){const c=p.coords,ahora=Date.now();
+  const d=UBI.ult?Math.hypot((c.latitude-UBI.ult[0])*111000,(c.longitude-UBI.ult[1])*93000):1e9;
+  if(!forzar&&ahora-UBI.enviado<30000&&d<80)return;
+  UBI.enviado=ahora;UBI.ult=[c.latitude,c.longitude];
+  api("ubicacion",{lat:c.latitude,lon:c.longitude,prec:Math.round(c.accuracy||0),vel:c.speed!=null?Math.round(c.speed*3.6):null}).catch(()=>{})}
+function ubiIniciar(){if(!S.yo||S.yo.rol!=="chofer"||UBI.watch!=null)return;
+  if(!("geolocation" in navigator)){UBI.estado="neg";return ubiPintar()}
+  UBI.estado="esp";ubiPintar();
+  UBI.watch=navigator.geolocation.watchPosition(p=>{UBI.estado="on";ubiPintar();ubiEnviar(p)},
+    er=>{UBI.estado=er.code===1?"neg":"esp";ubiPintar();if(er.code===1){navigator.geolocation.clearWatch(UBI.watch);UBI.watch=null}},
+    {enableHighAccuracy:true,maximumAge:15000,timeout:30000})}
+function ubiParar(){if(UBI.watch!=null)navigator.geolocation.clearWatch(UBI.watch);UBI.watch=null;UBI.estado="off";UBI.ult=null;ubiPintar()}
+setInterval(()=>{if(S.yo&&S.yo.rol==="chofer"){if(UBI.watch==null&&UBI.estado!=="neg")ubiIniciar()}else if(UBI.watch!=null||UBI.estado!=="off")ubiParar()},3000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&UBI.watch!=null)navigator.geolocation.getCurrentPosition(p=>ubiEnviar(p,true),()=>{},{enableHighAccuracy:true,maximumAge:10000,timeout:20000})});

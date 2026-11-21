@@ -27,6 +27,8 @@ async function navegador() {
 async function entrar(p, H, u = 'matias', c = 'Clave1234') {
   await p.goto(H + '#acceso'); await p.waitForTimeout(900);
   await p.fill('#lg-user', u); await p.fill('#lg-pass', c); await p.click('#form-login button[type=submit]'); await p.waitForTimeout(2300);
+  // si pide aceptar los términos (primera vez del administrador), se aceptan
+  if (await p.$('#term-chk')) { await p.check('#term-chk'); await p.click('#term-btn'); await p.waitForTimeout(800); }
 }
 // Abre Configuraciones → Respaldos y reset (pide la contraseña del administrador)
 async function abrirRespaldos(p, clave = 'Clave1234') {

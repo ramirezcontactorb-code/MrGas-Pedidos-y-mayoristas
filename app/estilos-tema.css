@@ -1199,3 +1199,21 @@ html.ui-compacto .sis .caja{padding:10px 12px}html.ui-compacto .sis td,html.ui-c
 .rl-form{text-align:left;margin-top:14px}.rl-form label{display:block;font-weight:600;font-size:13px;color:var(--t2,#475467)}
 .rl-form input{display:block;width:100%;margin:6px 0 10px;height:40px;border:1px solid #d0d5dd;border-radius:8px;padding:0 10px;font:inherit}.rl-form .btn{width:100%}
 .rl-barra{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#ecfdf3;border:1px solid #abefc6;color:#067647;border-radius:10px;padding:7px 12px;margin:0 0 10px;font-weight:600;font-size:14px}
+
+/* mapa en vivo */
+.mp-g{display:grid;grid-template-columns:280px 1fr;gap:12px;height:calc(100vh - 230px);min-height:420px}
+.mp-lista{overflow:auto;padding:12px}.mp-lista h3{margin:0 0 8px;font-size:15px}
+.mp-g .mp-mapa{padding:0!important;overflow:hidden;display:flex}#mp-mapa{flex:1;width:100%;height:100%;min-height:420px}
+.mp-ch{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:#fff;border:1px solid var(--borde,#e4e8ee);border-radius:10px;padding:8px 10px;margin:0 0 6px;cursor:pointer;font:inherit}
+.mp-ch.sel{border-color:var(--b6,#1a66d6);background:var(--b0,#f5f8ff)}.mp-ch small{display:block;color:#667085;font-size:12px}
+.mp-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;background:#98a2b3}.mp-dot.ok{background:#12b76a}.mp-dot.ojo{background:#f79009}
+.mp-ras{display:flex;align-items:center;gap:6px;font-weight:600;font-size:14px;white-space:nowrap;align-self:center}.mp-sin summary{cursor:pointer;font-weight:600;font-size:13px;margin-top:8px}
+.mp-pin{background:none;border:0}.mp-pin-in{display:flex;align-items:center;gap:4px;background:var(--c);color:#fff;border-radius:999px;padding:3px 9px 3px 6px;font:700 12px system-ui,sans-serif;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.35);transform:translate(0,0)}
+.mp-pin-in.viejo{opacity:.55;filter:grayscale(.6)}
+@media (max-width:760px){.mp-g{grid-template-columns:1fr;height:auto}.mp-lista{max-height:220px}#mp-mapa{height:60vh}}
+
+/* términos */
+.term-caja{background:#fff;border-radius:16px;max-width:480px;width:100%;padding:24px 22px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.term-caja h2{margin:0 0 8px;font-size:20px}.term-caja p{color:#344054;line-height:1.5;margin:0 0 12px}
+.term-ok{display:flex;gap:8px;align-items:flex-start;font-weight:600;font-size:14px;margin:4px 0 14px;cursor:pointer}.term-ok input{margin-top:3px;width:18px;height:18px}
+.term-caja #term-btn{width:100%}.term-caja #term-btn:disabled{opacity:.45;cursor:not-allowed}.foot-mr a{color:inherit;text-decoration:underline}

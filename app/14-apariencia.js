@@ -197,5 +197,67 @@ let respCfg=false,respCfgRevisado=false;
     else if(z&&respCfg&&!document.getElementById("rl-cerrar")){z.insertAdjacentHTML("afterbegin",'<div class="rl-barra"><span>🔓 Respaldos y reset abierto</span><button class="btn chico linea" type="button" id="rl-cerrar">Cerrar con llave</button></div>');
       $("#rl-cerrar").onclick=async()=>{respCfg=false;respCfgRevisado=true;try{if(NUBE.activo)await api("resp_cerrar",{})}catch(e){}pintarSistema()}}}}catch(e){console.error(e)}
   return r}}
+
+/* ===================== MAPA EN VIVO: dónde va cada camión ===================== */
+let mapaCentrado=false,mapaLF=null,mapaCapa=null,mapaDatos=null,mapaRastro=false,mapaTimer=null,mapaSel=null,leafletCargando=null;
+const puedeMapa=()=>!!yo&&(esAdmin()||(yo.rol==="encargado"&&(!Array.isArray(yo.permisos)||["ruta","ruta:ver","choferes","choferes:ver","pedidos"].some(x=>yo.permisos.includes(x)))));
+function cargarLeaflet(){if(window.L&&window.L.map)return Promise.resolve(window.L);if(leafletCargando)return leafletCargando;
+  leafletCargando=new Promise((ok,mal)=>{const c=document.createElement("link");c.rel="stylesheet";c.href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";document.head.appendChild(c);
+    const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";s.onload=()=>ok(window.L);s.onerror=()=>{leafletCargando=null;mal(new Error("No se pudo cargar el mapa. Revise internet."))};document.head.appendChild(s)});
+  return leafletCargando}
+const haceTxt=s=>s<60?"recién":s<3600?`hace ${Math.round(s/60)} min`:`hace ${Math.floor(s/3600)} h ${Math.round(s%3600/60)} min`;
+const frescura=s=>s<180?"ok":s<900?"ojo":"viejo";
+V.mapa=function(){
+  if(!puedeMapa())return cabeza("Mapa en vivo")+'<p class="nota">No tiene permiso para ver el mapa.</p>';
+  if(!NUBE.activo)return cabeza("Mapa en vivo")+'<section class="caja"><p class="nota" style="margin:0">El mapa en vivo funciona con el sistema instalado en el servidor (Hostinger) y los repartidores usando la App repartidores.</p></section>';
+  return cabeza("Mapa en vivo",`<label class="mp-ras"><input type="checkbox" id="mp-ras" ${mapaRastro?"checked":""}> Ver recorrido de hoy</label>`)+
+  `<div class="mp-g"><aside class="caja mp-lista" id="mp-lista"><p class="nota">Cargando…</p></aside><div class="caja mp-mapa"><div id="mp-mapa"></div></div></div>
+  <p class="nota" style="margin:6px 0 0">Se actualiza solo cada 20 segundos. Cada repartidor aparece mientras tiene abierta la App repartidores con la ubicación activada. ● verde: hace menos de 3 min · ● amarillo: menos de 15 min · ● gris: más.</p>`};
+L.mapa=function(){if(!puedeMapa()||!NUBE.activo)return;
+  const r=$("#mp-ras");if(r)r.onchange=()=>{mapaRastro=r.checked;mapaCargar()};
+  mapaLF=null;mapaCentrado=false;cargarLeaflet().then(LF=>{const el=document.getElementById("mp-mapa");if(!el)return;
+    mapaLF=LF.map(el,{zoomControl:true}).setView([-33.45,-70.66],11);
+    LF.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(mapaLF);
+    mapaCapa=LF.layerGroup().addTo(mapaLF);mapaPintar(true)}).catch(e=>{const el=document.getElementById("mp-mapa");if(el)el.innerHTML=`<p class="error" style="padding:16px">${esc(e.message)}</p>`});
+  mapaCargar();clearInterval(mapaTimer);mapaTimer=setInterval(()=>{if(mod!=="mapa"){clearInterval(mapaTimer);mapaTimer=null;return}if(!document.hidden)mapaCargar()},20000)};
+async function mapaCargar(){try{mapaDatos=await api("ubicaciones",null,mapaRastro?"&rastro=1":"")}catch(e){const l=$("#mp-lista");if(l)l.innerHTML=`<p class="error">${esc(e.message)}</p>`;return}mapaPintar(false)}
+function mapaPintar(centrar){const lista=$("#mp-lista");if(!lista||!mapaDatos)return;const U=mapaDatos.ubicaciones||{};
+  const chs=chOrden().filter(c=>c.activo!==false),con=chs.filter(c=>U[c.id]),sin=chs.filter(c=>!U[c.id]);
+  const enRuta=id=>(D.pedidos||[]).filter(p=>p.estado==="ruta"&&String(p.chofer)===String(id)).length;
+  lista.innerHTML=`<h3>Camiones (${con.length} de ${chs.length})</h3>`+(con.length?con.sort((a,b)=>U[a.id].hace-U[b.id].hace).map(c=>{const u=U[c.id];
+    return `<button type="button" class="mp-ch ${String(mapaSel)===String(c.id)?"sel":""}" data-mpch="${esc(c.id)}"><i class="mp-dot ${frescura(u.hace)}"></i><span><b>${esc(c.nombre)}</b><small>${haceTxt(u.hace)}${u.vel!=null?` · ${Math.round(u.vel)} km/h`:""} · ${enRuta(c.id)} en ruta</small></span></button>`}).join(""):'<p class="nota">Ningún repartidor está compartiendo su ubicación ahora.</p>')+
+    (sin.length?`<details class="mp-sin"><summary>Sin ubicación (${sin.length})</summary><p class="nota">${sin.map(c=>esc(c.nombre)).join(", ")}</p><p class="nota">Para aparecer, el repartidor debe abrir la App repartidores y permitir la ubicación.</p></details>`:"");
+  $$("[data-mpch]").forEach(b=>b.onclick=()=>{mapaSel=b.dataset.mpch;const u=U[mapaSel];if(mapaLF&&u)mapaLF.setView([u.lat,u.lon],15);mapaPintar(false)});
+  if(!mapaLF||!mapaCapa)return;const LF=window.L;mapaCapa.clearLayers();const pts=[];
+  con.forEach((c,i)=>{const u=U[c.id],col=["#1a66d6","#12b76a","#f79009","#7a5af8","#e31b54","#0ba5ec","#66c61c","#dd2590"][i%8];
+    if(mapaRastro&&u.rastro&&u.rastro.length>1)LF.polyline(u.rastro,{color:col,weight:4,opacity:.7}).addTo(mapaCapa);
+    (D.pedidos||[]).filter(p=>p.estado==="ruta"&&String(p.chofer)===String(c.id)).forEach(p=>{const g=typeof ubicar==="function"?ubicar(p):null;if(g&&g.lat)LF.circleMarker([g.lat,g.lon],{radius:6,color:col,weight:2,fillColor:"#fff",fillOpacity:1}).bindTooltip(`Pedido N° ${esc(p.id)} · ${esc(p.dir||"")}`).addTo(mapaCapa)});
+    const ic=LF.divIcon({className:"mp-pin",html:`<div class="mp-pin-in ${frescura(u.hace)}" style="--c:${col}"><span>🚚</span><b>${esc(c.nombre.split(" ")[0])}</b></div>`,iconSize:null,iconAnchor:[18,36]});
+    LF.marker([u.lat,u.lon],{icon:ic,zIndexOffset:String(mapaSel)===String(c.id)?1000:0}).bindPopup(`<b>${esc(c.nombre)}</b><br>${haceTxt(u.hace)}${u.prec?` · precisión ±${u.prec} m`:""}<br>${enRuta(c.id)} pedidos en ruta`).addTo(mapaCapa);pts.push([u.lat,u.lon])});
+  mapaLF.invalidateSize();
+  if((centrar||!mapaCentrado)&&pts.length){mapaCentrado=true;mapaLF.fitBounds(pts,{padding:[60,60],maxZoom:15})}}
+/* botón en Asigna Ruta */
+{const l0=L.ruta;L.ruta=function(){const r=l0?l0.apply(this,arguments):undefined;
+  try{if(puedeMapa()&&!document.getElementById("b-mapa")){const c=document.querySelector(".cab-mod");if(c){c.insertAdjacentHTML("beforeend",'<button class="btn" type="button" id="b-mapa">🗺 Mapa en vivo</button>');$("#b-mapa").onclick=()=>ir("mapa")}}}catch(e){}return r}}
+
+/* ===================== TÉRMINOS DE USO Y PRIVACIDAD: el administrador los acepta una vez (y de nuevo si cambian) ===================== */
+let termRevisado=false;
+function termModal(v){if(document.getElementById("term-dl"))return;
+  document.body.insertAdjacentHTML("beforeend",`<div class="lic-pausa" id="term-dl" role="dialog" aria-modal="true" aria-labelledby="term-tit"><div class="term-caja">
+    <h2 id="term-tit">Términos de uso y privacidad</h2>
+    <p>Antes de seguir, lea los <b>Términos de uso</b> y la <b>Política de privacidad</b> del sistema. Explican qué datos se guardan (incluida la ubicación de los repartidores), para qué se usan y quién es responsable.</p>
+    <p><a class="btn linea" href="terminos/" target="_blank" rel="noopener">Leer términos y privacidad ↗</a></p>
+    <label class="term-ok"><input type="checkbox" id="term-chk"> Leí y acepto los Términos de uso y la Política de privacidad en nombre de la empresa.</label>
+    <p class="error" id="term-err" hidden></p>
+    <button class="btn" type="button" id="term-btn" disabled>Aceptar y continuar</button></div></div>`);
+  const ch=$("#term-chk"),bt=$("#term-btn");ch.onchange=()=>bt.disabled=!ch.checked;
+  bt.onclick=async()=>{bt.disabled=true;try{await api("terminos_aceptar",{version:v});log("sistema","Aceptó términos de uso y privacidad","versión "+v);guardar();document.getElementById("term-dl").remove()}
+    catch(e){const er=$("#term-err");er.textContent=e.message;er.hidden=false;bt.disabled=false}}}
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);
+  try{if(yo&&esAdmin()&&NUBE.activo&&!termRevisado){termRevisado=true;api("terminos").then(j=>{if(!j.aceptado&&yo&&esAdmin())termModal(j.version)}).catch(()=>{termRevisado=false})}}catch(e){}
+  return r}}
+{const s0=salir;salir=function(){termRevisado=false;const d=document.getElementById("term-dl");if(d)d.remove();return s0.apply(this,arguments)}}
+/* enlace en la pantalla de ingreso */
+{const fl=document.getElementById("form-login");if(fl&&!document.getElementById("lg-term"))fl.insertAdjacentHTML("afterend",'<p class="lg-dev" id="lg-term"><a href="terminos/" target="_blank" rel="noopener">Términos de uso y privacidad</a></p>')}
 /* botones de imprimir (sin código en el HTML, para la protección del navegador) */
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-imprimir]"))window.print()});

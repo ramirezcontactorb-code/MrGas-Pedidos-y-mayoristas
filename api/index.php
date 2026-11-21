@@ -6,6 +6,9 @@ require __DIR__ . '/push.php';
 require __DIR__ . '/diaria.php';
 require __DIR__ . '/respaldo.php';
 require __DIR__ . '/licencia.php';
+require __DIR__ . '/ubicacion.php';
+// Versión de los Términos de uso y la Política de privacidad (terminos/). Si cambia, el administrador debe aceptarlos de nuevo.
+const TERMINOS_VERSION = '2026-11-21';
 date_default_timezone_set('America/Santiago');
 iniciarSesion();
 
@@ -424,6 +427,25 @@ try {
     }
     case 'resp_cerrar': {
         requiereYo(); unset($_SESSION['resp_cfg']); salida(['ok' => true]);
+    }
+    // ---------- ubicación de los camiones ----------
+    case 'ubicacion': {
+        $u = requiereYo(); salida(grabarUbicacion($u, cuerpo()));
+    }
+    case 'ubicaciones': {
+        $u = requiereYo(); if (!puedeVerMapa($u)) salida(['error' => 'Sin permiso para ver el mapa.'], 403);
+        salida(listaUbicaciones($u, !empty($_GET['rastro'])));
+    }
+    // ---------- términos de uso y privacidad ----------
+    case 'terminos': {
+        requiereYo(); asegurarPush(); $a0 = json_decode((string) ajuste('terminos'), true);
+        salida(['version' => TERMINOS_VERSION, 'aceptado' => is_array($a0) && ($a0['version'] ?? '') === TERMINOS_VERSION, 'info' => is_array($a0) ? $a0 : null]);
+    }
+    case 'terminos_aceptar': {
+        $u = requiereAdmin(); asegurarPush();
+        if ((cuerpo()['version'] ?? '') !== TERMINOS_VERSION) salida(['error' => 'Los términos cambiaron. Recargue la página.'], 409);
+        grabarAjuste('terminos', json_encode(['version' => TERMINOS_VERSION, 'por' => $u['nombre'], 'uid' => $u['uid'], 'fecha' => date('Y-m-d H:i'), 'ip' => ip()], JSON_UNESCAPED_UNICODE));
+        salida(['ok' => true]);
     }
     case 'drive_estado': {
         $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403); exigirRespCfg();

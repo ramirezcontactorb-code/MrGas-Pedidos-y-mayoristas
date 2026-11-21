@@ -26,11 +26,13 @@ curl -s -o /dev/null -d "paso=2&user=cliente&nombre=Cliente&pass=Clave1234" http
 export MRGAS_PRUEBA_DIR="$T" MRGAS_REPO="$R"
 FALLAS=0; TOTAL=0
 correr() { TOTAL=$((TOTAL+1)); echo; echo "▶ $1"; if "${@:2}"; then echo "  ✔ $1"; else echo "  ✘ FALLÓ: $1"; FALLAS=$((FALLAS+1)); fi; }
+correr "Términos de uso y privacidad"     node "$R/pruebas/terminos.js"
 correr "Permisos del servidor"            php "$R/pruebas/permisos.php" "$T/a/public_html"
 correr "Todas las pantallas (PC y celular)" node "$R/pruebas/pantallas.js"
 correr "Protección del navegador (CSP)"   node "$R/pruebas/proteccion.js"
 correr "Venta Local: vender y navegar"    node "$R/pruebas/venta-local.js"
 correr "Informe comparar meses"           node "$R/pruebas/comparar.js"
+correr "Mapa en vivo de camiones"        node "$R/pruebas/mapa.js"
 correr "Respaldos y reset con contraseña" node "$R/pruebas/respaldos-clave.js"
 correr "Respaldo a Google Drive"          node "$R/pruebas/drive.js"
 correr "Panel del dueño y licencias"      node "$R/pruebas/dueno.js"

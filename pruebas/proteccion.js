@@ -3,7 +3,7 @@ const {A, ok, navegador, entrar, fin} = require('./comun');
 const fs = require('fs'), path = require('path'), {REPO} = require('./comun');
 (async () => {
   // 1) ningún HTML del sitio tiene código escrito adentro
-  const html = ['index.html', 'local/index.html', 'repartidores/index.html', 'dueno/index.html', 'distribucion/index.html'];
+  const html = ['index.html', 'local/index.html', 'repartidores/index.html', 'dueno/index.html', 'distribucion/index.html', 'terminos/index.html'];
   for (const f of html) {
     const s = fs.readFileSync(path.join(REPO, f), 'utf8');
     ok(!/<script>/.test(s) && !/\son[a-z]+="/.test(s), f + ': sin código dentro del HTML');
