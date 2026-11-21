@@ -1,0 +1,23 @@
+{
+ "_nota": "Lista única de permisos. La usan el servidor (api/nucleo.php) y la pantalla (se copia al armar app/02-iconos.js). Si cambia algo aquí, se cumple en los dos lados.",
+ "modulos": ["pedidos", "ruta", "choferes", "sectorizar", "mayorista", "ventachofer", "cuadratura", "bodega", "compras", "facturas", "informes"
+],
+ "acciones": [["Pedidos", [["pedidos.anular", "Anular pedidos"]]], ["Venta Choferes", [["vc.anular", "Anular ventas del chofer"], ["vc.descuento", "Dar descuentos"], ["rend.historico", "Editar rendiciones de días pasados"]]], ["Venta Mayorista", [["may.anular", "Anular ventas mayoristas"], ["may.descuento", "Dar descuentos"]]], ["Control de Bodega", [["bodega.editar", "Editar stock de bodega"]]], ["Configuraciones", [["cfg.precios", "Precio Domicilio"], ["cfg.preciosMay", "Precios Mayoristas"], ["cfg.envases", "Precio Envases"], ["cfg.comVale", "Comisión Vales"], ["cfg.clientes", "Clientes mayoristas"], ["cfg.choferes", "Choferes y móviles"], ["cfg.historial", "Ver historial de precios y cambios"]]]
+],
+ "apps": [["app.repartidores", "App repartidores (oficina)"], ["app.local", "Venta Local"]
+],
+ "antes": { "cfg.preciosMay": "cfg.precios", "cfg.envases": "cfg.precios", "cfg.comVale": "cfg.precios", "cfg.historial": "cfg.precios", "vc.anular": "ventachofer", "vc.descuento": "ventachofer", "may.anular": "mayorista", "may.descuento": "mayorista", "bodega.editar": "bodega"
+ },
+ "antiguos": ["pedidos.anular", "vc.anular", "vc.descuento", "may.anular", "may.descuento", "bodega.editar"
+],
+ "colecciones": { "rendiciones": ["cuadratura", "ventachofer", "mayorista"], "cargas": ["cuadratura", "ventachofer"], "cargasDist": ["cuadratura", "mayorista"], "anticipos": ["cuadratura", "ventachofer"], "peonetas": ["cuadratura", "ventachofer"], "ventas": ["caja", "cuadratura"], "gastos": ["caja", "cuadratura"], "ventasAnuladas": ["caja", "cuadratura"], "movimientos": ["compras", "bodega"], "recuentos": ["bodega"], "pedidos": ["pedidos", "ruta", "chofer", "app.repartidores", "facturas"], "facturas": ["facturas", "pedidos"], "empresas": ["facturas", "pedidos"], "reparto": ["mayorista", "ruta", "pedidos", "app.repartidores"], "camiones": ["mayorista", "ruta"], "clientes": ["pedidos", "ruta"], "petroleo": ["petroleo", "cuadratura"]
+ },
+ "precios": ["precios", "preciosMayor", "preciosEnvase", "preciosConvenio", "listas", "historico", "listasMay", "comisionVale", "descQR"
+],
+ "preciosNecesita": { "preciosMayor": ["cfg.preciosMay"], "listasMay": ["cfg.preciosMay"], "preciosEnvase": ["cfg.envases"], "comisionVale": ["cfg.comVale"], "historico": ["cfg.precios", "cfg.preciosMay", "cfg.envases", "cfg.comVale"], "*": ["cfg.precios"]
+ },
+ "pantallasConfig": { "choferes": "cfg.choferes", "clientesMay": "cfg.clientes", "precios": "cfg.precios", "envases": "cfg.envases", "preciosMay": "cfg.preciosMay", "comVale": "cfg.comVale", "descQR": "cfg.precios", "histPrecios": "cfg.historial", "histCambios": "cfg.historial"
+ },
+ "plantillas": [["Telefonista", ["pedidos", "ruta:ver", "app.repartidores"]], ["Despachador", ["pedidos", "pedidos.anular", "ruta", "choferes", "sectorizar", "informes:ver", "app.repartidores"]], ["Cajero / cuadratura", ["pedidos:ver", "ruta:ver", "ventachofer", "cuadratura", "mayorista", "informes", "vc.anular", "vc.descuento", "may.anular", "may.descuento"]], ["Vendedor mayorista", ["mayorista", "informes:ver", "cfg.clientes", "may.descuento"]], ["Bodeguero", ["ruta:ver", "bodega", "compras", "bodega.editar"]], ["Supervisor", ["pedidos", "pedidos.anular", "ruta", "choferes", "sectorizar", "mayorista", "ventachofer", "cuadratura", "bodega", "compras", "informes", "cfg.choferes", "cfg.clientes", "app.repartidores", "vc.anular", "vc.descuento", "may.anular", "may.descuento", "bodega.editar", "cfg.historial"]]
+]
+}

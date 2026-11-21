@@ -7,14 +7,13 @@ const COLS_PERMITIDAS = ['facturas','empresas','pedidos','bitacora','ventas','ga
 // Documentos de "estado" que solo cambia el administrador
 const ESTADO_SOLO_ADMIN = ['apariencia','precios','preciosMayor','preciosEnvase','preciosConvenio','listas','empresa','comisiones','historico','listasMay','comisionVale','descQR'];
 // De esos, los precios también los puede cambiar un encargado con el permiso «cfg.precios»
-const ESTADO_PRECIOS = ['precios','preciosMayor','preciosEnvase','preciosConvenio','listas','historico','listasMay','comisionVale','descQR'];
-// Cuadro (permiso) que necesita un encargado para escribir en cada colección
-const PERMISO_COL = [
-    'rendiciones' => ['cuadratura','ventachofer','mayorista'], 'cargas' => ['cuadratura','ventachofer'], 'cargasDist' => ['cuadratura','mayorista'], 'anticipos' => ['cuadratura','ventachofer'], 'peonetas' => ['cuadratura','ventachofer'],
-    'ventas' => ['caja','cuadratura'], 'gastos' => ['caja','cuadratura'], 'ventasAnuladas' => ['caja','cuadratura'],
-    'movimientos' => ['compras','bodega'], 'recuentos' => ['bodega'],
-    'pedidos' => ['pedidos','ruta','chofer','app.repartidores','facturas'], 'facturas' => ['facturas','pedidos'], 'empresas' => ['facturas','pedidos'], 'reparto' => ['mayorista','ruta','pedidos','app.repartidores'], 'camiones' => ['mayorista','ruta'], 'clientes' => ['pedidos','ruta'], 'petroleo' => ['petroleo','cuadratura'],
-];
+
+// Permisos: una sola lista para el servidor y la pantalla (api/permisos.json)
+function permisos(): array {
+    static $p = null;
+    if ($p === null) { $p = json_decode((string) @file_get_contents(__DIR__ . '/permisos.json'), true); if (!is_array($p)) salida(['error' => 'Falta api/permisos.json'], 503); }
+    return $p;
+}
 
 // Dónde buscar la configuración. Lo recomendado es FUERA de public_html (un nivel arriba),
 // porque cada implementación desde GitHub reemplaza public_html y borraría api/config.php.
@@ -189,10 +188,10 @@ function claveDebil(string $c): ?string {
 function permExtra(array $u, string $c): bool {
     if ($u['rol'] === 'admin') return true;
     $p = $u['permisos']; if (!is_array($p)) return true;
-    if (!in_array('_v2', $p, true)) return $c === 'pedidos.anular' || in_array($c, ['vc.anular', 'vc.descuento', 'may.anular', 'may.descuento', 'bodega.editar'], true);
+    if (!in_array('_v2', $p, true)) return in_array($c, permisos()['antiguos'], true);
     if (in_array($c, $p, true)) return true;
     if (in_array('_v3', $p, true)) return false;
-    $antes = ['vc.anular' => 'ventachofer', 'vc.descuento' => 'ventachofer', 'may.anular' => 'mayorista', 'may.descuento' => 'mayorista', 'bodega.editar' => 'bodega'];
+    $antes = permisos()['antes'];
     return isset($antes[$c]) && in_array($antes[$c], $p, true);
 }
 // Revisa en el servidor las acciones que piden permiso especial (anular y dar descuentos)
@@ -223,8 +222,9 @@ function exigirEncabezado(): void { if (($_SERVER['HTTP_X_MRGAS'] ?? '') !== '1'
 function sucs(array $u): array { return $u['sucursales'] ?: ($u['local'] !== null ? [$u['local']] : []); }
 function tienePermiso(array $u, string $col): bool {
     if ($u['rol'] === 'admin') return true;
-    if (!isset(PERMISO_COL[$col]) || $u['permisos'] === null) return true;
-    return (bool) array_intersect(PERMISO_COL[$col], $u['permisos']);
+    $col2 = permisos()['colecciones'];
+    if (!isset($col2[$col]) || $u['permisos'] === null) return true;
+    return (bool) array_intersect($col2[$col], $u['permisos']);
 }
 // Datos que se guardan aparte para filtrar rápido
 function meta(string $col, string $id, array $d): array {
@@ -272,10 +272,9 @@ function puedeEscribir(array $u, string $col, string $id, array $m, ?array $nuev
     // encargado
     if ($col === 'estado') {
         if (in_array($id, ESTADO_SOLO_ADMIN, true)) {
-            if (!in_array($id, ESTADO_PRECIOS, true) || !is_array($u['permisos'])) return false;
+            if (!in_array($id, permisos()['precios'], true) || !is_array($u['permisos'])) return false;
             $p = $u['permisos'];
-            $necesita = ['preciosMayor' => ['cfg.preciosMay'], 'listasMay' => ['cfg.preciosMay'], 'preciosEnvase' => ['cfg.envases'], 'comisionVale' => ['cfg.comVale'],
-                'historico' => ['cfg.precios', 'cfg.preciosMay', 'cfg.envases', 'cfg.comVale']][$id] ?? ['cfg.precios'];
+            $nec = permisos()['preciosNecesita']; $necesita = $nec[$id] ?? $nec['*'];
             if (array_intersect($necesita, $p)) return true;
             return !in_array('_v3', $p, true) && in_array('cfg.precios', $p, true); // usuarios de antes: cfg.precios servía para todos los precios
         }

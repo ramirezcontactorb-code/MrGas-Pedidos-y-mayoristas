@@ -1,0 +1,12 @@
+FUENTES DEL PANEL GENERAL Y VENTA LOCAL (no se publican en la web: fuente/ está bloqueada en .htaccess)
+
+  cabeza.html   primera parte de la página (encabezado, portal, login)
+  tail.html     resto del Panel General (pantallas, código y estilos)
+  build.py      arma el Panel: python3 build.py <carpeta-fuente> <carpeta-sitio>
+  partir.py     lo usa build.py: separa el código en app/*.js y app/*.css
+  mklocal.py    arma local/index.html desde venta-local-original.html
+
+Permisos: la lista única está en api/permisos.json. El servidor la lee directo y
+build.py la copia dentro de app/02-iconos.js. Si cambia la lista, vuelva a armar.
+
+Después de armar, suba el número VERSION en sw.js.
