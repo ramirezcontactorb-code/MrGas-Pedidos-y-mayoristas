@@ -7,6 +7,7 @@ declare(strict_types=1);
 require dirname(__DIR__, 2) . '/api/nucleo.php';
 require dirname(__DIR__, 2) . '/api/push.php';
 require dirname(__DIR__, 2) . '/api/diaria.php';
+require dirname(__DIR__, 2) . '/api/licencia.php';
 date_default_timezone_set('America/Santiago');
 iniciarSesion();
 
@@ -95,6 +96,7 @@ $marca = fn($v) => str_pad((string) $v, 16, '0', STR_PAD_LEFT); // "updated_at" 
 try {
     tablaLocal();
     $a = $_GET['a'] ?? '';
+    licExigir(); // servicio pausado por el dueño
     if ($a === 'estado') { $q = quien(); salida(['quien' => $q ? ['modo' => $q['modo'], 'perfil' => $q['perfil']] : null, 'sucursales' => sucursalesLocal()]); }
     if ($a === 'clave' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $q = quien(); if (!$q) salida(['error' => 'Sesión vencida.'], 401);

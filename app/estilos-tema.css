@@ -1176,3 +1176,20 @@ html.ui-oscuro{filter:invert(.9) hue-rotate(180deg);background:#111}
 html.ui-oscuro img,html.ui-oscuro video,html.ui-oscuro .vc-img,html.ui-oscuro .cilb,html.ui-oscuro iframe{filter:invert(1) hue-rotate(180deg)}
 html.ui-amplio .sis .btn{min-height:44px}html.ui-amplio .sis input,html.ui-amplio .sis select{min-height:42px}html.ui-amplio .sis td{padding-top:9px;padding-bottom:9px}
 html.ui-compacto .sis .caja{padding:10px 12px}html.ui-compacto .sis td,html.ui-compacto .sis th{padding-top:3px;padding-bottom:3px}html.ui-compacto .sis .modulos{gap:8px!important}
+
+/* comparar meses */
+.cmp-v{display:block;font-size:12px;font-weight:600;margin-top:2px}.cmp-v.sube{color:#067647}.cmp-v.baja{color:#b42318}
+.res-t td.verde{color:#067647;font-weight:600}.res-t td.rojo{color:#b42318;font-weight:600}
+.res-top:has(#cmp-mes){display:flex;flex-wrap:wrap;align-items:center;gap:10px}#cmp-mes{width:190px!important;flex:0 0 auto;height:34px;border:1px solid var(--borde,#d0d5dd);border-radius:8px;padding:0 8px;font:inherit}
+
+/* copia en Google Drive */
+.rb-drive{border:1px solid var(--borde,#e4e8ee);border-radius:12px;padding:12px 14px;margin:12px 0;background:#fbfcfe}
+.gd-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.gd-est{font-size:12px;font-weight:700;color:#b54708}.gd-est.ok{color:#067647}
+.gd-g{margin:10px 0 8px}.rb-drive code{word-break:break-all}
+
+/* licencia */
+.lic-pausa{position:fixed;inset:0;z-index:9999;background:rgba(10,20,40,.72);display:grid;place-items:center;padding:16px}
+.lic-pausa>div{background:#fff;border-radius:16px;max-width:420px;width:100%;padding:28px 24px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.lic-pausa h2{margin:6px 0 8px;font-size:22px}.lic-pausa p{margin:0 0 10px;color:#344054;line-height:1.5}.lic-ico{font-size:34px}
+.lic-aviso{display:flex;align-items:center;gap:10px;justify-content:space-between;background:#fffaeb;border:1px solid #fedf89;color:#93370d;border-radius:10px;padding:9px 12px;margin:0 0 10px;font-weight:600;font-size:14px}
+.lic-aviso.vencido{background:#fef3f2;border-color:#fecdca;color:#b42318}.lic-aviso .x{background:none;border:0;font-size:16px;cursor:pointer;color:inherit}

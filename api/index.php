@@ -5,6 +5,7 @@ require __DIR__ . '/nucleo.php';
 require __DIR__ . '/push.php';
 require __DIR__ . '/diaria.php';
 require __DIR__ . '/respaldo.php';
+require __DIR__ . '/licencia.php';
 date_default_timezone_set('America/Santiago');
 iniciarSesion();
 
@@ -12,6 +13,8 @@ function puedeRespaldos(array $u): bool { return $u['rol'] === 'admin' && ($u['p
 $a = $_GET['a'] ?? '';
 try {
     if ($a !== 'ping' && $_SERVER['REQUEST_METHOD'] === 'POST') exigirEncabezado();
+    // servicio pausado por el dueño: solo se puede entrar, salir y ver el aviso
+    if (!in_array($a, ['ping', 'apariencia', 'login', 'salir', 'yo'], true)) licExigir();
     switch ($a) {
 
     // Marca de la empresa (nombre, color, logo y fondo): se muestra también en el inicio, antes de entrar
@@ -51,7 +54,8 @@ try {
         cookieSesion($_SESSION['larga'] ? finDelDia() : 0);
         db()->prepare('DELETE FROM intentos WHERE ip = ? AND tipo = ?')->execute([substr('u:' . $usr, 0, 45), 'login-u']);
         yo();
-        salida(['ok' => true, 'perfil' => perfilDe($u)]);
+        $lic = null; try { $lic = licPublica(licRevisar()); } catch (Throwable $e) {}
+        salida(['ok' => true, 'perfil' => perfilDe($u), 'licencia' => $lic]);
     }
     case 'salir':
         if (!empty($_SESSION['uid'])) try { db()->prepare('DELETE FROM presencia WHERE uid = ?')->execute([(int) $_SESSION['uid']]); } catch (Throwable $e) {}
@@ -106,8 +110,11 @@ try {
         salida(['conectados' => array_map(fn($r) => ['uid' => (int) $r['uid'], 'nombre' => $r['nombre'], 'user' => $r['usuario'], 'rol' => $r['rol'],
             'app' => $r['app'], 'ip' => $r['ip'], 'hace' => time() - (int) $r['t']], $s->fetchAll())]);
     }
-    case 'yo':
-        salida(['perfil' => yo()]);
+    case 'yo': {
+        $p = yo(); $lic = null;
+        if ($p) { try { $lic = licPublica(licRevisar()); } catch (Throwable $e) { $lic = licPublica(licEstado()); } }
+        salida(['perfil' => $p, 'licencia' => $lic]);
+    }
     case 'clave': {
         $u = requiereYo(); $b = cuerpo();
         if (esDiaria($u)) salida(['error' => 'Su clave cambia sola cada día. Pídale la clave de hoy al encargado.'], 400);
@@ -400,6 +407,49 @@ try {
         $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
         $ruta = archivoRespaldoValido((string) (cuerpo()['f'] ?? '')); if (!$ruta) salida(['error' => 'Ese respaldo no existe.'], 404);
         @unlink($ruta); salida(['ok' => true]);
+    }
+    // ---------- Google Drive (copia de los respaldos) ----------
+    case 'drive_estado': {
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        asegurarPush(); salida(gdEstado() + ['vuelta' => gdUrlVuelta()]);
+    }
+    case 'drive_config': {
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        asegurarPush(); $b = cuerpo();
+        $cl = trim((string) ($b['cliente'] ?? '')); $se = trim((string) ($b['secreto'] ?? ''));
+        if (!preg_match('/^[0-9A-Za-z\-_.]+\.apps\.googleusercontent\.com$/', $cl)) salida(['error' => 'El «ID de cliente» no parece válido (termina en .apps.googleusercontent.com).'], 400);
+        if (strlen($se) < 10 || strlen($se) > 200) salida(['error' => 'Falta el «Secreto del cliente».'], 400);
+        db()->prepare("DELETE FROM ajustes WHERE SUBSTR(k, 1, 3) = 'gd_'")->execute();
+        grabarAjuste('gd_cliente', $cl); grabarAjuste('gd_secreto', $se);
+        salida(['ok' => true]);
+    }
+    case 'drive_conectar': {
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        asegurarPush(); if (!ajuste('gd_cliente')) salida(['error' => 'Primero guarde el ID y el secreto del cliente.'], 400);
+        salida(['url' => gdUrlPermiso()]);
+    }
+    case 'drive_vuelta': {
+        // Google vuelve aquí después de que el dueño da el permiso
+        $u = yo(); $volver = '../?drive=';
+        if (!$u || !puedeRespaldos($u)) { header('Location: ' . $volver . 'sesion#acceso'); exit; }
+        if (!empty($_GET['error'])) { header('Location: ' . $volver . 'cancelado#panel'); exit; }
+        $est = (string) ($_SESSION['gd_estado'] ?? ''); unset($_SESSION['gd_estado']);
+        if ($est === '' || !hash_equals($est, (string) ($_GET['state'] ?? ''))) { header('Location: ' . $volver . 'error#panel'); exit; }
+        asegurarPush();
+        try { gdRecibirCodigo((string) ($_GET['code'] ?? '')); header('Location: ' . $volver . 'ok#panel'); }
+        catch (Throwable $e) { grabarAjuste('gd_error', date('Y-m-d H:i') . ' · ' . mb_substr($e->getMessage(), 0, 300)); header('Location: ' . $volver . 'error#panel'); }
+        exit;
+    }
+    case 'drive_subir': {
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        asegurarPush(); @set_time_limit(600);
+        $r = crearRespaldo(dirRespaldos() . '/' . nombreRespaldo('manual'), $u['nombre']);
+        try { salida(gdSubir(dirRespaldos() . '/' . $r['archivo'], (int) (ajuste('resp_guardar') ?? 14))); }
+        catch (Throwable $e) { salida(['error' => $e->getMessage()], 502); }
+    }
+    case 'drive_quitar': {
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        asegurarPush(); db()->prepare("DELETE FROM ajustes WHERE SUBSTR(k, 1, 3) = 'gd_'")->execute(); salida(['ok' => true]);
     }
     case 'respaldo_restaurar': {
         $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);

@@ -1,0 +1,6 @@
+{
+  "name": "mrgas-pruebas",
+  "private": true,
+  "description": "Pruebas automáticas de MR Gas (bash pruebas/correr.sh)",
+  "dependencies": { "playwright": "1.63.0" }
+}

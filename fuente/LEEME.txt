@@ -5,8 +5,13 @@ FUENTES DEL PANEL GENERAL Y VENTA LOCAL (no se publican en la web: fuente/ está
   build.py      arma el Panel: python3 build.py <carpeta-fuente> <carpeta-sitio>
   partir.py     lo usa build.py: separa el código en app/*.js y app/*.css
   mklocal.py    arma local/index.html desde venta-local-original.html
+  sincodigo.py  lo usa mklocal.py: saca el código del HTML de Venta Local (local/app.js y local/acciones.js)
 
 Permisos: la lista única está en api/permisos.json. El servidor la lee directo y
 build.py la copia dentro de app/02-iconos.js. Si cambia la lista, vuelva a armar.
 
-Después de armar, suba el número VERSION en sw.js.
+Después de armar, suba el número VERSION en sw.js y MRGAS_VERSION en api/nucleo.php.
+
+PRUEBAS AUTOMÁTICAS
+  bash pruebas/correr.sh   (en su computador: necesita php, node y playwright)
+  En GitHub corren solas en cada subida (pestaña «Actions»): verde = todo bien.

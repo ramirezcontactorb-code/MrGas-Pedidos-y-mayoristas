@@ -175,4 +175,12 @@ rep("${MY?secAbonos():''}","")
 import re as _re
 s=_re.sub(r'<link rel="icon"[^>]*>','<link rel="icon" type="image/png" sizes="192x192" href="../icons/icon-192.png">',s,count=1)
 s=_re.sub(r'<link rel="apple-touch-icon"[^>]*>','<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">',s,count=1)
-open(sys.argv[1],'w',encoding='utf-8').write(s);print('ok',len(s))
+# sin código dentro del HTML (protección fuerte del navegador)
+_x='onclick="${v===\'inf\'?\'abrirInf()\':`go(\'${v}\')`}"'
+assert s.count(_x)==1,'boton inf'
+s=s.replace(_x,'onclick="\'${v}\'===\'inf\'?abrirInf():go(\'${v}\')"')
+import os as _os
+sys.path.insert(0,_os.path.dirname(_os.path.abspath(__file__)))
+from sincodigo import sin_codigo
+s,_nh=sin_codigo(s,_os.path.dirname(_os.path.abspath(sys.argv[1])))
+open(sys.argv[1],'w',encoding='utf-8').write(s);print('ok',len(s),'| acciones',_nh)

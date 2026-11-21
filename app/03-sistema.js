@@ -155,7 +155,7 @@ function vistaRend(r,fechaSel){
   </aside></div></fieldset>`;
 }
 
-function tabsInf(){return `<div class="tabs" role="tablist">${[["resumen","Resumen"],["catalogo","Informes"],...(esAdmin()&&NUBE.activo?[["vlocal","Informe Venta Local"]]:[]),["diario","Registro diario del mes"]].map(([k,v])=>`<button type="button" role="tab" data-itab="${k}" aria-selected="${infTab===k}">${v}</button>`).join("")}</div>`}
+function tabsInf(){return `<div class="tabs" role="tablist">${[["resumen","Resumen"],["comparar","Comparar meses"],["catalogo","Informes"],...(esAdmin()&&NUBE.activo?[["vlocal","Informe Venta Local"]]:[]),["diario","Registro diario del mes"]].map(([k,v])=>`<button type="button" role="tab" data-itab="${k}" aria-selected="${infTab===k}">${v}</button>`).join("")}</div>`}
 const Gr=(arr,k)=>arr.reduce((m,x)=>{const key=k(x);(m[key]=m[key]||[]).push(x);return m},{});
 const itsDe=ps=>ps.flatMap(items);
 const uniDe=its=>its.reduce((s,i)=>s+(i.cant||0),0);

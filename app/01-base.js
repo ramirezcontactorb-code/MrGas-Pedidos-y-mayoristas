@@ -167,7 +167,7 @@ async function api(a,body,q=""){
   const r=await fetch(`${API_URL}?a=${a}${q}`,{method:body?"POST":"GET",credentials:"same-origin",cache:"no-store",
     headers:body?{"Content-Type":"application/json","X-MRGas":"1"}:{},body:body?JSON.stringify(body):undefined});
   let j=null;try{j=await r.json()}catch(e){}
-  if(!r.ok||!j){const e=new Error((j&&j.error)||"No hay conexión con el servidor.");e.status=r.status;throw e}
+  if(!r.ok||!j){const e=new Error((j&&j.error)||"No hay conexión con el servidor.");e.status=r.status;if(r.status===402&&j&&j.pausado&&typeof licUI==="function")licUI({estado:"pausado",mensaje:j.error});throw e}
   return j}
 async function iniciarNube(){
   if(!/^https?:$/.test(location.protocol))return;
@@ -318,7 +318,7 @@ function fechaMasAntigua(){
 /* ---- sesión con el servidor ---- */
 async function loginNube(){
   const err=$("#lg-error"),btn=$("#form-login button[type=submit]");err.hidden=true;btn.disabled=true;
-  try{const r=await api("login",{user:$("#lg-user").value.trim().toLowerCase(),pass:$("#lg-pass").value,app:"erp"});
+  try{const r=await api("login",{user:$("#lg-user").value.trim().toLowerCase(),pass:$("#lg-pass").value,app:"erp"});if(r.licencia&&typeof licUI==="function")setTimeout(()=>licUI(r.licencia),50);
     $("#form-login").reset();await entrarComo(r.perfil)}
   catch(e){err.textContent=e.status===401||e.status===403||e.status===429?e.message:"No hay conexión con el servidor. Revise internet y vuelva a intentar.";err.hidden=false}
   finally{btn.disabled=false}}
@@ -333,7 +333,7 @@ async function entrarComo(p){
   if(/[?&]volver=local\b/.test(location.search)){location.href="local/";return}
   location.hash="panel";if(location.hash==="#panel")pintarSistema()}
 async function sesionNube(){
-  try{const r=await api("yo");if(r.perfil){yo={...r.perfil,uid:String(r.perfil.uid)};
+  try{const r=await api("yo");if(r.perfil&&typeof licUI==="function")licUI(r.licencia);if(r.perfil){yo={...r.perfil,uid:String(r.perfil.uid)};
     try{const s=JSON.parse(sessionStorage.getItem("gdm_sesion")||"null");if(s&&s.suc)suc=s.suc}catch(e){}
     if(!suc)suc=(yo.sucursales&&yo.sucursales[0])||yo.local||(loc(D.ultimaSuc)?D.ultimaSuc:D.locales[0].id);if(yo.rol==="chofer")mod="chofer";
     await iniciarEscuchas()}}

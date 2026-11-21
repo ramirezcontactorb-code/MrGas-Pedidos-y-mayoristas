@@ -3,6 +3,8 @@
 // Se guardan comprimidos FUERA de public_html, en la carpeta «mrgas-respaldos», para que nadie los pueda descargar por internet.
 declare(strict_types=1);
 
+require_once __DIR__ . '/gdrive.php';
+
 const RESP_TABLAS = ['usuarios', 'docs', 'contadores', 'ajustes', 'push_subs', 'local_docs'];
 
 function dirRespaldos(): string {
@@ -23,7 +25,8 @@ function crearRespaldo(string $ruta, string $quien): array {
     foreach (RESP_TABLAS as $t) {
         if (!in_array($t, $hay, true)) continue;
         gzwrite($gz, ($primera ? '' : ',') . json_encode($t) . ':['); $primera = false;
-        $s = db()->query("SELECT * FROM $t"); $i = 0;
+        // la conexión con Google Drive (gd_*) y el estado de la licencia (lic_*) no viajan dentro del respaldo
+        $s = db()->query("SELECT * FROM $t" . ($t === 'ajustes' ? " WHERE SUBSTR(k, 1, 3) <> 'gd_' AND SUBSTR(k, 1, 4) <> 'lic_'" : '')); $i = 0;
         while ($r = $s->fetch(PDO::FETCH_ASSOC)) { gzwrite($gz, ($i++ ? ',' : '') . json_encode($r, JSON_UNESCAPED_UNICODE)); $filas++; }
         gzwrite($gz, ']');
     }
@@ -57,6 +60,8 @@ function hacerRespaldoAuto(string $quien = 'Automático'): array {
     $r = crearRespaldo(dirRespaldos() . '/' . nombreRespaldo('auto'), $quien);
     grabarAjuste('resp_ultimo', (string) time());
     podarRespaldos((int) (ajuste('resp_guardar') ?? 14));
+    // copia en Google Drive, si está conectado (si falla, el respaldo local igual queda hecho)
+    if (ajuste('gd_refresh')) { try { $r['drive'] = gdSubir(dirRespaldos() . '/' . $r['archivo'], (int) (ajuste('resp_guardar') ?? 14)); } catch (Throwable $e) { $r['drive_error'] = $e->getMessage(); } }
     return $r;
 }
 // Restaura un respaldo: reemplaza todo el contenido de las tablas que trae
@@ -75,8 +80,9 @@ function restaurarRespaldo(string $ruta): array {
             if (!isset($j['tablas'][$t]) || !in_array($t, $hay, true)) continue;
             $cols = array_keys((array) ($p->query("SELECT * FROM $t LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: []));
             if (!$cols && $j['tablas'][$t]) $cols = array_keys($j['tablas'][$t][0]);
-            $p->exec("DELETE FROM $t");
+            $p->exec("DELETE FROM $t" . ($t === 'ajustes' ? " WHERE SUBSTR(k, 1, 3) <> 'gd_' AND SUBSTR(k, 1, 4) <> 'lic_'" : ''));
             foreach ($j['tablas'][$t] as $fila) {
+                if ($t === 'ajustes' && (str_starts_with((string) ($fila['k'] ?? ''), 'gd_') || str_starts_with((string) ($fila['k'] ?? ''), 'lic_'))) continue;
                 $f = array_intersect_key($fila, array_flip(array_filter(array_keys($fila), fn($c) => preg_match('/^[a-z_]+$/', (string) $c))));
                 if (!$f) continue;
                 $ks = array_keys($f);

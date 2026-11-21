@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Panel del dueño · MR Gas</title>
+<link rel="icon" type="image/png" href="../icons/icon-192.png">
+<link rel="stylesheet" href="dueno.css">
+</head>
+<body>
+<header class="top"><div class="marca"><span class="sq">MR</span><div><b>Panel del dueño</b><small>Clientes que arriendan MR Gas</small></div></div>
+  <a class="btn linea claro" href="../#panel">Ir al Panel General</a></header>
+<main id="app"><p class="nota">Cargando…</p></main>
+<dialog id="dl-cli"><form method="dialog" id="f-cli">
+  <h3 id="dl-tit">Cliente</h3>
+  <label>Nombre del cliente<input id="c-nombre" required maxlength="120"></label>
+  <label>Pagado hasta<input id="c-pago" type="date"></label>
+  <label id="l-estado">Estado<select id="c-estado"><option value="activo">Activo</option><option value="pausado">Pausado</option></select></label>
+  <label>Mensaje que verá el cliente si se pausa<input id="c-msj" maxlength="300" placeholder="Ej: Pago pendiente. Escríbanos al +56 9…"></label>
+  <label>Nota interna (solo usted)<textarea id="c-nota" rows="2" maxlength="2000"></textarea></label>
+  <p class="error" id="c-err" hidden></p>
+  <div class="acc"><button class="btn linea" value="cancelar" type="button" id="c-cancelar">Cancelar</button><button class="btn" type="submit" id="c-ok">Guardar</button></div>
+</form></dialog>
+<dialog id="dl-clave"><div>
+  <h3>Datos para la instalación del cliente</h3>
+  <p class="nota">En el Hostinger del cliente, abra <b>mrgas-config.php</b> (un nivel arriba de public_html) y agregue estas dos líneas antes de <code>];</code>. La clave se muestra <b>solo esta vez</b>.</p>
+  <pre id="k-txt"></pre>
+  <div class="acc"><button class="btn linea" type="button" id="k-copiar">⧉ Copiar</button><button class="btn" type="button" id="k-cerrar">Listo</button></div>
+</div></dialog>
+<script src="dueno.js"></script>
+</body>
+</html>
