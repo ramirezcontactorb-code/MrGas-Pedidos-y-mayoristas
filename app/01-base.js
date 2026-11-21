@@ -167,7 +167,7 @@ async function api(a,body,q=""){
   const r=await fetch(`${API_URL}?a=${a}${q}`,{method:body?"POST":"GET",credentials:"same-origin",cache:"no-store",
     headers:body?{"Content-Type":"application/json","X-MRGas":"1"}:{},body:body?JSON.stringify(body):undefined});
   let j=null;try{j=await r.json()}catch(e){}
-  if(!r.ok||!j){const e=new Error((j&&j.error)||"No hay conexión con el servidor.");e.status=r.status;if(r.status===402&&j&&j.pausado&&typeof licUI==="function")licUI({estado:"pausado",mensaje:j.error});throw e}
+  if(!r.ok||!j){const e=new Error((j&&j.error)||"No hay conexión con el servidor.");e.status=r.status;if(r.status===402&&j&&j.pausado&&typeof licUI==="function")licUI({estado:"pausado",mensaje:j.error});if(r.status===423&&j&&j.bloqueado&&typeof respCfg!=="undefined"&&respCfg){respCfg=false;setTimeout(pintarSistema,0)}throw e}
   return j}
 async function iniciarNube(){
   if(!/^https?:$/.test(location.protocol))return;
@@ -407,5 +407,5 @@ $("#form-login").addEventListener("submit",async e=>{
   if(esAdmin()){suc=loc(D.ultimaSuc)?D.ultimaSuc:D.locales[0].id;mod="menu"}else{suc=(usr.sucursales&&usr.sucursales[0])||usr.local;mod=usr.rol==="chofer"?"chofer":"menu"}
   guardarSesion();location.hash="panel";
 });
-function salir(){infPor=null;respOk=false;if(yo){log("sistema","Salida del sistema","");guardar()}if(NUBE.activo){const fin=()=>{detenerEscuchas();salirNube();TRANSAC.forEach(c=>D[c]=[]);NUBE.cache.clear();guardarLocal()};if(NUBE.listo)enviar().finally(fin);else fin()}yo=null;suc=null;try{sessionStorage.removeItem("gdm_sesion")}catch(e){};location.hash="acceso"}
+function salir(){infPor=null;respOk=false;try{respCfg=false}catch(e){}if(yo){log("sistema","Salida del sistema","");guardar()}if(NUBE.activo){const fin=()=>{detenerEscuchas();salirNube();TRANSAC.forEach(c=>D[c]=[]);NUBE.cache.clear();guardarLocal()};if(NUBE.listo)enviar().finally(fin);else fin()}yo=null;suc=null;try{sessionStorage.removeItem("gdm_sesion")}catch(e){};location.hash="acceso"}
 

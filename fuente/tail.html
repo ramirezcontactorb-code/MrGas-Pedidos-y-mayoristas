@@ -682,7 +682,7 @@ async function api(a,body,q=""){
   const r=await fetch(`${API_URL}?a=${a}${q}`,{method:body?"POST":"GET",credentials:"same-origin",cache:"no-store",
     headers:body?{"Content-Type":"application/json","X-MRGas":"1"}:{},body:body?JSON.stringify(body):undefined});
   let j=null;try{j=await r.json()}catch(e){}
-  if(!r.ok||!j){const e=new Error((j&&j.error)||"No hay conexión con el servidor.");e.status=r.status;if(r.status===402&&j&&j.pausado&&typeof licUI==="function")licUI({estado:"pausado",mensaje:j.error});throw e}
+  if(!r.ok||!j){const e=new Error((j&&j.error)||"No hay conexión con el servidor.");e.status=r.status;if(r.status===402&&j&&j.pausado&&typeof licUI==="function")licUI({estado:"pausado",mensaje:j.error});if(r.status===423&&j&&j.bloqueado&&typeof respCfg!=="undefined"&&respCfg){respCfg=false;setTimeout(pintarSistema,0)}throw e}
   return j}
 async function iniciarNube(){
   if(!/^https?:$/.test(location.protocol))return;
@@ -922,7 +922,7 @@ $("#form-login").addEventListener("submit",async e=>{
   if(esAdmin()){suc=loc(D.ultimaSuc)?D.ultimaSuc:D.locales[0].id;mod="menu"}else{suc=(usr.sucursales&&usr.sucursales[0])||usr.local;mod=usr.rol==="chofer"?"chofer":"menu"}
   guardarSesion();location.hash="panel";
 });
-function salir(){infPor=null;respOk=false;if(yo){log("sistema","Salida del sistema","");guardar()}if(NUBE.activo){const fin=()=>{detenerEscuchas();salirNube();TRANSAC.forEach(c=>D[c]=[]);NUBE.cache.clear();guardarLocal()};if(NUBE.listo)enviar().finally(fin);else fin()}yo=null;suc=null;try{sessionStorage.removeItem("gdm_sesion")}catch(e){};location.hash="acceso"}
+function salir(){infPor=null;respOk=false;try{respCfg=false}catch(e){}if(yo){log("sistema","Salida del sistema","");guardar()}if(NUBE.activo){const fin=()=>{detenerEscuchas();salirNube();TRANSAC.forEach(c=>D[c]=[]);NUBE.cache.clear();guardarLocal()};if(NUBE.listo)enviar().finally(fin);else fin()}yo=null;suc=null;try{sessionStorage.removeItem("gdm_sesion")}catch(e){};location.hash="acceso"}
 
 /* ===================== ÍCONOS ===================== */
 const IC={
@@ -4946,7 +4946,7 @@ async function pintarDrive(){const z=document.getElementById("rb-drive");if(!z)r
   const gc=$("#gd-conectar");if(gc)gc.onclick=async()=>{try{const r=await api("drive_conectar");location.href=r.url}catch(e){aviso("No se pudo conectar",e.message)}};
   const gs=$("#gd-subir");if(gs)gs.onclick=async()=>{gs.disabled=true;gs.textContent="Subiendo…";try{const r=await api("drive_subir",{});aviso("Respaldo subido a Google Drive",r.archivo+(r.borrados?` · se borraron ${r.borrados} copias antiguas`:""));pintarRespBD()}catch(e){aviso("No se pudo subir",e.message);pintarDrive()}};
   const gq=$("#gd-quitar");if(gq)gq.onclick=()=>confirmar(gq,async()=>{try{await api("drive_quitar",{});aviso("Google Drive desconectado","Los respaldos que ya subió siguen en su Drive.");pintarDrive()}catch(e){aviso("No se pudo",e.message)}})}
-{const p0=pintarRespBD;pintarRespBD=async function(){let r;try{r=await p0.apply(this,arguments)}catch(e){}const z=document.getElementById("resp-bd");
+{const p0=pintarRespBD;pintarRespBD=async function(){if(NUBE.activo&&!respCfg)return;let r;try{r=await p0.apply(this,arguments)}catch(e){}const z=document.getElementById("resp-bd");
   if(z&&!document.getElementById("rb-drive")){const c=z.querySelector(".rb-cron"),h='<div class="rb-drive" id="rb-drive"><b>Copia en Google Drive</b><p class="nota">Cargando…</p></div>';
     if(c)c.insertAdjacentHTML("afterend",h);else z.insertAdjacentHTML("beforeend",h);pintarDrive()}return r}}
 /* sin servidor (vista de prueba): se explica dónde aparece */
@@ -4974,6 +4974,26 @@ function pintarAvisoLic(){const l=licInfo;const b=document.getElementById("lic-a
   main.insertAdjacentHTML("afterbegin",`<div class="lic-aviso ${dias<0?"vencido":""}" id="lic-aviso"><span>${m}</span><button type="button" class="x" aria-label="Cerrar aviso" id="lic-cerrar">✕</button></div>`);
   document.getElementById("lic-cerrar").onclick=()=>{try{sessionStorage.setItem("lic_cerrado",l.pago_hasta)}catch(e){}document.getElementById("lic-aviso").remove()}}
 {const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{pintarAvisoLic()}catch(e){}return r}}
+
+/* ===================== RESPALDOS Y RESET: pide la contraseña del administrador ===================== */
+let respCfg=false,respCfgRevisado=false;
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);
+  try{if(mod==="config"&&cfgTab==="respaldos"&&yo){const z=document.querySelector(".cfg-main");
+    if(z&&!respCfg){
+      if(NUBE.activo&&!respCfgRevisado){respCfgRevisado=true;api("resp_estado").then(j=>{if(j.abierto){respCfg=true;pintarSistema()}}).catch(()=>{})}
+      z.innerHTML=`<section class="caja rl-caja"><div class="rl-ico" aria-hidden="true">🔒</div><h3>Respaldos y reset</h3>
+        <p class="nota">Por seguridad, esta sección pide su contraseña de administrador. Queda abierta 30 minutos.</p>
+        <form id="rl-form" class="rl-form"><label>Contraseña de ${esc(yo.nombre||yo.usuario||"administrador")}<input type="password" id="rl-pass" autocomplete="current-password" required></label>
+        <p class="error" id="rl-err" hidden></p><button class="btn" type="submit" id="rl-btn">Entrar</button></form></section>`;
+      setTimeout(()=>{const i=$("#rl-pass");if(i)i.focus()},50);
+      $("#rl-form").onsubmit=async e=>{e.preventDefault();const er=$("#rl-err"),bt=$("#rl-btn");er.hidden=true;bt.disabled=true;
+        try{if(NUBE.activo)await api("resp_entrar",{pass:$("#rl-pass").value});
+          else{const h=await hash($("#rl-pass").value);if((yo.hash||"")!==h)throw new Error("La contraseña no es correcta.")}
+          respCfg=true;log("sistema","Entró a Respaldos y reset","");guardar();pintarSistema()}
+        catch(x){er.textContent=x.message;er.hidden=false;bt.disabled=false;$("#rl-pass").value="";$("#rl-pass").focus()}}}
+    else if(z&&respCfg&&!document.getElementById("rl-cerrar")){z.insertAdjacentHTML("afterbegin",'<div class="rl-barra"><span>🔓 Respaldos y reset abierto</span><button class="btn chico linea" type="button" id="rl-cerrar">Cerrar con llave</button></div>');
+      $("#rl-cerrar").onclick=async()=>{respCfg=false;respCfgRevisado=true;try{if(NUBE.activo)await api("resp_cerrar",{})}catch(e){}pintarSistema()}}}}catch(e){console.error(e)}
+  return r}}
 /* botones de imprimir (sin código en el HTML, para la protección del navegador) */
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-imprimir]"))window.print()});
 </script>
@@ -6173,6 +6193,12 @@ html.ui-compacto .sis .caja{padding:10px 12px}html.ui-compacto .sis td,html.ui-c
 .lic-pausa h2{margin:6px 0 8px;font-size:22px}.lic-pausa p{margin:0 0 10px;color:#344054;line-height:1.5}.lic-ico{font-size:34px}
 .lic-aviso{display:flex;align-items:center;gap:10px;justify-content:space-between;background:#fffaeb;border:1px solid #fedf89;color:#93370d;border-radius:10px;padding:9px 12px;margin:0 0 10px;font-weight:600;font-size:14px}
 .lic-aviso.vencido{background:#fef3f2;border-color:#fecdca;color:#b42318}.lic-aviso .x{background:none;border:0;font-size:16px;cursor:pointer;color:inherit}
+
+/* respaldos con contraseña */
+.rl-caja{max-width:440px;margin:30px auto;text-align:center;padding:28px 24px}.rl-ico{font-size:30px}.rl-caja h3{margin:6px 0 4px}
+.rl-form{text-align:left;margin-top:14px}.rl-form label{display:block;font-weight:600;font-size:13px;color:var(--t2,#475467)}
+.rl-form input{display:block;width:100%;margin:6px 0 10px;height:40px;border:1px solid #d0d5dd;border-radius:8px;padding:0 10px;font:inherit}.rl-form .btn{width:100%}
+.rl-barra{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#ecfdf3;border:1px solid #abefc6;color:#067647;border-radius:10px;padding:7px 12px;margin:0 0 10px;font-weight:600;font-size:14px}
 </style>
 </body>
 </html>

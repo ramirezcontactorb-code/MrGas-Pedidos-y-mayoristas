@@ -1193,3 +1193,9 @@ html.ui-compacto .sis .caja{padding:10px 12px}html.ui-compacto .sis td,html.ui-c
 .lic-pausa h2{margin:6px 0 8px;font-size:22px}.lic-pausa p{margin:0 0 10px;color:#344054;line-height:1.5}.lic-ico{font-size:34px}
 .lic-aviso{display:flex;align-items:center;gap:10px;justify-content:space-between;background:#fffaeb;border:1px solid #fedf89;color:#93370d;border-radius:10px;padding:9px 12px;margin:0 0 10px;font-weight:600;font-size:14px}
 .lic-aviso.vencido{background:#fef3f2;border-color:#fecdca;color:#b42318}.lic-aviso .x{background:none;border:0;font-size:16px;cursor:pointer;color:inherit}
+
+/* respaldos con contraseña */
+.rl-caja{max-width:440px;margin:30px auto;text-align:center;padding:28px 24px}.rl-ico{font-size:30px}.rl-caja h3{margin:6px 0 4px}
+.rl-form{text-align:left;margin-top:14px}.rl-form label{display:block;font-weight:600;font-size:13px;color:var(--t2,#475467)}
+.rl-form input{display:block;width:100%;margin:6px 0 10px;height:40px;border:1px solid #d0d5dd;border-radius:8px;padding:0 10px;font:inherit}.rl-form .btn{width:100%}
+.rl-barra{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#ecfdf3;border:1px solid #abefc6;color:#067647;border-radius:10px;padding:7px 12px;margin:0 0 10px;font-weight:600;font-size:14px}

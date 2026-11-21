@@ -28,8 +28,13 @@ async function entrar(p, H, u = 'matias', c = 'Clave1234') {
   await p.goto(H + '#acceso'); await p.waitForTimeout(900);
   await p.fill('#lg-user', u); await p.fill('#lg-pass', c); await p.click('#form-login button[type=submit]'); await p.waitForTimeout(2300);
 }
+// Abre Configuraciones → Respaldos y reset (pide la contraseña del administrador)
+async function abrirRespaldos(p, clave = 'Clave1234') {
+  await p.evaluate(() => { cfgTab = 'respaldos'; ir('config') }); await p.waitForTimeout(800);
+  if (await p.$('#rl-pass')) { await p.fill('#rl-pass', clave); await p.click('#rl-btn'); await p.waitForTimeout(2500); }
+}
 function fin(b, errores) {
   ok(!errores.length, 'sin errores de código ni bloqueos' + (errores.length ? ': ' + errores.slice(0, 3).join(' | ') : ''));
   return b.close().then(() => process.exit(fallas ? 1 : 0));
 }
-module.exports = {A, B, DIR, REPO, ok, navegador, entrar, fin};
+module.exports = {A, B, DIR, REPO, ok, navegador, entrar, abrirRespaldos, fin};

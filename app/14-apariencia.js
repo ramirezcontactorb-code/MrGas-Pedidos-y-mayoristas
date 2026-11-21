@@ -149,7 +149,7 @@ async function pintarDrive(){const z=document.getElementById("rb-drive");if(!z)r
   const gc=$("#gd-conectar");if(gc)gc.onclick=async()=>{try{const r=await api("drive_conectar");location.href=r.url}catch(e){aviso("No se pudo conectar",e.message)}};
   const gs=$("#gd-subir");if(gs)gs.onclick=async()=>{gs.disabled=true;gs.textContent="Subiendo…";try{const r=await api("drive_subir",{});aviso("Respaldo subido a Google Drive",r.archivo+(r.borrados?` · se borraron ${r.borrados} copias antiguas`:""));pintarRespBD()}catch(e){aviso("No se pudo subir",e.message);pintarDrive()}};
   const gq=$("#gd-quitar");if(gq)gq.onclick=()=>confirmar(gq,async()=>{try{await api("drive_quitar",{});aviso("Google Drive desconectado","Los respaldos que ya subió siguen en su Drive.");pintarDrive()}catch(e){aviso("No se pudo",e.message)}})}
-{const p0=pintarRespBD;pintarRespBD=async function(){let r;try{r=await p0.apply(this,arguments)}catch(e){}const z=document.getElementById("resp-bd");
+{const p0=pintarRespBD;pintarRespBD=async function(){if(NUBE.activo&&!respCfg)return;let r;try{r=await p0.apply(this,arguments)}catch(e){}const z=document.getElementById("resp-bd");
   if(z&&!document.getElementById("rb-drive")){const c=z.querySelector(".rb-cron"),h='<div class="rb-drive" id="rb-drive"><b>Copia en Google Drive</b><p class="nota">Cargando…</p></div>';
     if(c)c.insertAdjacentHTML("afterend",h);else z.insertAdjacentHTML("beforeend",h);pintarDrive()}return r}}
 /* sin servidor (vista de prueba): se explica dónde aparece */
@@ -177,5 +177,25 @@ function pintarAvisoLic(){const l=licInfo;const b=document.getElementById("lic-a
   main.insertAdjacentHTML("afterbegin",`<div class="lic-aviso ${dias<0?"vencido":""}" id="lic-aviso"><span>${m}</span><button type="button" class="x" aria-label="Cerrar aviso" id="lic-cerrar">✕</button></div>`);
   document.getElementById("lic-cerrar").onclick=()=>{try{sessionStorage.setItem("lic_cerrado",l.pago_hasta)}catch(e){}document.getElementById("lic-aviso").remove()}}
 {const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);try{pintarAvisoLic()}catch(e){}return r}}
+
+/* ===================== RESPALDOS Y RESET: pide la contraseña del administrador ===================== */
+let respCfg=false,respCfgRevisado=false;
+{const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);
+  try{if(mod==="config"&&cfgTab==="respaldos"&&yo){const z=document.querySelector(".cfg-main");
+    if(z&&!respCfg){
+      if(NUBE.activo&&!respCfgRevisado){respCfgRevisado=true;api("resp_estado").then(j=>{if(j.abierto){respCfg=true;pintarSistema()}}).catch(()=>{})}
+      z.innerHTML=`<section class="caja rl-caja"><div class="rl-ico" aria-hidden="true">🔒</div><h3>Respaldos y reset</h3>
+        <p class="nota">Por seguridad, esta sección pide su contraseña de administrador. Queda abierta 30 minutos.</p>
+        <form id="rl-form" class="rl-form"><label>Contraseña de ${esc(yo.nombre||yo.usuario||"administrador")}<input type="password" id="rl-pass" autocomplete="current-password" required></label>
+        <p class="error" id="rl-err" hidden></p><button class="btn" type="submit" id="rl-btn">Entrar</button></form></section>`;
+      setTimeout(()=>{const i=$("#rl-pass");if(i)i.focus()},50);
+      $("#rl-form").onsubmit=async e=>{e.preventDefault();const er=$("#rl-err"),bt=$("#rl-btn");er.hidden=true;bt.disabled=true;
+        try{if(NUBE.activo)await api("resp_entrar",{pass:$("#rl-pass").value});
+          else{const h=await hash($("#rl-pass").value);if((yo.hash||"")!==h)throw new Error("La contraseña no es correcta.")}
+          respCfg=true;log("sistema","Entró a Respaldos y reset","");guardar();pintarSistema()}
+        catch(x){er.textContent=x.message;er.hidden=false;bt.disabled=false;$("#rl-pass").value="";$("#rl-pass").focus()}}}
+    else if(z&&respCfg&&!document.getElementById("rl-cerrar")){z.insertAdjacentHTML("afterbegin",'<div class="rl-barra"><span>🔓 Respaldos y reset abierto</span><button class="btn chico linea" type="button" id="rl-cerrar">Cerrar con llave</button></div>');
+      $("#rl-cerrar").onclick=async()=>{respCfg=false;respCfgRevisado=true;try{if(NUBE.activo)await api("resp_cerrar",{})}catch(e){}pintarSistema()}}}}catch(e){console.error(e)}
+  return r}}
 /* botones de imprimir (sin código en el HTML, para la protección del navegador) */
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-imprimir]"))window.print()});

@@ -31,6 +31,7 @@ correr "Todas las pantallas (PC y celular)" node "$R/pruebas/pantallas.js"
 correr "Protección del navegador (CSP)"   node "$R/pruebas/proteccion.js"
 correr "Venta Local: vender y navegar"    node "$R/pruebas/venta-local.js"
 correr "Informe comparar meses"           node "$R/pruebas/comparar.js"
+correr "Respaldos y reset con contraseña" node "$R/pruebas/respaldos-clave.js"
 correr "Respaldo a Google Drive"          node "$R/pruebas/drive.js"
 correr "Panel del dueño y licencias"      node "$R/pruebas/dueno.js"
 echo

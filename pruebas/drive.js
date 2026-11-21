@@ -1,12 +1,12 @@
 // Respaldo a Google Drive con un Google simulado (no usa internet)
-const {A, DIR, ok, navegador, entrar, fin} = require('./comun');
+const {A, DIR, ok, navegador, entrar, abrirRespaldos, fin} = require('./comun');
 const fs = require('fs'), path = require('path'), zlib = require('zlib');
 (async () => {
   const {b, pagina, errores} = await navegador();
   const p = await pagina(1440, 1000); let url = null;
   await p.route(/accounts\.google\.com/, r => { url = r.request().url(); r.fulfill({status: 200, body: 'google'}) });
   await entrar(p, A);
-  await p.evaluate(() => { cfgTab = 'respaldos'; ir('config') }); await p.waitForTimeout(2500);
+  await abrirRespaldos(p);
   ok(/No conectado/.test(await p.$eval('#rb-drive', e => e.innerText)), 'aparece la sección Google Drive');
   await p.fill('#gd-cliente', '123-abc.apps.googleusercontent.com'); await p.fill('#gd-secreto', 'GOCSPX-prueba-123'); await p.click('#gd-guardar'); await p.waitForTimeout(1000);
   await p.click('#gd-conectar'); await p.waitForTimeout(1200);

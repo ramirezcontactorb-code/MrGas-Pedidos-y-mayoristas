@@ -9,6 +9,9 @@ require __DIR__ . '/licencia.php';
 date_default_timezone_set('America/Santiago');
 iniciarSesion();
 
+// «Respaldos y reset» pide la contraseña del administrador; queda abierto 30 minutos desde el último uso
+function respCfgAbierto(): bool { $t = (int) ($_SESSION['resp_cfg'] ?? 0); if ($t && time() - $t < 1800) { $_SESSION['resp_cfg'] = time(); return true; } return false; }
+function exigirRespCfg(): void { if (!respCfgAbierto()) salida(['error' => 'Por seguridad, ingrese su contraseña de administrador para usar Respaldos y reset.', 'bloqueado' => true], 423); }
 function puedeRespaldos(array $u): bool { return $u['rol'] === 'admin' && ($u['permisos'] === null || in_array('respaldos', (array) $u['permisos'], true)); }
 $a = $_GET['a'] ?? '';
 try {
@@ -317,7 +320,7 @@ try {
     // Limpieza de datos (solo administrador, con su contraseña): borra movimientos de prueba y deja el stock en cero.
     // Se mantienen usuarios, precios, sucursales, choferes, clientes, sectores y configuración.
     case 'limpiar': {
-        $adm = requiereAdmin(); $b = cuerpo();
+        $adm = requiereAdmin(); exigirRespCfg(); $b = cuerpo();
         limitar('limpiar', 5, 900);
         $st = db()->prepare('SELECT hash FROM usuarios WHERE uid = ?'); $st->execute([$adm['uid']]);
         if (!password_verify((string) ($b['pass'] ?? ''), (string) $st->fetchColumn())) { anotarIntento('limpiar'); salida(['error' => 'La contraseña del administrador no es correcta.'], 401); }
@@ -373,7 +376,7 @@ try {
     // Eliminar un usuario (solo administrador). No puede eliminarse a sí mismo ni dejar el sistema sin administradores.
     // ---------- Respaldo de la base de datos completa (solo administrador con permiso de respaldos) ----------
     case 'respaldo_info': {
-        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403); exigirRespCfg();
         asegurarPush();
         $hecho = null; if (!empty($_GET['revisar']) && respaldoAutoPendiente()) { try { $hecho = hacerRespaldoAuto('Automático (al abrir Respaldos)'); } catch (Throwable $e) {} }
         $ult = (int) (ajuste('resp_ultimo') ?? 0);
@@ -381,19 +384,19 @@ try {
             'ultimo' => $ult ? date('Y-m-d H:i', $ult) : null, 'cron' => 'php ' . __DIR__ . '/respaldo_auto.php', 'hecho' => $hecho]);
     }
     case 'respaldo_config': {
-        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403); exigirRespCfg();
         asegurarPush(); $b = cuerpo();
         $cada = in_array($b['cada'] ?? '', ['dia', 'semana', 'nunca'], true) ? $b['cada'] : 'dia';
         grabarAjuste('resp_cada', $cada); grabarAjuste('resp_guardar', (string) max(1, min(90, (int) ($b['guardar'] ?? 14))));
         salida(['ok' => true]);
     }
     case 'respaldo_ahora': {
-        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403); exigirRespCfg();
         @set_time_limit(300);
         salida(['ok' => true] + crearRespaldo(dirRespaldos() . '/' . nombreRespaldo('manual'), $u['nombre']));
     }
     case 'respaldo_bajar': {
-        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403); exigirRespCfg();
         @set_time_limit(300);
         $n = (string) ($_GET['f'] ?? '');
         if ($n === '') { $r = crearRespaldo(dirRespaldos() . '/' . nombreRespaldo('manual'), $u['nombre']); $n = $r['archivo']; }
@@ -404,17 +407,30 @@ try {
         readfile($ruta); exit;
     }
     case 'respaldo_borrar': {
-        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403); exigirRespCfg();
         $ruta = archivoRespaldoValido((string) (cuerpo()['f'] ?? '')); if (!$ruta) salida(['error' => 'Ese respaldo no existe.'], 404);
         @unlink($ruta); salida(['ok' => true]);
     }
     // ---------- Google Drive (copia de los respaldos) ----------
-    case 'drive_estado': {
+    case 'resp_estado': {
+        $u = requiereAdmin(); salida(['abierto' => respCfgAbierto()]);
+    }
+    case 'resp_entrar': {
         $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        limitar('resp_entrar', 6, 900);
+        $st = db()->prepare('SELECT hash FROM usuarios WHERE uid = ?'); $st->execute([$u['uid']]);
+        if (!password_verify((string) (cuerpo()['pass'] ?? ''), (string) $st->fetchColumn())) { anotarIntento('resp_entrar'); salida(['error' => 'La contraseña no es correcta.'], 401); }
+        session_regenerate_id(true); $_SESSION['resp_cfg'] = time(); salida(['ok' => true]);
+    }
+    case 'resp_cerrar': {
+        requiereYo(); unset($_SESSION['resp_cfg']); salida(['ok' => true]);
+    }
+    case 'drive_estado': {
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403); exigirRespCfg();
         asegurarPush(); salida(gdEstado() + ['vuelta' => gdUrlVuelta()]);
     }
     case 'drive_config': {
-        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403); exigirRespCfg();
         asegurarPush(); $b = cuerpo();
         $cl = trim((string) ($b['cliente'] ?? '')); $se = trim((string) ($b['secreto'] ?? ''));
         if (!preg_match('/^[0-9A-Za-z\-_.]+\.apps\.googleusercontent\.com$/', $cl)) salida(['error' => 'El «ID de cliente» no parece válido (termina en .apps.googleusercontent.com).'], 400);
@@ -424,7 +440,7 @@ try {
         salida(['ok' => true]);
     }
     case 'drive_conectar': {
-        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403); exigirRespCfg();
         asegurarPush(); if (!ajuste('gd_cliente')) salida(['error' => 'Primero guarde el ID y el secreto del cliente.'], 400);
         salida(['url' => gdUrlPermiso()]);
     }
@@ -441,18 +457,18 @@ try {
         exit;
     }
     case 'drive_subir': {
-        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403); exigirRespCfg();
         asegurarPush(); @set_time_limit(600);
         $r = crearRespaldo(dirRespaldos() . '/' . nombreRespaldo('manual'), $u['nombre']);
         try { salida(gdSubir(dirRespaldos() . '/' . $r['archivo'], (int) (ajuste('resp_guardar') ?? 14))); }
         catch (Throwable $e) { salida(['error' => $e->getMessage()], 502); }
     }
     case 'drive_quitar': {
-        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403); exigirRespCfg();
         asegurarPush(); db()->prepare("DELETE FROM ajustes WHERE SUBSTR(k, 1, 3) = 'gd_'")->execute(); salida(['ok' => true]);
     }
     case 'respaldo_restaurar': {
-        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403); exigirRespCfg();
         limitar('restaurar', 5, 900); @set_time_limit(300);
         $st = db()->prepare('SELECT hash FROM usuarios WHERE uid = ?'); $st->execute([$u['uid']]);
         if (!password_verify((string) ($_POST['pass'] ?? ''), (string) $st->fetchColumn())) { anotarIntento('restaurar'); salida(['error' => 'La contraseña del administrador no es correcta.'], 401); }
