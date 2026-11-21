@@ -14,6 +14,7 @@ async function navegador() {
     await c.route('**/*', async r => {
       const u = r.request().url();
       if (!/^http:\/\/127\.0\.0\.1:81(28|29)\//.test(u)) return r.abort();   // nada de internet en las pruebas
+      if (r.request().resourceType() !== 'document') return r.continue();   // la protección (CSP) se aplica a las páginas
       const res = await r.fetch({maxRedirects: 0});   // las redirecciones las sigue el navegador
       return r.fulfill({response: res, headers: {...res.headers(), 'content-security-policy': CSP}});
     });

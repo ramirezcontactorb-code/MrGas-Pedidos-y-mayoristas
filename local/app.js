@@ -369,10 +369,17 @@ async function mgGate(){
   let j=null;try{const r=await fetch(MG_API+'?a=estado',{credentials:'same-origin',cache:'no-store'});j=await r.json();}catch(e){}
   if(!j||j.error){mgPantalla('Sin conexión','No se pudo conectar con el servidor. Revise internet y vuelva a intentar.');return false;}
   mgSucs(j.sucursales);
-  if(j.quien){MGU={modo:j.quien.modo,user:j.quien.perfil.user};USERS=[mgUsuario(j.quien.perfil)];setTimeout(mgVer,8000);
+  if(j.quien){MGU={modo:j.quien.modo,user:j.quien.perfil.user,permisos:j.quien.perfil.permisos||[]};USERS=[mgUsuario(j.quien.perfil)];setTimeout(mgVer,8000);
     /* se cargan solo los datos de la sucursal en uso (el informe de todas las sucursales carga todo) */
     try{if(!/[?&]solo=inf\b/.test(location.search)){const mias=userSucs(USERS[0]);let g=null;try{g=JSON.parse(sessionStorage.getItem('gl_user'));}catch(e){}
-      MG_SUC=g&&String(g.u).toLowerCase()===String(MGU.user).toLowerCase()&&mias.includes(g.suc)?g.suc:(mias[0]||null);}}catch(e){MG_SUC=null;}
+      /* la sucursal elegida se guarda aparte (mg_suc): el código antiguo la revisa antes de recibir la lista del servidor y descarta las nuevas */
+      let w=null;try{w=sessionStorage.getItem('mg_suc');}catch(e){}
+      const okS=x=>!!x&&SUCS.includes(x)&&(mias.includes(x)||USERS[0].rol==='admin'||(MGU.permisos||[]).includes('lsuc.'+slug(x)));
+      const mismo=g&&String(g.u).toLowerCase()===String(MGU.user).toLowerCase();
+      MG_SUC=okS(w)?w:(mismo&&okS(g.suc))?g.suc:(mias[0]||null);
+      if(MG_SUC&&!S.user&&mismo){S.user={...g,suc:MG_SUC};S.view='home';}
+      if(MG_SUC&&S.user&&S.user.suc!==MG_SUC)S.user.suc=MG_SUC;
+      if(MG_SUC&&S.user){try{db=load(MG_SUC);sessionStorage.setItem('gl_user',JSON.stringify(S.user));}catch(e){}}}}catch(e){MG_SUC=null;}
     mgPrimera().catch(()=>{});return true;}
   /* sin sesión: se entra con el usuario y clave del Panel General */
   try{sessionStorage.removeItem('gl_user');}catch(e){}
@@ -2130,7 +2137,7 @@ function mgVolver(){if(!/^https?:$/.test(location.protocol))return;const ab=docu
 const MG_EMB=/[?&]solo=inf\b/.test(location.search),MG_APP=/[?&]app=1\b/.test(location.search);
 if(MG_EMB)document.documentElement.classList.add('mg-emb');
 {const r1=render;render=function(){
-  if(MG_SUC&&S.user&&S.user.suc&&S.user.suc!==MG_SUC&&!MG_EMB){try{sessionStorage.setItem('gl_user',JSON.stringify(S.user));}catch(e){}document.body.style.visibility='hidden';location.reload();return;}
+  if(MG_SUC&&S.user&&S.user.suc&&S.user.suc!==MG_SUC&&!MG_EMB){try{sessionStorage.setItem('gl_user',JSON.stringify(S.user));sessionStorage.setItem('mg_suc',S.user.suc);}catch(e){}document.body.style.visibility='hidden';location.reload();return;}
   if(MGU&&S.user&&db&&READY){
     if(MG_EMB)S.view='inf';
     else if(S.view==='home'||S.view==='inf'||!VIEWS[S.view])S.view=canView('venta')?'venta':canView('rend')?'rend':S.view;}

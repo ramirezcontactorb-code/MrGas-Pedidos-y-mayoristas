@@ -6,7 +6,7 @@ const COLS_PERMITIDAS = ['facturas','empresas','pedidos','bitacora','ventas','ga
     'peonetas','clientes','choferes','movimientos','recuentos','historialPrecios','ventasAnuladas','programados','estado','reparto','camiones'];
 // Documentos de "estado" que solo cambia el administrador
 // Versión del sistema (súbala junto con VERSION de sw.js); el panel del dueño la usa para saber quién está al día
-const MRGAS_VERSION = '142';
+const MRGAS_VERSION = '143';
 const ESTADO_SOLO_ADMIN = ['apariencia','precios','preciosMayor','preciosEnvase','preciosConvenio','listas','empresa','comisiones','historico','listasMay','comisionVale','descQR'];
 // De esos, los precios también los puede cambiar un encargado con el permiso «cfg.precios»
 

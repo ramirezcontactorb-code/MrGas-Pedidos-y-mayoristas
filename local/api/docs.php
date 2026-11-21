@@ -8,6 +8,7 @@ require dirname(__DIR__, 2) . '/api/nucleo.php';
 require dirname(__DIR__, 2) . '/api/push.php';
 require dirname(__DIR__, 2) . '/api/diaria.php';
 require dirname(__DIR__, 2) . '/api/licencia.php';
+require dirname(__DIR__, 2) . '/api/respaldo.php';
 date_default_timezone_set('America/Santiago');
 iniciarSesion();
 
@@ -160,6 +161,83 @@ try {
         }
         $p->commit();
         salida(['ok' => true, 'list' => $l, 'borradas' => $aBorrar]);
+    }
+    // Importar la «base de datos» descargada de otro Venta Local (MR Sistema Local, respaldo-completo .json)
+    // ?ver=1 → solo revisa el archivo y muestra qué se importaría. Sin ?ver → importa (antes hace un respaldo).
+    if ($a === 'importar' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $q0 = quien(); if (!$q0 || $q0['perfil']['rol'] !== 'admin') salida(['error' => 'Solo el administrador puede importar.'], 403);
+        $tr = (int) ($_SESSION['resp_cfg'] ?? 0);
+        if (!$tr || time() - $tr > 1800) salida(['error' => 'Por seguridad, ingrese su contraseña en Respaldos y reset.', 'bloqueado' => true], 423);
+        $_SESSION['resp_cfg'] = time();
+        @set_time_limit(600); @ini_set('memory_limit', '512M');
+        $fa = $_FILES['archivo'] ?? null;
+        if (!$fa || ($fa['error'] ?? 4) !== UPLOAD_ERR_OK) {
+            $lim = ini_get('upload_max_filesize');
+            salida(['error' => in_array($fa['error'] ?? 0, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) || (!$fa && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0)
+                ? "El archivo es más grande que lo que acepta el servidor ($lim). En Hostinger → Avanzado → Configuración de PHP, suba «upload_max_filesize» y «post_max_size»."
+                : 'No llegó el archivo. Vuelva a elegirlo.'], 400);
+        }
+        $txt = (string) file_get_contents($fa['tmp_name']);
+        if (strncmp($txt, "\x1f\x8b", 2) === 0) $txt = (string) @gzdecode($txt);   // la pantalla lo manda comprimido
+        $j = json_decode($txt, true); unset($txt);
+        if (!is_array($j) || !is_array($j['sucursales'] ?? null) || ($j['tipo'] ?? '') !== 'respaldo-completo')
+            salida(['error' => 'El archivo no es una «base de datos» descargada de Venta Local (Informes → Descargar base de datos).'], 400);
+        $RK = ['efectivo','vuelto','vales','valesCil','cheques','transf','descuentos','qr','gastos','transbank','cargos','petroleo'];
+        $existentes = []; foreach (sucursalesLocal() as $x) $existentes[slugLocal($x['nombre'])] = $x['nombre'];
+        $conDatos = function (string $sl) { $st = db()->prepare("SELECT COUNT(*) FROM local_docs WHERE path LIKE ?"); $st->execute(['suc/' . $sl . '/%']); return (int) $st->fetchColumn() > 0; };
+        $limpio = fn($n) => trim(mb_substr(preg_replace('/\s+/u', ' ', preg_replace('/[^\p{L}\p{N} -]/u', '', (string) $n)), 0, 40));
+        // resumen de cada sucursal del archivo
+        $res = [];
+        foreach ($j['sucursales'] as $nom => $d) {
+            if (!is_array($d)) continue;
+            $v = array_values(array_filter((array) ($d['ventas'] ?? []), 'is_array'));
+            $fe = array_filter(array_map(fn($x) => (string) ($x['fecha'] ?? ''), $v));
+            $nl = $limpio($nom); $sl = slugLocal($nl);
+            $choca = isset($existentes[$sl]) && $conDatos($sl);
+            $sug = $nl; if ($choca) { $i = 2; while (isset($existentes[slugLocal($nl . ' ' . $i)])) $i++; $sug = $nl . ' ' . $i; }
+            $res[] = ['archivo' => (string) $nom, 'ventas' => count($v), 'desde' => $fe ? min($fe) : null, 'hasta' => $fe ? max($fe) : null,
+                'rend' => count(array_filter((array) ($d['rend'] ?? []), fn($r) => is_array($r) && (!empty($r['obs']) || array_filter($RK, fn($k) => !empty($r[$k]))))),
+                'existe' => isset($existentes[$sl]), 'conDatos' => $choca, 'destino' => $sug];
+        }
+        $usuarios = array_map(fn($u) => ['nombre' => (string) ($u['nombre'] ?? ''), 'usuario' => (string) ($u['u'] ?? ''), 'rol' => (string) ($u['rol'] ?? ''), 'sucursales' => ($u['rol'] ?? '') === 'admin' ? ['todas'] : (is_array($u['ps'] ?? null) ? array_keys(array_filter($u['ps'], fn($x) => is_array($x) && $x)) : ((array) ($u['sucs'] ?? []) ?: ['todas']))], array_filter((array) ($j['usuarios'] ?? []), 'is_array'));
+        if (!empty($_GET['ver'])) salida(['ok' => true, 'sucursales' => $res, 'usuarios' => $usuarios, 'fecha' => $j['generado'] ?? null]);
+        // importar
+        $mapa = json_decode((string) ($_POST['mapa'] ?? '{}'), true) ?: [];
+        $plan = [];
+        foreach ($res as $r) {
+            $dest = $mapa[$r['archivo']] ?? null; if ($dest === null || $dest === '') continue; // omitida
+            $dn = $limpio($dest); $ds = slugLocal($dn);
+            if ($dn === '') salida(['error' => 'Falta el nombre de destino de «' . $r['archivo'] . '».'], 400);
+            if ($conDatos($ds)) salida(['error' => '«' . $dn . '» ya tiene datos. Elija otro nombre para no mezclarlos.', 'choca' => $r['archivo']], 409);
+            foreach ($plan as $pp) if ($pp['slug'] === $ds) salida(['error' => 'Dos sucursales van al mismo nombre «' . $dn . '».'], 400);
+            $plan[] = ['archivo' => $r['archivo'], 'nombre' => $dn, 'slug' => $ds];
+        }
+        if (!$plan) salida(['error' => 'No eligió ninguna sucursal para importar.'], 400);
+        $resp = crearRespaldo(dirRespaldos() . '/' . nombreRespaldo('manual'), $q0['perfil']['nombre'] . ' (antes de importar)');
+        $p = db(); $p->beginTransaction();
+        try {
+            $p->exec("UPDATE contadores SET valor = valor + 1 WHERE nombre = 'local'");
+            $ver = (int) $p->query("SELECT valor FROM contadores WHERE nombre = 'local'")->fetchColumn();
+            $put = $p->prepare(esSqlite() ? 'INSERT OR REPLACE INTO local_docs (path, data, ver) VALUES (?, ?, ?)'
+                : 'INSERT INTO local_docs (path, data, ver) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), ver = VALUES(ver)');
+            $js = fn($x) => json_encode($x, JSON_UNESCAPED_UNICODE);
+            $lista = sucursalesLocal(); $tot = ['ventas' => 0, 'docs' => 0];
+            foreach ($plan as $pl) {
+                $d = $j['sucursales'][$pl['archivo']]; $sl = $pl['slug'];
+                $core = $d; foreach (['ventas', 'rend', 'bmovs', 'movs'] as $k) unset($core[$k]);
+                $put->execute(['suc/' . $sl, $js((object) $core), $ver]); $tot['docs']++;
+                $vg = []; foreach ((array) ($d['ventas'] ?? []) as $v) if (is_array($v) && !empty($v['fecha'])) $vg[(string) $v['fecha']][] = $v;
+                foreach ($vg as $f => $l) { $put->execute(["suc/$sl/ventas/$f", $js(['list' => $l]), $ver]); $tot['docs']++; $tot['ventas'] += count($l); }
+                foreach ((array) ($d['rend'] ?? []) as $f => $R) if (is_array($R) && (!empty($R['obs']) || array_filter($RK, fn($k) => !empty($R[$k])))) { $put->execute(["suc/$sl/rend/$f", $js($R), $ver]); $tot['docs']++; }
+                $bg = []; foreach ((array) ($d['bmovs'] ?? []) as $m) if (is_array($m)) $bg[substr((string) ($m['fecha'] ?? date('Y-m-d')), 0, 7)][] = $m;
+                foreach ($bg as $k => $l) { $put->execute(["suc/$sl/bmovs/$k", $js(['list' => $l]), $ver]); $tot['docs']++; }
+                $esta = false; foreach ($lista as &$x) if (slugLocal($x['nombre']) === $sl) { $x['activa'] = true; $esta = true; } unset($x);
+                if (!$esta) $lista[] = ['nombre' => $pl['nombre'], 'indep' => false, 'activa' => true, 'bodega' => -1]; // con su propia bodega (su stock importado)
+            }
+            $put->execute(['app/sucursales', $js(['list' => $lista]), $ver]);
+            $p->commit();
+        } catch (Throwable $e) { $p->rollBack(); throw $e; }
+        salida(['ok' => true, 'importadas' => array_column($plan, 'nombre'), 'ventas' => $tot['ventas'], 'docs' => $tot['docs'], 'respaldo' => $resp['archivo']]);
     }
     // Bodega compartida con la matriz: leer el stock y aplicar los cambios de las ventas del local
     if ($a === 'bodega') {
