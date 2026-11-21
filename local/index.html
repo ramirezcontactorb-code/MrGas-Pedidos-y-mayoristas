@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="../marca.js" defer></script></head><body>
 <title>Venta Local · MR Gas</title><style id="mg-oculto">#app{visibility:hidden}body::after{content:"Cargando Venta Local…";position:fixed;inset:0;display:grid;place-items:center;font:600 16px system-ui,sans-serif;color:#667085;background:#f2f4f7}html.mg-app body::after{content:"";background:#f2f4f7}</style><script>if(/[?&]app=1/.test(location.search))document.documentElement.classList.add('mg-app')</script>
 <link rel="icon" type="image/png" sizes="192x192" href="../icons/icon-192.png">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
@@ -1248,7 +1248,7 @@ function frame(title,back,side,content,wide,actions=''){
   return appbar(back)+`<div class="frame ${wide?'wide':''}">
     <div class="phead"><div><div class="eyebrow">${title==='Informes'?'Todas las sucursales':'Sucursal '+esc(S.user.suc)}</div><h1>${title}</h1><p class="sub">${title==='Informes'?'Vista de administrador · ':''}${fechaLarga()}</p></div>${actions?`<div class="no-print">${actions}</div>`:''}</div>
     <div class="pbody ${side?'':'noside'}">${side?`<nav class="pside no-print">${sideB(side)}</nav>`:''}<section class="panel"><div class="pcont">${content}</div></section></div>
-    <div class="foot"><span>MR · Sistema Local</span><span>${SUCS.length} sucursales</span></div></div>`;
+    <div class="foot"><span>MR · Sistema Local · Desarrollado por MrGas</span><span>${SUCS.length} sucursales</span></div></div>`;
 }
 function fechaLarga(){const t=new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});return t.charAt(0).toUpperCase()+t.slice(1);}
 
@@ -1282,7 +1282,7 @@ function vHome(){
       <div class="stat"><div class="k">Llenos en bodega</div><div class="v">${ll}</div></div>
       <div class="stat"><div class="k">Vacíos en bodega</div><div class="v">${va}</div></div>
     </div>
-    <div class="foot"><span>MR · Sistema Local</span><span>${SUCS.length} sucursales</span></div></div>`;
+    <div class="foot"><span>MR · Sistema Local · Desarrollado por MrGas</span><span>${SUCS.length} sucursales</span></div></div>`;
 }
 
 /* ================= CAJA: PANTALLA PRINCIPAL ================= */

@@ -199,6 +199,7 @@ td select.pill{border:0;padding:3px 9px}
 .pc .go{width:100%;min-height:52px;font-size:16px;border-radius:12px}
 .pc .go.armed{background:var(--warn);border-color:var(--warn)}
 .pc .mini{display:flex;gap:8px}
+.dev-por{margin:22px 0 8px;text-align:center;font-size:12px;color:#98a2b3;letter-spacing:.03em}
 .mini a.wsp{background:#25d366;border-color:#25d366;color:#fff}.mini a.wsp svg{width:16px;height:16px;stroke:#fff}
 .pc .mini button,.pc .mini a{flex:1;min-height:42px;border-radius:10px;border:1px solid var(--line2);background:var(--card);color:var(--tx2);font-weight:600;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;cursor:pointer}
 .pc .mini button:disabled{opacity:.4}
@@ -250,6 +251,7 @@ article.resalta{outline:3px solid #f79009;outline-offset:2px;transition:outline-
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
+<script src="../marca.js" defer></script>
 </head>
 <body>
 
@@ -293,6 +295,7 @@ article.resalta{outline:3px solid #f79009;outline-offset:2px;transition:outline-
       <button class="chip" data-tipo="may" aria-pressed="false">Mayoristas</button>
     </div>
     <div class="lista" id="lista"></div>
+  <p class="dev-por">Desarrollado por MrGas</p>
   </main>
 
   <!-- REPARTO MAYORISTA -->
@@ -320,6 +323,7 @@ article.resalta{outline:3px solid #f79009;outline-offset:2px;transition:outline-
         <p class="note" id="p-msg"></p>
       </form>
     </div>
+  <p class="dev-por">Desarrollado por MrGas</p>
   </main>
 
   <!-- CAMIONES -->
@@ -331,6 +335,7 @@ article.resalta{outline:3px solid #f79009;outline-offset:2px;transition:outline-
         <label>Marca<input id="c-marca" placeholder="Ej: Hyundai"></label>
         <button class="btn" type="submit">Agregar camión</button><p class="note" id="c-msg"></p></form>
     </div>
+  <p class="dev-por">Desarrollado por MrGas</p>
   </main>
 
   <!-- CHOFERES -->
@@ -345,6 +350,7 @@ article.resalta{outline:3px solid #f79009;outline-offset:2px;transition:outline-
         <p class="note">Es el mismo chofer de MR Gas. Para que entre a esta app, créale un usuario de tipo Repartidor en MR Gas → Configuraciones → Usuarios.</p>
         <p class="note" id="ch-msg"></p></form>
     </div>
+  <p class="dev-por">Desarrollado por MrGas</p>
   </main>
 
   <!-- CLIENTES -->
@@ -365,6 +371,7 @@ article.resalta{outline:3px solid #f79009;outline-offset:2px;transition:outline-
         <p class="note">Son los mismos clientes mayoristas de MR Gas (Venta Mayorista).</p>
         <p class="note" id="cl-msg"></p></form>
     </div>
+  <p class="dev-por">Desarrollado por MrGas</p>
   </main>
 
   <!-- INFORMES -->
@@ -385,6 +392,7 @@ article.resalta{outline:3px solid #f79009;outline-offset:2px;transition:outline-
       <div class="tablebox"><table><thead><tr><th>Formato</th><th class="q">Cilindros</th><th class="q">Kg</th></tr></thead><tbody id="inf-fmt"></tbody></table></div>
     </div>
     <p class="note" style="margin-top:10px">Informe del reparto a mayoristas. Cilindros y kg no cuentan pedidos cancelados.</p>
+  <p class="dev-por">Desarrollado por MrGas</p>
   </main>
 
   <!-- AJUSTES -->
@@ -406,6 +414,7 @@ article.resalta{outline:3px solid #f79009;outline-offset:2px;transition:outline-
         <p class="note"><b>Android:</b> abra la app en Chrome, toque el menú ⋮ y luego «Instalar aplicación».</p>
         <button class="btn sec" type="button" id="aj-instalar" hidden>Instalar ahora</button></div>
     </div>
+  <p class="dev-por">Desarrollado por MrGas</p>
   </main>
 
   <!-- VISTA DEL CHOFER -->
@@ -417,6 +426,7 @@ article.resalta{outline:3px solid #f79009;outline-offset:2px;transition:outline-
       <p class="note" id="cv-msg" style="text-align:center;min-height:1em" aria-live="polite"></p>
       <div style="display:grid;gap:12px" id="cv-lista"></div>
     </div>
+  <p class="dev-por">Desarrollado por MrGas</p>
   </main>
 </div>
 

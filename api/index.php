@@ -4,14 +4,24 @@ declare(strict_types=1);
 require __DIR__ . '/nucleo.php';
 require __DIR__ . '/push.php';
 require __DIR__ . '/diaria.php';
+require __DIR__ . '/respaldo.php';
 date_default_timezone_set('America/Santiago');
 iniciarSesion();
 
+function puedeRespaldos(array $u): bool { return $u['rol'] === 'admin' && ($u['permisos'] === null || in_array('respaldos', (array) $u['permisos'], true)); }
 $a = $_GET['a'] ?? '';
 try {
     if ($a !== 'ping' && $_SERVER['REQUEST_METHOD'] === 'POST') exigirEncabezado();
     switch ($a) {
 
+    // Marca de la empresa (nombre, color, logo y fondo): se muestra también en el inicio, antes de entrar
+    case 'apariencia': {
+        $st = db()->prepare("SELECT data FROM docs WHERE col = 'estado' AND id = 'apariencia' AND borrado = 0"); $st->execute();
+        $d = json_decode((string) $st->fetchColumn(), true); $v = is_array($d) ? ($d['v'] ?? $d) : [];
+        $pub = []; foreach (['nombre', 'sub', 'color', 'fondo', 'fondoImg', 'logo'] as $k) if (isset($v[$k]) && is_string($v[$k])) $pub[$k] = $v[$k];
+        header('Cache-Control: no-cache');
+        salida(['apariencia' => $pub ?: null]);
+    }
     case 'ping':
         salida(['ok' => true, 'instalado' => instalado(), 'hora' => ahora()]);
 
@@ -354,6 +364,58 @@ try {
         salida(['usuarios' => array_map('perfilDe', $l)]);
     }
     // Eliminar un usuario (solo administrador). No puede eliminarse a sí mismo ni dejar el sistema sin administradores.
+    // ---------- Respaldo de la base de datos completa (solo administrador con permiso de respaldos) ----------
+    case 'respaldo_info': {
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        asegurarPush();
+        $hecho = null; if (!empty($_GET['revisar']) && respaldoAutoPendiente()) { try { $hecho = hacerRespaldoAuto('Automático (al abrir Respaldos)'); } catch (Throwable $e) {} }
+        $ult = (int) (ajuste('resp_ultimo') ?? 0);
+        salida(['lista' => listaRespaldos(), 'cada' => ajuste('resp_cada') ?? 'dia', 'guardar' => (int) (ajuste('resp_guardar') ?? 14),
+            'ultimo' => $ult ? date('Y-m-d H:i', $ult) : null, 'cron' => 'php ' . __DIR__ . '/respaldo_auto.php', 'hecho' => $hecho]);
+    }
+    case 'respaldo_config': {
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        asegurarPush(); $b = cuerpo();
+        $cada = in_array($b['cada'] ?? '', ['dia', 'semana', 'nunca'], true) ? $b['cada'] : 'dia';
+        grabarAjuste('resp_cada', $cada); grabarAjuste('resp_guardar', (string) max(1, min(90, (int) ($b['guardar'] ?? 14))));
+        salida(['ok' => true]);
+    }
+    case 'respaldo_ahora': {
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        @set_time_limit(300);
+        salida(['ok' => true] + crearRespaldo(dirRespaldos() . '/' . nombreRespaldo('manual'), $u['nombre']));
+    }
+    case 'respaldo_bajar': {
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        @set_time_limit(300);
+        $n = (string) ($_GET['f'] ?? '');
+        if ($n === '') { $r = crearRespaldo(dirRespaldos() . '/' . nombreRespaldo('manual'), $u['nombre']); $n = $r['archivo']; }
+        $ruta = archivoRespaldoValido($n); if (!$ruta) salida(['error' => 'Ese respaldo no existe.'], 404);
+        cabecerasSeguras();
+        header('Content-Type: application/gzip'); header('Content-Disposition: attachment; filename="' . $n . '"');
+        header('Content-Length: ' . filesize($ruta)); header('Cache-Control: no-store');
+        readfile($ruta); exit;
+    }
+    case 'respaldo_borrar': {
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        $ruta = archivoRespaldoValido((string) (cuerpo()['f'] ?? '')); if (!$ruta) salida(['error' => 'Ese respaldo no existe.'], 404);
+        @unlink($ruta); salida(['ok' => true]);
+    }
+    case 'respaldo_restaurar': {
+        $u = requiereAdmin(); if (!puedeRespaldos($u)) salida(['error' => 'Sin permiso de respaldos.'], 403);
+        limitar('restaurar', 5, 900); @set_time_limit(300);
+        $st = db()->prepare('SELECT hash FROM usuarios WHERE uid = ?'); $st->execute([$u['uid']]);
+        if (!password_verify((string) ($_POST['pass'] ?? ''), (string) $st->fetchColumn())) { anotarIntento('restaurar'); salida(['error' => 'La contraseña del administrador no es correcta.'], 401); }
+        if (($_POST['confirmar'] ?? '') !== 'RESTAURAR') salida(['error' => 'Escriba RESTAURAR para confirmar.'], 400);
+        $ruta = null;
+        if (!empty($_POST['f'])) $ruta = archivoRespaldoValido((string) $_POST['f']);
+        elseif (!empty($_FILES['archivo']['tmp_name']) && is_uploaded_file($_FILES['archivo']['tmp_name'])) $ruta = $_FILES['archivo']['tmp_name'];
+        if (!$ruta) salida(['error' => 'Elija un respaldo.'], 400);
+        // antes de restaurar se guarda una copia de cómo estaba todo (por si se arrepiente)
+        $seguro = crearRespaldo(dirRespaldos() . '/' . nombreRespaldo('manual'), $u['nombre'] . ' (antes de restaurar)');
+        try { $r = restaurarRespaldo($ruta); } catch (Throwable $e) { salida(['error' => $e->getMessage()], 400); }
+        salida(['ok' => true, 'filas' => $r['filas'], 'fecha' => $r['fecha'], 'copia' => $seguro['archivo']]);
+    }
     case 'usuario_borrar': {
         $adm = requiereAdmin(); $b = cuerpo(); $uid = (int) ($b['uid'] ?? 0);
         if ($uid === (int) $adm['uid']) salida(['error' => 'No puede eliminar su propio usuario.'], 400);
