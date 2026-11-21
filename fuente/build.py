@@ -12,7 +12,7 @@ assert tail.count("/*@PERMISOS@*/") == 1
 tail = tail.replace("/*@PERMISOS@*/", "const PERMISOS=" + json.dumps(pj, ensure_ascii=False, separators=(",", ":")) + ";")
 full = open(SP + "/cabeza.html").read() + tail   # cabeza.html = encabezado (head + primera parte)
 open(SP + "/completo.html", "w").write(full)
-subprocess.run([sys.executable, os.path.join(SP, "partir.py"), SP + "/completo.html", SITE], check=True)
+subprocess.run([sys.executable, os.path.join(SP, "partir.py"), SP + "/completo.html", SITE, VER], check=True)
 head = re.search(r"<head>(.*)</head>", full, re.S).group(1)
 body = re.search(r"<body>(.*)</body>", full, re.S).group(1)
 head = re.sub(r'<meta charset[^>]*>\s*|<meta name="viewport"[^>]*>\s*', '', head)

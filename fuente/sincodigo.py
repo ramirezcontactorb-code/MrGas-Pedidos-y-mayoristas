@@ -29,6 +29,8 @@ def _interp_fin(s, i):
     raise ValueError('interpolación sin cierre')
 
 def sin_codigo(s, carpeta):
+    try: ver = re.search(r"MRGAS_VERSION = '([^']+)'", open(os.path.join(carpeta, '..', 'api', 'nucleo.php')).read()).group(1)
+    except Exception: ver = '0'
     funcs = []; n = [0]
     out = []; i = 0
     pat = re.compile(r'(\s)on(click|input|change|submit|keydown|keyup|blur|focus)="')
@@ -83,8 +85,8 @@ def sin_codigo(s, carpeta):
     def sc(m):
         nsc[0] += 1; nom = ['inicio.js', 'app.js'][nsc[0] - 1]
         open(os.path.join(carpeta, nom), 'w', encoding='utf-8').write(m.group(1).strip('\n') + '\n')
-        extra = '\n<script src="acciones.js"></script>' if nom == 'app.js' else ''
-        return '<script src="%s"></script>%s' % (nom, extra)
+        extra = '\n<script src="acciones.js?v=%s"></script>' % ver if nom == 'app.js' else ''
+        return '<script src="%s?v=%s"></script>%s' % (nom, ver, extra)
     s = re.sub(r'<script>(.*?)</script>', sc, s, flags=re.S)
     assert nsc[0] == 2, nsc[0]
     return s, n[0]

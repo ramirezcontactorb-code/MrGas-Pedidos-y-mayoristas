@@ -2,6 +2,7 @@
 # Uso: python3 partir.py <html-completo> <carpeta-del-sitio>
 import re, sys, os
 src, SITE = sys.argv[1], sys.argv[2]
+VER = sys.argv[3] if len(sys.argv) > 3 else "0"   # versión: va en cada archivo (?v=) para que el navegador no use copias viejas
 s = open(src).read()
 APP = os.path.join(SITE, "app"); os.makedirs(APP, exist_ok=True)
 for f in os.listdir(APP):
@@ -36,7 +37,7 @@ cortes.append(len(js))
 tags = []
 for k, (nom, _) in enumerate(PARTES):
     open(os.path.join(APP, nom + ".js"), "w").write("/* MR Gas · Panel General · " + nom + " */\n" + js[cortes[k]:cortes[k + 1]])
-    tags.append('<script src="app/%s.js"></script>' % nom)
+    tags.append('<script src="app/%s.js?v=%s"></script>' % (nom, VER))
 s = s[:a] + "\n".join(tags) + "\n" + s[b + len("</script>\n"):]
 
 # Estilos: cada <style> pasa a un archivo, en el mismo lugar
@@ -44,14 +45,14 @@ n = [0]
 def css(m):
     nom = ["estilos-base", "estilos-portal", "estilos-login", "estilos-tema"][n[0]] + ".css"; n[0] += 1
     open(os.path.join(APP, nom), "w").write(m.group(2).strip("\n") + "\n")
-    return '<link rel="stylesheet" href="app/%s"%s>' % (nom, m.group(1) or "")
+    return '<link rel="stylesheet" href="app/%s?v=%s"%s>' % (nom, VER, m.group(1) or "")
 s = re.sub(r'<style( id="[^"]*")?>(.*?)</style>', css, s, flags=re.S)
 
 # El único script corto del encabezado
 ar = '<script>document.body.classList.add("arrancando");setTimeout(function(){document.body.classList.remove("arrancando")},6000)</script>'
 assert s.count(ar) == 1
 open(os.path.join(APP, "arranque.js"), "w").write('document.body.classList.add("arrancando");setTimeout(function(){document.body.classList.remove("arrancando")},6000);\n')
-s = s.replace(ar, '<script src="app/arranque.js"></script>')
+s = s.replace(ar, '<script src="app/arranque.js?v=%s"></script>' % VER)
 
 assert "<script>" not in s and " onclick=" not in s, "quedó código en el HTML"
 open(os.path.join(SITE, "index.html"), "w").write(s)
