@@ -730,7 +730,7 @@ async function apiStore(){
   const notify=pth=>{(dl.get(pth)||[]).forEach(f=>f(snapDoc(pth)));const c=parentOf(pth);(cl.get(c)||[]).forEach(f=>f(snapCol(c)));};
   const take=rows=>{const ch=[];rows.forEach(r=>{if(!since||r.updated_at>since)since=r.updated_at;const j=JSON.stringify(r.data);if(JSON.stringify(cache.get(r.path))!==j){cache.set(r.path,r.data);ch.push(r.path);}});return ch;};
   take(first.rows);if(first.since&&(!since||first.since>since))since=first.since;mgCacheProg(cache,()=>since);
-  const poll=async()=>{if(document.hidden)return;try{const r=await fetch(API_DOCS+(since?'?since='+encodeURIComponent(since):''),{cache:'no-store'});
+  const poll=async()=>{if(document.hidden)return;try{const r=await fetch(mgUrl(since),{cache:'no-store',credentials:'same-origin'});
     if(!r.ok)return;const j=await r.json();take(j.rows||[]).forEach(notify);}catch(e){}};
   setInterval(poll,4000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll();});
   const on=(map,key,fn,snap)=>{(map.get(key)||map.set(key,[]).get(key)).push(fn);setTimeout(()=>fn(snap(key)),0);
@@ -1021,14 +1021,16 @@ function mgVer(){const x=document.getElementById('mg-oculto');if(x)x.remove();}
 /* ===== Carga rápida: copia de los datos en este navegador (IndexedDB); del servidor solo se pide lo nuevo ===== */
 const MG_IDB='mrgas-local';
 function mgIdb(){return new Promise((ok,no)=>{try{const q=indexedDB.open(MG_IDB,1);q.onupgradeneeded=()=>q.result.createObjectStore('c');q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error);}catch(e){no(e);}});}
-async function mgCacheLeer(){try{const d=await mgIdb();return await new Promise(ok=>{const q=d.transaction('c').objectStore('c').get('docs');q.onsuccess=()=>ok(q.result||null);q.onerror=()=>ok(null);});}catch(e){return null;}}
-async function mgCacheGuardar(v){try{const d=await mgIdb();d.transaction('c','readwrite').objectStore('c').put(v,'docs');}catch(e){}}
+let MG_SUC=null;const mgKey=()=>'docs-'+(MG_SUC?slug(MG_SUC):'todas');
+function mgUrl(s){const q=[];if(MG_SUC)q.push('suc='+encodeURIComponent(slug(MG_SUC)));if(s)q.push('since='+encodeURIComponent(s));return MG_API+(q.length?'?'+q.join('&'):'');}
+async function mgCacheLeer(){try{const d=await mgIdb();return await new Promise(ok=>{const q=d.transaction('c').objectStore('c').get(mgKey());q.onsuccess=()=>ok(q.result||null);q.onerror=()=>ok(null);});}catch(e){return null;}}
+async function mgCacheGuardar(v){try{const d=await mgIdb();d.transaction('c','readwrite').objectStore('c').put(v,mgKey());}catch(e){}}
 function mgCacheBorrar(){try{indexedDB.deleteDatabase(MG_IDB);}catch(e){}}
 function mgCacheProg(cache,getSince){let ult=null;const g=()=>{const s=getSince();if(!s||s===ult)return;ult=s;const o=Object.fromEntries(cache);delete o['app/users'];mgCacheGuardar({since:s,rows:o});};
   setTimeout(g,1500);setInterval(g,8000);addEventListener('pagehide',g);document.addEventListener('visibilitychange',()=>{if(document.hidden)g();});}
 let MG_PRIMERA=null;
 function mgPrimera(){if(MG_PRIMERA)return MG_PRIMERA;
-  MG_PRIMERA=(async()=>{const get=async s=>{const r=await fetch(MG_API+(s?'?since='+encodeURIComponent(s):''),{cache:'no-store',credentials:'same-origin'});if(!r.ok)throw new Error('http '+r.status);return r.json();};
+  MG_PRIMERA=(async()=>{const get=async s=>{const r=await fetch(mgUrl(s),{cache:'no-store',credentials:'same-origin'});if(!r.ok)throw new Error('http '+r.status);return r.json();};
     const c=await mgCacheLeer();
     if(c&&c.since&&c.rows){try{const j=await get(c.since),mp=new Map(Object.entries(c.rows));mp.delete('app/users');let s=c.since;
       (j.rows||[]).forEach(r=>{mp.set(r.path,r.data);if(r.updated_at>s)s=r.updated_at;});
@@ -1037,11 +1039,14 @@ function mgPrimera(){if(MG_PRIMERA)return MG_PRIMERA;
   MG_PRIMERA.catch(()=>{MG_PRIMERA=null;});return MG_PRIMERA;}
 async function mgGate(){
   if(!/^https?:$/.test(location.protocol)){mgVer();return true;} /* vista previa sin servidor */
-  mgPrimera().catch(()=>{});
   let j=null;try{const r=await fetch(MG_API+'?a=estado',{credentials:'same-origin',cache:'no-store'});j=await r.json();}catch(e){}
   if(!j||j.error){mgPantalla('Sin conexión','No se pudo conectar con el servidor. Revise internet y vuelva a intentar.');return false;}
   mgSucs(j.sucursales);
-  if(j.quien){MGU={modo:j.quien.modo,user:j.quien.perfil.user};USERS=[mgUsuario(j.quien.perfil)];setTimeout(mgVer,8000);return true;}
+  if(j.quien){MGU={modo:j.quien.modo,user:j.quien.perfil.user};USERS=[mgUsuario(j.quien.perfil)];setTimeout(mgVer,8000);
+    /* se cargan solo los datos de la sucursal en uso (el informe de todas las sucursales carga todo) */
+    try{if(!/[?&]solo=inf\b/.test(location.search)){const mias=userSucs(USERS[0]);let g=null;try{g=JSON.parse(sessionStorage.getItem('gl_user'));}catch(e){}
+      MG_SUC=g&&String(g.u).toLowerCase()===String(MGU.user).toLowerCase()&&mias.includes(g.suc)?g.suc:(mias[0]||null);}}catch(e){MG_SUC=null;}
+    mgPrimera().catch(()=>{});return true;}
   /* sin sesión: se entra con el usuario y clave del Panel General */
   try{sessionStorage.removeItem('gl_user');}catch(e){}
   location.replace('../?volver=local#acceso');return false;
@@ -2798,6 +2803,7 @@ function mgVolver(){if(!/^https?:$/.test(location.protocol))return;const ab=docu
 const MG_EMB=/[?&]solo=inf\b/.test(location.search),MG_APP=/[?&]app=1\b/.test(location.search);
 if(MG_EMB)document.documentElement.classList.add('mg-emb');
 {const r1=render;render=function(){
+  if(MG_SUC&&S.user&&S.user.suc&&S.user.suc!==MG_SUC&&!MG_EMB){try{sessionStorage.setItem('gl_user',JSON.stringify(S.user));}catch(e){}document.body.style.visibility='hidden';location.reload();return;}
   if(MGU&&S.user&&db&&READY){
     if(MG_EMB)S.view='inf';
     else if(S.view==='home'||S.view==='inf'||!VIEWS[S.view])S.view=canView('venta')?'venta':canView('rend')?'rend':S.view;}

@@ -267,11 +267,15 @@ try {
         salida(['ok' => true, 'updated_at' => $marca($ver)]);
     }
     $desde = (int) ltrim((string) ($_GET['since'] ?? '0'), '0');
-    $s = db()->prepare("SELECT path, data, ver FROM local_docs WHERE ver > ? AND path <> 'app/users' ORDER BY ver");
-    $s->execute([$desde]);
+    // ?suc=slug: solo los datos de esa sucursal (más rápido); de las otras va solo su ficha
+    $sq = preg_replace('/[^a-z0-9_]/', '', (string) ($_GET['suc'] ?? ''));
+    $filtro = $sq !== '' ? " AND (path NOT LIKE 'suc/%' OR path NOT LIKE 'suc/%/%' OR path LIKE ?)" : '';
+    $s = db()->prepare("SELECT path, data, ver FROM local_docs WHERE ver > ? AND path <> 'app/users'$filtro ORDER BY ver");
+    $s->execute($sq !== '' ? [$desde, 'suc/' . $sq . '/%'] : [$desde]);
     $rows = [];
     foreach ($s as $r) $rows[] = ['path' => $r['path'], 'data' => json_decode($r['data']), 'updated_at' => $marca($r['ver'])];
-    $n = (int) db()->query("SELECT COUNT(*) FROM local_docs WHERE path <> 'app/users'")->fetchColumn();
+    $cn = db()->prepare("SELECT COUNT(*) FROM local_docs WHERE path <> 'app/users'$filtro"); $cn->execute($sq !== '' ? ['suc/' . $sq . '/%'] : []);
+    $n = (int) $cn->fetchColumn();
     salida(['rows' => $rows, 'n' => $n]);
 } catch (Throwable $e) {
     error_log('MR Gas local: ' . $e->getMessage());
