@@ -148,6 +148,65 @@ try {
     tablaLocal();
     $a = $_GET['a'] ?? '';
     licExigir(); // servicio pausado por el dueño
+    // ---------- Bodegas propias de las sucursales (Control de Bodega del Panel General) ----------
+    // Ve una sucursal: el administrador, o quien tenga Control de Bodega y permiso de esa sucursal (lsuc.<sucursal>)
+    if ($a === 'bodegas' || $a === 'bodega_ingreso') {
+        $u = yo(); if (!$u) salida(['error' => 'Sesión vencida.'], 401);
+        $pm = $u['permisos']; $adm = $u['rol'] === 'admin';
+        $verBod = $adm || $pm === null || (bool) array_intersect(['bodega', 'bodega:ver', 'compras'], (array) $pm);
+        $cargar = $adm || $pm === null || (bool) array_intersect(['bodega', 'compras'], (array) $pm);
+        $mia = fn($sl) => $adm || $pm === null || in_array('lsuc.' . $sl, (array) $pm, true);
+        $propias = array_values(array_filter(sucursalesLocal(), fn($x) => ($x['activa'] ?? true) !== false && isset($x['bodega']) && $x['bodega'] !== null && (int) $x['bodega'] < 0));
+        $LID = ['5' => '5', '11' => '11', '15' => '15', '45' => '45', 'H15A' => 'H'];   // producto → grupo de vacíos
+        $leer = function (string $pth) { $st = db()->prepare('SELECT data FROM local_docs WHERE path = ?'); $st->execute([$pth]); $v = $st->fetchColumn(); return $v === false ? null : json_decode((string) $v, true); };
+        if ($a === 'bodegas') {
+            if (!$verBod) salida(['bodegas' => []]);
+            $out = [];
+            foreach ($propias as $x) { $sl = slugLocal($x['nombre']); if (!$mia($sl)) continue;
+                $d = $leer('suc/' . $sl) ?? []; $ll = []; foreach ((array) ($d['products'] ?? []) as $pr) if (isset($pr['id'])) $ll[(string) $pr['id']] = (int) ($pr['stock'] ?? 0);
+                $mv = []; foreach ([date('Y-m'), date('Y-m', strtotime('first day of last month'))] as $mes) foreach ((array) (($leer("suc/$sl/bmovs/$mes") ?? [])['list'] ?? []) as $m)
+                    if (is_array($m) && empty($m['anulado']) && ($m['tipo'] ?? '') === 'carga') $mv[] = ['fecha' => $m['fecha'] ?? '', 'hora' => $m['hora'] ?? '', 'usuario' => $m['usuario'] ?? '', 'stock' => $m['d']['stock'] ?? [], 'obs' => $m['obs'] ?? ''];
+                usort($mv, fn($p, $q2) => strcmp($q2['fecha'] . $q2['hora'], $p['fecha'] . $p['hora']));
+                $out[] = ['nombre' => $x['nombre'], 'slug' => $sl, 'llenos' => (object) $ll, 'vacios' => (object) ($d['vacios'] ?? []), 'prestados' => (object) ($d['prestados'] ?? []),
+                    'sinDatos' => !$d, 'ingresos' => array_slice($mv, 0, 8)];
+            }
+            salida(['bodegas' => $out, 'cargar' => $cargar]);
+        }
+        // Ingreso de carga en la bodega propia de una sucursal: suma llenos y (si hay canje) descuenta vacíos, como en Venta Local
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') salida(['error' => 'Método no válido.'], 405);
+        exigirEncabezado();
+        $b = json_decode(file_get_contents('php://input') ?: '{}', true) ?: [];
+        $sl = preg_replace('/[^a-z0-9_]/', '', (string) ($b['suc'] ?? ''));
+        $x = null; foreach ($propias as $y) if (slugLocal($y['nombre']) === $sl) $x = $y;
+        if (!$x) salida(['error' => 'Esa sucursal no tiene bodega propia.'], 400);
+        if (!$cargar || !$mia($sl)) salida(['error' => 'No tiene permiso para cargar la bodega de ' . $x['nombre'] . '.'], 403);
+        $q2 = []; foreach ((array) ($b['q'] ?? []) as $id => $n) { $n = (int) $n; if ($n > 0 && isset($LID[(string) $id])) $q2[(string) $id] = min($n, 100000); }
+        if (!$q2) salida(['error' => 'Escriba cuántos llenos entran.'], 400);
+        $canje = !empty($b['canje']); $obs = mb_substr(trim((string) ($b['obs'] ?? '')), 0, 200);
+        $p = db(); $p->beginTransaction();
+        try {
+            $d = $leer('suc/' . $sl);
+            if (!$d || empty($d['products'])) { $p->rollBack(); salida(['error' => 'La sucursal todavía no tiene productos. Ábrala una vez en Venta Local.'], 409); }
+            $dd = ['stock' => [], 'vac' => [], 'pres' => [], 'carga' => [], 'chofer' => null];
+            foreach ($q2 as $id => $n) { $dd['stock'][$id] = $n; if ($canje) $dd['vac'][$LID[$id]] = ($dd['vac'][$LID[$id]] ?? 0) - $n; }
+            $d['vacios'] = (array) ($d['vacios'] ?? []);
+            foreach ($dd['vac'] as $g => $n) if ((int) ($d['vacios'][$g] ?? 0) + $n < 0) { $p->rollBack(); salida(['error' => 'No hay suficientes vacíos de ' . ($g === 'H' ? 'H15' : $g . ' kg') . ' (hay ' . (int) ($d['vacios'][$g] ?? 0) . '). Desmarque «Entregar vacíos» o corrija el stock en Venta Local.'], 400); }
+            foreach ($d['products'] as &$pr) if (isset($dd['stock'][(string) ($pr['id'] ?? '')])) $pr['stock'] = (int) ($pr['stock'] ?? 0) + $dd['stock'][(string) $pr['id']]; unset($pr);
+            foreach ($dd['vac'] as $g => $n) $d['vacios'][$g] = (int) ($d['vacios'][$g] ?? 0) + $n;
+            $p->exec("UPDATE contadores SET valor = valor + 1 WHERE nombre = 'local'");
+            $ver = (int) $p->query("SELECT valor FROM contadores WHERE nombre = 'local'")->fetchColumn();
+            $put = $p->prepare(esSqlite() ? 'INSERT OR REPLACE INTO local_docs (path, data, ver) VALUES (?, ?, ?)'
+                : 'INSERT INTO local_docs (path, data, ver) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), ver = VALUES(ver)');
+            $put->execute(['suc/' . $sl, json_encode($d, JSON_UNESCAPED_UNICODE), $ver]);
+            $mes = date('Y-m'); $bm = $leer("suc/$sl/bmovs/$mes") ?? ['list' => []];
+            $bm['list'][] = ['id' => (int) round(microtime(true) * 1000), 'fecha' => date('Y-m-d'), 'hora' => date('H:i'), 'usuario' => $u['nombre'], 'label' => 'Ingreso de carga', 'd' => $dd,
+                'chofer' => '', 'anulado' => false, 'tipo' => 'carga', 'obs' => $obs . ($obs !== '' ? ' · ' : '') . 'desde Panel General'];
+            $put->execute(["suc/$sl/bmovs/$mes", json_encode($bm, JSON_UNESCAPED_UNICODE), $ver]);
+            $p->commit();
+        } catch (Throwable $e) { if ($p->inTransaction()) $p->rollBack(); throw $e; }
+        $ll = []; foreach ($d['products'] as $pr) $ll[(string) $pr['id']] = (int) ($pr['stock'] ?? 0);
+        salida(['ok' => true, 'llenos' => $ll, 'vacios' => $d['vacios']]);
+    }
     if ($a === 'estado') { $q = quien(); salida(['quien' => $q ? ['modo' => $q['modo'], 'perfil' => $q['perfil']] : null, 'sucursales' => sucursalesLocal()]); }
     if ($a === 'clave' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $q = quien(); if (!$q) salida(['error' => 'Sesión vencida.'], 401);

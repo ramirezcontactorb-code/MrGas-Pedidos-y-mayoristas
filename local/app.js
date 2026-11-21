@@ -338,7 +338,10 @@ const MG_API='api/docs.php';
 function mgPantalla(t,d){document.body.innerHTML=`<div class="login-wrap"><div class="login"><div class="lbrand"><div class="sq">MR</div><div><b>Venta Local</b><small>MR Gas</small></div></div>
   <h2>${t}</h2><p class="hint">${d}</p><button class="btn primary" data-h0="click">Reintentar</button></div></div>`;}
 /* sucursales configuradas en el Panel General (cuántas hay, cuáles están activas y cuáles tienen precios propios) */
+/* sucursales con bodega propia (independientes): tienen su menú (venta, mayorista y bodega) */
+const MG_BODP=[];
 function mgSucs(l){if(!Array.isArray(l)||!l.length)return;
+  MG_BODP.splice(0,MG_BODP.length,...l.filter(x=>x.bodega!=null&&+x.bodega<0).map(x=>x.nombre));
   SUCS_TODAS.splice(0,SUCS_TODAS.length,...l.map(x=>x.nombre));
   SUCS_OFF.splice(0,SUCS_OFF.length,...l.filter(x=>x.activa===false).map(x=>x.nombre));
   SUCS.splice(0,SUCS.length,...SUCS_TODAS.filter(s=>!SUCS_OFF.includes(s)));
@@ -401,9 +404,11 @@ function mgUsuario(p){const per=Array.isArray(p.permisos)?p.permisos:[];
   const lp=per.filter(c=>c.startsWith('loc.')).map(c=>c.slice(4));
   const sucs=SUCS.filter(x=>per.includes('lsuc.'+slug(x))),loc=lp.filter(k=>!GLOBALP.includes(k)),ps={};sucs.forEach(x=>ps[x]=loc.slice());
   return {u:p.user,nombre:p.nombre,rol:'vendedor',perms:lp.filter(k=>GLOBALP.includes(k)&&k!=='users'),ps,verInf:lp.includes('inf'),mvmig:1,ctamig:1,p:''};}
-/* Venta Local queda solo con Venta Local, su Rendición e Informes */
+/* Venta Local queda solo con Venta Local, su Rendición e Informes (salvo sucursales con bodega propia, ver abajo) */
 const MG_OCULTOS=['mayor','mcta','bodega','bmov','bvmov','bedit','precios','com','phist','theme','users'];
-{const c0=can;can=function(k){if(MGU&&MG_OCULTOS.includes(k))return false;return c0(k);};}
+/* sucursales con bodega propia: además tienen su Venta Mayorista (clientes propios) y su Control de bodega */
+const MG_BODP_OK=['mayor','mcta','bodega','bmov','bvmov','bedit'];
+{const c0=can;can=function(k){if(MGU&&MG_OCULTOS.includes(k)&&!(MG_BODP_OK.includes(k)&&S.user&&MG_BODP.includes(S.user.suc)))return false;return c0(k);};}
 /* Una sola bodega: si la sucursal está unida a la bodega de la matriz, el stock es el de la matriz
    y cada venta del local descuenta (o devuelve) allá. */
 let MGB=null;
@@ -2140,7 +2145,7 @@ if(MG_EMB)document.documentElement.classList.add('mg-emb');
   if(MG_SUC&&S.user&&S.user.suc&&S.user.suc!==MG_SUC&&!MG_EMB){try{sessionStorage.setItem('gl_user',JSON.stringify(S.user));sessionStorage.setItem('mg_suc',S.user.suc);}catch(e){}document.body.style.visibility='hidden';location.reload();return;}
   if(MGU&&S.user&&db&&READY){
     if(MG_EMB)S.view='inf';
-    else if(S.view==='home'||S.view==='inf'||!VIEWS[S.view])S.view=canView('venta')?'venta':canView('rend')?'rend':S.view;}
+    else if(S.view==='inf'||!VIEWS[S.view]||(S.view==='home'&&!(MG_APP&&MG_BODP.includes(S.user.suc))))S.view=canView('venta')?'venta':canView('rend')?'rend':S.view;}
   const x=r1.apply(this,arguments);
   try{document.documentElement.dataset.vista=S.view||'';}catch(e){}
   if(MGU&&S.user&&db&&READY)mgVer();
@@ -2151,7 +2156,11 @@ if(MG_EMB)document.documentElement.classList.add('mg-emb');
     const ab=document.querySelector('.ab-right'),u=USERS[0];
     if(MG_APP){const ph=document.querySelector('.phead');if(ph&&!document.getElementById('mg-acc')){const mc=document.getElementById('mg-con');
       ph.insertAdjacentHTML('beforeend','<div class="mg-acc" id="mg-acc"><span class="pill">'+esc(S.user.suc)+'</span>'+(u&&userSucs(u).length>1?'<button class="btn sm" data-h150="click">Cambiar sucursal</button>':'')+'</div>');
-      if(mc)document.getElementById('mg-acc').appendChild(mc);}}
+      if(mc)document.getElementById('mg-acc').appendChild(mc);
+      /* sucursal con bodega propia: volver a su menú */
+      if(MG_BODP.includes(S.user.suc)&&S.view!=='home'){const bm=document.createElement('button');bm.className='btn sm';bm.id='mg-menu';bm.textContent='← Menú de '+S.user.suc;bm.onclick=()=>go('home');document.getElementById('mg-acc').prepend(bm);}}}
+    /* en su menú: solo Venta Local, Venta Mayorista y Control de bodega (Configuración e Informes están en el Panel General) */
+    if(MG_APP&&S.view==='home')document.querySelectorAll('.mcard').forEach(b=>{if([...b.attributes].some(a=>/^data-h\d+a0$/.test(a.name)&&(a.value==='config'||a.value==='inf')))b.remove();});
     if(ab&&u&&userSucs(u).length>1&&!document.getElementById('mg-suc'))ab.insertAdjacentHTML('afterbegin','<button class="hb" id="mg-suc" data-h151="click">Cambiar sucursal</button>');}}catch(e){}
   return x;};}
 presPill=function(){return '';};

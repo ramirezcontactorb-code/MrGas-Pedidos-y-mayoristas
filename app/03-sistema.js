@@ -13,7 +13,7 @@ function pintarSistema(){
   $("#sis-sucursal").innerHTML=l?`<small>Sucursal:</small>${esc(l.nombre)}`:`<small>Sucursal:</small>sin elegir`;
   $("#sis-yo").textContent=yo.nombre+" · "+({admin:"Administrador",encargado:"Encargado",chofer:"Chofer"})[yo.rol];
   const banner=yo.cambiar?`<div class="banner">Está usando la clave inicial. Cámbiela en "Cambiar Contraseña".</div>`:"";
-  $("#sis-main").innerHTML=banner+(V[mod]||V.menu)()+`<div class="foot-mr"><span>MR Gas · Sistema de distribución</span><span class="dev-por">Desarrollado por MrGas · versión 145 · <a href="terminos/" target="_blank" rel="noopener">Términos y privacidad</a></span><span>${D.locales.length===1?esc(D.locales[0].nombre):D.locales.length+" sucursales"}</span></div>`;
+  $("#sis-main").innerHTML=banner+(V[mod]||V.menu)()+`<div class="foot-mr"><span>MR Gas · Sistema de distribución</span><span class="dev-por">Desarrollado por MrGas · versión 147 · <a href="terminos/" target="_blank" rel="noopener">Términos y privacidad</a></span><span>${D.locales.length===1?esc(D.locales[0].nombre):D.locales.length+" sucursales"}</span></div>`;
   $$("[data-accion]").forEach(b=>b.onclick=()=>{if(b.dataset.accion==="salir")return salir();ir(b.dataset.accion)});
   $$("[data-modulo]").forEach(b=>b.onclick=()=>ir(b.dataset.modulo));
   const v=$("#volver");if(v)v.onclick=()=>ir(yo.rol==="chofer"?"chofer":"menu");

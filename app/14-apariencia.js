@@ -302,5 +302,74 @@ function pintarImp(){const z=$("#imp-cuerpo");if(!z)return;
     if(z){const rb=document.getElementById("resp-bd"),h='<section class="caja rb-caja" id="imp-vl"><h3>Importar datos de otro Venta Local</h3><div id="imp-cuerpo"></div></section>';
       if(rb)rb.insertAdjacentHTML("afterend",h);else z.insertAdjacentHTML("beforeend",h);pintarImp()}}}catch(e){console.error(e)}
   return r}}
+
+/* ===================== CONTROL DE BODEGA: bodegas propias de las sucursales (Stock e Ingreso de carga) ===================== */
+let bodSuc=null,bodSucCargando=false,bIngSuc=null;
+async function cargarBodSuc(forzar){if(!NUBE.activo||bodSucCargando||(bodSuc&&!forzar))return;bodSucCargando=true;
+  try{const r=await fetch("local/api/docs.php?a=bodegas",{credentials:"same-origin",cache:"no-store"});const j=await r.json();bodSuc=r.ok?j:{bodegas:[],error:j.error}}
+  catch(e){bodSuc={bodegas:[],error:"sin conexión"}}bodSucCargando=false;if(mod==="bodega")pintarSistema()}
+const bsN=(o,f)=>+((o||{})[LID[f.id]]||0),bsV=(o,f)=>+((o||{})[f.tipo==="h"?"H":LID[f.id]]||0);
+function seccionBodSuc(){const B=(bodSuc&&bodSuc.bodegas)||[];if(!B.length)return "";
+  const col=FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15":f.kg+" kg"}</th>`).join("");
+  return `<section class="caja bd-sp" id="bd-sp"><div class="bd-sp-h"><h3>Bodegas de sucursales</h3><span class="nota" style="margin:0">Sucursales de Venta Local con bodega propia</span></div>
+  <div class="tabla-wrap"><table class="bd-sp-t"><thead><tr><th>Sucursal</th><th></th>${col}<th class="c">Total</th><th></th></tr></thead><tbody>
+  ${B.map(b=>{const tl=FORMATOS.reduce((s,f)=>s+bsN(b.llenos,f),0),tv=FORMATOS.reduce((s,f)=>s+bsV(b.vacios,f),0),tp=FORMATOS.reduce((s,f)=>s+bsV(b.prestados,f),0);
+    return `<tr><td rowspan="2"><b>${esc(b.nombre)}</b>${b.sinDatos?'<small class="nota">sin datos aún</small>':""}${tp?`<small class="nota">${tp} prestados</small>`:""}</td><td class="et">Llenos</td>${FORMATOS.map(f=>{const v=bsN(b.llenos,f);return `<td class="c num ${v<0?"neg":v?"":"cero"}">${v}</td>`}).join("")}<td class="c num"><b>${tl}</b></td>
+      <td rowspan="2">${bodSuc.cargar?`<button class="btn chico linea" type="button" data-bsing="${esc(b.slug)}">Ingreso de carga</button>`:""}</td></tr>
+      <tr class="vac"><td class="et">Vacíos</td>${FORMATOS.map(f=>{const v=bsV(b.vacios,f);return `<td class="c num ${v<0?"neg":v?"":"cero"}">${v}</td>`}).join("")}<td class="c num"><b>${tv}</b></td></tr>`}).join("")}
+  </tbody></table></div><p class="nota" style="margin:6px 0 0">Las ventas en Venta Local descuentan de esta bodega. Para ver una sucursal, el usuario necesita Control de Bodega y permiso de esa sucursal.</p></section>`}
+function vistaIngresoSuc(b){const col=FORMATOS.map(f=>`<th class="c">${f.tipo==="h"?"H15":f.kg+" kg"}</th>`).join("");
+  return `<div class="cab-mod"><div><h2>Ingreso de carga · ${esc(b.nombre)}</h2><p class="sub">Llenos que llegan a la bodega de la sucursal</p></div></div>
+  <section class="caja"><div class="tabla-wrap"><table class="bd-sp-t"><thead><tr><th></th>${col}</tr></thead><tbody>
+    <tr><td class="et">En bodega</td>${FORMATOS.map(f=>`<td class="c num">${bsN(b.llenos,f)}</td>`).join("")}</tr>
+    <tr><td class="et">Vacíos</td>${FORMATOS.map(f=>`<td class="c num">${bsV(b.vacios,f)}</td>`).join("")}</tr>
+    <tr class="ing"><td class="et"><b>Entran</b></td>${FORMATOS.map(f=>`<td class="c"><input type="number" min="0" class="num bs-q" data-bsq="${LID[f.id]}" inputmode="numeric" aria-label="Llenos ${f.et} que entran"></td>`).join("")}</tr>
+  </tbody></table></div>
+  <label class="bs-canje"><input type="checkbox" id="bs-canje" checked> Se entregan los vacíos a la planta (descuenta la misma cantidad de vacíos)</label>
+  <label class="bs-obs">Observación<input id="bs-obs" maxlength="200" placeholder="Ej: guía N° 1234"></label>
+  <p class="error" id="bs-err" hidden></p><div class="acc" style="justify-content:flex-start"><button class="btn" type="button" id="bs-ok">Grabar ingreso</button></div></section>
+  <section class="caja"><h3 style="margin:0 0 8px">Últimos ingresos de ${esc(b.nombre)}</h3>
+  ${b.ingresos&&b.ingresos.length?`<div class="tabla-wrap"><table class="bd-sp-t"><thead><tr><th>Fecha</th><th>Por</th><th>Llenos</th><th>Obs.</th></tr></thead><tbody>${b.ingresos.map(m=>`<tr><td class="num">${fF(m.fecha)} ${esc(m.hora||"")}</td><td>${esc(m.usuario||"")}</td><td>${Object.entries(m.stock||{}).map(([k,v])=>`${v} × ${k==="H15A"?"H15":k+" kg"}`).join(", ")}</td><td>${esc(m.obs||"")}</td></tr>`).join("")}</tbody></table></div>`:'<p class="nota" style="margin:0">Sin ingresos en los últimos dos meses.</p>'}</section>`}
+{const v0=V.bodega;V.bodega=function(){let h=v0.apply(this,arguments);
+  try{const B=(bodSuc&&bodSuc.bodegas)||[];
+    if(bTab==="ingreso"&&B.length){const sel=B.find(b=>b.slug===bIngSuc);if(!sel)bIngSuc=null;
+      const chips=`<div class="bs-chips" role="group" aria-label="Bodega donde entra la carga"><span>Bodega:</span><button type="button" class="vc-chip" data-bsel="" aria-pressed="${!bIngSuc}">${esc((loc(suc)||{}).nombre||"Casa Matriz")}</button>${B.map(b=>`<button type="button" class="vc-chip" data-bsel="${esc(b.slug)}" aria-pressed="${bIngSuc===b.slug}">${esc(b.nombre)}</button>`).join("")}</div>`;
+      const i=h.indexOf('<div class="vc-main">');
+      if(i>=0){const ini=i+'<div class="vc-main">'.length;h=sel?h.slice(0,ini)+chips+vistaIngresoSuc(sel)+'</div></div>':h.slice(0,ini)+chips+h.slice(ini)}}
+    if(bTab==="stock"&&B.length){const k=h.lastIndexOf('</div></div>');if(k>0)h=h.slice(0,k)+seccionBodSuc()+h.slice(k)}}catch(e){console.error(e)}
+  return h}}
+{const l0=L.bodega;L.bodega=function(){const r=l0?l0.apply(this,arguments):undefined;
+  try{if(NUBE.activo&&(bTab==="stock"||bTab==="ingreso"))cargarBodSuc(false);
+    $$("[data-bsel]").forEach(b=>b.onclick=()=>{bIngSuc=b.dataset.bsel||null;pintarSistema()});
+    $$("[data-bsing]").forEach(b=>b.onclick=()=>{bIngSuc=b.dataset.bsing;bTab="ingreso";pintarSistema();window.scrollTo(0,0)});
+    const ok=$("#bs-ok");if(ok)ok.onclick=async()=>{const er=$("#bs-err"),q={};er.hidden=true;$$("[data-bsq]").forEach(i=>{const n=Math.round(+i.value||0);if(n>0)q[i.dataset.bsq]=n});
+      if(!Object.keys(q).length){er.textContent="Escriba cuántos llenos entran.";er.hidden=false;return}
+      ok.disabled=true;ok.textContent="Grabando…";const b=bodSuc.bodegas.find(x=>x.slug===bIngSuc);
+      try{const r=await fetch("local/api/docs.php?a=bodega_ingreso",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-MRGas":"1"},body:JSON.stringify({suc:bIngSuc,q,canje:$("#bs-canje").checked,obs:$("#bs-obs").value})});
+        const j=await r.json();if(!r.ok)throw new Error(j.error||"No se pudo grabar.");
+        const txt=Object.entries(q).map(([k,v])=>`${v} × ${k==="H15A"?"H15":k+" kg"}`).join(", ");
+        log("bodega","Ingreso de carga en sucursal",`${b?b.nombre:bIngSuc}: ${txt}`);guardar();aviso("Ingreso grabado",`${b?b.nombre:""}: ${txt}`);
+        await cargarBodSuc(true)}
+      catch(e){er.textContent=e.message;er.hidden=false;ok.disabled=false;ok.textContent="Grabar ingreso"}}}catch(e){console.error(e)}
+  return r}}
+
+/* ===================== CONFIGURACIONES → MÓDULOS: Venta Local en Casa Matriz ===================== */
+async function vlMatrizLeer(){const r=await fetch("local/api/docs.php?a=sucursales",{credentials:"same-origin",cache:"no-store"});const j=await r.json();if(!r.ok)throw new Error(j.error||"Sin acceso a Venta Local");return j.list||[]}
+{const l0=L.config;L.config=function(){const r=l0?l0.apply(this,arguments):undefined;
+  try{const c=$("#md-vlm");if(c&&NUBE.activo&&esAdmin()){const m=D.locales[0]||{},nom=m.nombre||"Casa Matriz",slugN=lslug(nom);
+    vlMatrizLeer().then(l=>{const x=l.find(s=>lslug(s.nombre)===slugN);c.checked=!!(x&&x.activa!==false);c.disabled=false}).catch(()=>{c.disabled=true});
+    c.onchange=async()=>{c.disabled=true;const o=$("#md-ok");
+      try{const l=await vlMatrizLeer(),x=l.find(s=>lslug(s.nombre)===slugN);
+        if(c.checked){if(x){x.activa=true;if(x.bodega==null)x.bodega=m.id}else l.push({nombre:nom,indep:false,activa:true,bodega:m.id})}
+        else if(x)x.activa=false;
+        const rr=await fetch("local/api/docs.php?a=sucursales",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-MRGas":"1"},body:JSON.stringify({list:l})});
+        const j=await rr.json();if(!rr.ok)throw new Error(j.error||"No se pudo guardar.");
+        if(typeof LOCAL_CFG!=="undefined")LOCAL_CFG=null;
+        log("sistema",c.checked?`Venta Local activada en ${nom}`:`Venta Local desactivada en ${nom}`,"");guardar();
+        if(o){o.textContent=c.checked?`Venta Local activada en ${nom}: aparece como sucursal en Venta Local, con la bodega de la matriz.`:`Venta Local desactivada en ${nom}. Sus ventas se conservan.`;o.hidden=false}
+        try{const f=document.querySelector("#vl-capa iframe");if(f)f.contentWindow.location.reload()}catch(e){}}
+      catch(e){c.checked=!c.checked;aviso("No se pudo cambiar",e.message)}
+      c.disabled=false}}}catch(e){console.error(e)}
+  return r}}
 /* botones de imprimir (sin código en el HTML, para la protección del navegador) */
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-imprimir]"))window.print()});

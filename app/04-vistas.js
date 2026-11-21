@@ -453,6 +453,8 @@ const V={
       <p class="nota" style="margin:4px 0 0">Si la desactiva, «Venta Mayorista» desaparece del menú para todos, junto con Clientes, Precios Mayoristas y Comisión Vales en Configuraciones. Los datos no se borran: al activarla de nuevo vuelve todo como estaba.</p>
       <label class="radio" style="margin-top:12px"><input type="checkbox" id="md-fac" ${D.precios.sinFacturas?"":"checked"}> <b>Facturas</b> activa</label>
       <p class="nota" style="margin:4px 0 0">Si la desactiva, «Facturas» desaparece del menú y en Pedidos de Gas no se muestra «Solicita factura». Los datos no se borran.</p>
+      ${NUBE.activo?`<label class="radio" style="margin-top:12px"><input type="checkbox" id="md-vlm" disabled> <b>Venta Local en ${esc((D.locales[0]||{}).nombre||"Casa Matriz")}</b></label>
+      <p class="nota" style="margin:4px 0 0">Agrega la matriz como sucursal de Venta Local, con la misma bodega de la matriz (cada venta descuenta de su stock). Si la desactiva, deja de aparecer en Venta Local; sus ventas no se borran.</p>`:""}
       <p class="aviso ok" id="md-ok" hidden></p></form>`:"")+`<form class="caja" id="f-config" style="max-width:520px"><h3>Alertas de stock</h3>
       <label>Stock mínimo por formato<input class="num" type="number" min="0" id="pr-minimo" value="${D.precios.minimo}"></label>
       <p class="nota" style="margin:0">Cuando la bodega tenga menos cilindros que este número, se marca en rojo en Control de Bodega. Los precios de envases se cambian en la pestaña «Precio Envases».</p>
