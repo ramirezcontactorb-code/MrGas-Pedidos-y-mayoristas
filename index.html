@@ -1072,7 +1072,7 @@ function aplicarEstado(id,v){
   if(id.startsWith("loc-")){const n=+id.slice(4),i=D.locales.findIndex(l=>l.id===n);if(i>=0)D.locales[i]=v;else{D.locales.push(v);D.locales.sort((a,b)=>a.id-b.id)}return}
   if(id.startsWith("stk-")){const c=D.choferes.find(x=>x.id===+id.slice(4));if(c){if(v.carga)c.carga=v.carga;if(v.vacios)c.vacios=v.vacios}else (NUBE.stk=NUBE.stk||{})[id]=v;return}
   if(id==="presets"){D.presets=v;const k=D.presetCargado||"diario",p=v[k]||v.diario;if(p&&!p.nuevo){D.sectores=p.sectores||[];D.zonas=p.zonas;D.reglasCalle=p.reglasCalle||[];
-    D.choferes.forEach(c=>{c.sector=p.asign&&c.id in p.asign?p.asign[c.id]:null;c.apoyo=p.apoyo&&p.apoyo[c.id]?p.apoyo[c.id]:[]});D.topeCamion=p.tope||3}return}
+    D.choferes.forEach(c=>{c.sector=p.asign&&c.id in p.asign?p.asign[c.id]:null;c.apoyo=p.apoyo&&p.apoyo[c.id]?p.apoyo[c.id]:[]});D.topeCamion=p.tope||3;D.radioCerca=p.cerca??1}return}
   D[id]=v}
 function aplicarDoc(col,id,data,borrado){
   const k=col+"|"+id,def=SYNC.find(d=>d.col===col);
@@ -2898,7 +2898,7 @@ function autoDespachar(lista){const M=mapaRM(),res={ok:0,sinComuna:[],sinMovil:[
   const centro=id=>{const cs=((D.sectores||[]).find(x=>x.id===id)||{comunas:[]}).comunas.map(c=>M.por[c]).filter(Boolean);return cs.length?{x:cs.reduce((a,c)=>a+c.cx,0)/cs.length,y:cs.reduce((a,c)=>a+c.cy,0)/cs.length}:null};
   lista.filter(p=>p.estado==="pendiente").forEach(p=>{const cm=comunaDe(p),sec=sectorDe(p);
     if(sec==null){res.sinComuna.push(p);return}
-    const el=elegirCamion(sec,p);if(!el){res.sinMovil.push(p);return}const ch=el.c;p.asigMotivo=el.motivo;res.motivos=res.motivos||{};res.motivos[el.motivo]=(res.motivos[el.motivo]||0)+1;
+    const el=elegirCamion(sec,p);if(!el){res.sinMovil.push(p);return}const ch=el.c;p.asigMotivo=el.motivo;if(el.junto!=null){p.asigJunto=el.junto;p.asigDist=Math.round(el.dist*1000)}else{delete p.asigJunto;delete p.asigDist}res.motivos=res.motivos||{};res.motivos[el.motivo]=(res.motivos[el.motivo]||0)+1;
     p.sector=sec;p.chofer=ch.id;setEstado(p,"ruta");res.ok++});
   if(res.ok)log("pedidos","Despacho automático",`${res.ok} pedido(s) enviados por sector · tope ${topeCamion()} por camión`+(res.motivos?" · "+Object.entries(res.motivos).map(([k,n])=>`${n} ${MOTIVO_CAM[k].toLowerCase()}`).join(", "):""),{local:suc});
   return res}
@@ -3042,7 +3042,8 @@ function cajaDespacho(pend,ruta,act){return `<div class="caja"><span class="eyeb
   <button class="btn" id="sz-desp" type="button" ${pend.length?"":"disabled"}>Despachar ${pend.length} pendiente(s) ahora</button>
   <label class="radio"><input type="checkbox" id="sz-auto" ${autoActivo(suc)?"checked":""}> Enviar solo cada pedido nuevo al grabarlo</label>
   <label class="tope-cam">Tope por camión<span><input id="sz-tope" type="number" min="1" max="30" class="num" value="${topeCamion()}"> pedidos en ruta</span></label>
-  <p class="nota" style="margin:0">Al llegar al tope, el siguiente pedido va al camión de apoyo del sector; si también está lleno, al sector vecino con espacio.</p></div>`}
+  <label class="tope-cam">Juntar pedidos cercanos<span><input id="sz-cerca" type="number" min="0" max="5" step="0.5" class="num" value="${radioCerca()}"> km a la redonda</span></label>
+  <p class="nota" style="margin:0">Primero: si el pedido queda a menos de esa distancia de otro que un camión ya lleva en ruta, se lo da a ese camión (pasa por ahí). 0 = no juntar.<br>Al llegar al tope, el siguiente pedido va al camión de apoyo del sector; si también está lleno, al sector vecino con espacio.</p></div>`}
 function tablaCamiones(act,SEC){const T=topeCamion();return `<div class="caja"><span class="eyebrow">Camiones por sector</span><p class="nota" style="margin:0">«También cubre»: sectores donde el camión ayuda cuando el de ese sector llega al tope.</p><div class="tabla-wrap"><table><thead><tr><th>Camión</th><th>Sector</th><th>También cubre</th><th class="der">En ruta</th></tr></thead><tbody>
   ${act.map(c=>{const n=cargaCam(c.id),ap=(c.apoyo||[]).filter(id=>SEC.some(x=>x.id===id)&&id!==c.sector);return `<tr><td>${esc(c.nombre)}${c.activo===false?' <span class="pill anulado">Inactivo</span>':""}</td><td><select data-szch="${c.id}" class="sel-mini" aria-label="Sector de ${esc(c.nombre)}"><option value="">—</option>${SEC.map(x=>`<option value="${x.id}" ${x.id===c.sector?"selected":""}>${esc(x.nombre)}</option>`).join("")}</select></td>
     <td><details class="apoyo-sel"><summary>${ap.length?ap.map(id=>esc(nomSector(id))).join(", "):"—"}</summary><div>${SEC.filter(x=>x.id!==c.sector).map(x=>`<label class="radio"><input type="checkbox" data-apoyo="${c.id}" value="${x.id}" ${ap.includes(x.id)?"checked":""}><span class="sw" style="background:${colSector(x.id)}"></span>${esc(x.nombre)}</label>`).join("")||'<span class="nota">No hay otros sectores.</span>'}</div></details></td>
@@ -3213,9 +3214,10 @@ function enlazarComunSz(){
   $$("[data-preset]").forEach(b=>b.onclick=()=>{szPreset=b.dataset.preset;szSel=null;szDib=[];szModo="ver";pintarSistema()});
   const ph=$("#pr-hoy");if(ph)ph.onchange=()=>{D.presetHoy=ph.value;log("pedidos","Distribución del día",ph.options[ph.selectedIndex].text,{local:suc});guardar();pintarSistema()};
   const pc=$("#pr-copiar");if(pc)pc.onclick=()=>confirmar(pc,()=>{const k=D.presetCargado,o=D.presets[k==="domingo"?"diario":"domingo"];if(o.nuevo)return;const c=structuredClone(o);
-    D.sectores=c.sectores||[];D.zonas=c.zonas;D.reglasCalle=c.reglasCalle||[];D.choferes.forEach(ch=>{ch.sector=c.asign&&ch.id in c.asign?c.asign[ch.id]:null;ch.apoyo=c.apoyo&&c.apoyo[ch.id]?c.apoyo[ch.id]:[]});D.topeCamion=c.tope||3;
+    D.sectores=c.sectores||[];D.zonas=c.zonas;D.reglasCalle=c.reglasCalle||[];D.choferes.forEach(ch=>{ch.sector=c.asign&&ch.id in c.asign?c.asign[ch.id]:null;ch.apoyo=c.apoyo&&c.apoyo[ch.id]?c.apoyo[ch.id]:[]});D.topeCamion=c.tope||3;D.radioCerca=c.cerca??1;
     log("pedidos","Distribución copiada",`${PRESETS[k==="domingo"?"diario":"domingo"]} → ${PRESETS[k]}`,{local:suc});guardar();pintarSistema()});
   $$("[data-szch]").forEach(s=>s.onchange=()=>{const c=D.choferes.find(x=>x.id===+s.dataset.szch);c.sector=s.value?+s.value:null;nubeChofer(c);guardar();pintarSistema()});
+  {const zc=$("#sz-cerca");if(zc)zc.onchange=()=>{const v=Math.max(0,Math.min(5,+zc.value||0));D.radioCerca=v;log("pedidos","Juntar pedidos cercanos",v?`${v} km`:"desactivado",{local:suc});guardar();pintarSistema()}}
   const tp=$("#sz-tope");if(tp)tp.onchange=()=>{const v=Math.max(1,Math.min(30,+tp.value||3));D.topeCamion=v;log("pedidos","Tope por camión",`${v} pedidos en ruta`,{local:suc});guardar();pintarSistema()};
   $$("[data-apoyo]").forEach(i=>i.onchange=()=>{const c=D.choferes.find(x=>x.id===+i.dataset.apoyo),v=+i.value;c.apoyo=(c.apoyo||[]).filter(x=>x!==v);if(i.checked)c.apoyo.push(v);
     log("pedidos","Camión de apoyo",`${c.nombre} ${i.checked?"cubre también":"ya no cubre"} ${nomSector(v)}`,{local:suc});guardar();pintarSistema()});
@@ -3307,7 +3309,7 @@ function miniMapa(cv,lon,lat,kHi,alClic){const C=CALLES,W=cv.clientWidth,H=cv.cl
 /* ===================== DISTRIBUCIONES (presets): Todos los días / Domingo ===================== */
 var PRESETS={diario:"Todos los días",domingo:"Domingo"},szPreset=null;
 function presetDelDia(){const h=D.presetHoy||"auto";if(h!=="auto"&&PRESETS[h])return h;return new Date().getDay()===0?"domingo":"diario"}
-function capturarPreset(){return {sectores:D.sectores||[],zonas:D.zonas,reglasCalle:D.reglasCalle||[],asign:Object.fromEntries(D.choferes.map(c=>[c.id,c.sector??null])),apoyo:Object.fromEntries(D.choferes.map(c=>[c.id,c.apoyo||[]])),tope:D.topeCamion||3}}
+function capturarPreset(){return {sectores:D.sectores||[],zonas:D.zonas,reglasCalle:D.reglasCalle||[],asign:Object.fromEntries(D.choferes.map(c=>[c.id,c.sector??null])),apoyo:Object.fromEntries(D.choferes.map(c=>[c.id,c.apoyo||[]])),tope:D.topeCamion||3,cerca:D.radioCerca??1}}
 function iniciarPresets(){if(D.presets&&D.presets.diario&&D.presets.domingo)return;D.presets={diario:capturarPreset(),domingo:{nuevo:true}};D.presetCargado="diario"}
 function usarPreset(k){iniciarPresets();if(!D.presets[k])return;const cur=D.presetCargado||"diario";if(cur===k)return;
   D.presets[cur]=capturarPreset();if(D.presets[k].nuevo){D.presets[k]=structuredClone(D.presets[cur])}const p=D.presets[k];D.sectores=p.sectores||[];D.zonas=p.zonas;D.reglasCalle=p.reglasCalle||[];
@@ -3322,8 +3324,10 @@ function barraPreset(){const k=D.presetCargado||"diario",hoy=presetDelDia(),h=D.
 
 /* ===================== REPARTO EQUILIBRADO: tope por camión + camiones de apoyo ===================== */
 const topeCamion=()=>Math.max(1,Math.min(30,+(D.topeCamion||3)));
+/* km para juntar pedidos cercanos en el mismo camión (0 = no se juntan) */
+const radioCerca=()=>Math.max(0,Math.min(5,+(D.radioCerca??1)));
 const cargaCam=id=>D.pedidos.filter(p=>p.chofer===id&&p.estado==="ruta").length;
-const MOTIVO_CAM={sector:"Camión del sector",apoyo:"Apoyo: el del sector llegó al tope",cercano:"Sector vecino con espacio",sobretope:"Todos llenos: al que tiene menos"};
+const MOTIVO_CAM={juntar:"Cerca de un pedido que ya lleva",sector:"Camión del sector",apoyo:"Apoyo: el del sector llegó al tope",cercano:"Sector vecino con espacio",sobretope:"Todos llenos: al que tiene menos"};
 function centroSector(id){const pts=[];const sx=(D.sectores||[]).find(x=>x.id===id);
   if(sx)sx.comunas.forEach(c=>{const g=GEO_RM[c];if(g)pts.push([g[1],g[0]])});
   (D.zonas||[]).filter(z=>z.sector===id).forEach(z=>{const n=z.pts.length;if(n)pts.push([z.pts.reduce((a,q)=>a+q[0],0)/n,z.pts.reduce((a,q)=>a+q[1],0)/n])});
@@ -3332,6 +3336,12 @@ function puntoPedido(p,sec){if(p){const g=typeof ubicar==="function"?ubicar(p):n
 function elegirCamion(sec,p){
   const act=chOrden().filter(c=>c.activo!==false&&c.local===suc);if(!act.length)return null;
   const T=topeCamion(),menos=l=>l.slice().sort((a,b)=>cargaCam(a.id)-cargaCam(b.id)||a.nombre.localeCompare(b.nombre))[0],libres=l=>l.filter(c=>cargaCam(c.id)<T);
+  {const R=radioCerca(),g=R>0&&p&&typeof ubicar==="function"?ubicar(p):null;
+    if(g){const kmd=(a,b)=>Math.hypot((a[0]-b[0])*93,(a[1]-b[1])*111);let mejor=null;
+      D.pedidos.filter(q=>q!==p&&q.estado==="ruta"&&q.chofer!=null&&(p.local==null||q.local===p.local)).forEach(q=>{const c=act.find(x=>x.id===q.chofer);if(!c)return;const h=ubicar(q);if(!h)return;
+        const d=kmd([h.lon,h.lat],[g.lon,g.lat]);if(d<=R&&(!mejor||d<mejor.d))mejor={c,d,q}});
+      // va al mismo camión aunque tenga hasta 1 pedido más que el tope: pasa justo por ahí
+      if(mejor&&cargaCam(mejor.c.id)<=T)return {c:mejor.c,motivo:"juntar",junto:mejor.q.id,dist:mejor.d}}}
   const prin=sec==null?[]:act.filter(c=>c.sector===sec),apoyo=sec==null?[]:act.filter(c=>c.sector!==sec&&(c.apoyo||[]).includes(sec));
   let l=libres(prin);if(l.length)return {c:menos(l),motivo:"sector"};
   l=libres(apoyo);if(l.length)return {c:menos(l),motivo:"apoyo"};
