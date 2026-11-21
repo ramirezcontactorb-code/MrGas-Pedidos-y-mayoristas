@@ -1222,3 +1222,7 @@ html.ui-compacto .sis .caja{padding:10px 12px}html.ui-compacto .sis td,html.ui-c
 .imp-t td{vertical-align:top}.imp-nom{height:32px;border:1px solid #d0d5dd;border-radius:8px;padding:0 8px;font:inherit;width:100%;max-width:220px}
 .imp-av{display:block;color:#b54708;font-size:12px;margin-top:3px}.imp-ok{display:block;color:#067647;font-size:12px;margin-top:3px}
 #imp-vl ul{margin:6px 0 0;padding-left:20px}#imp-vl li{font-size:13px}
+
+.imp-forma pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:10px 12px;font-size:12px;max-height:340px;overflow:auto;white-space:pre-wrap}
+
+.imp-glob{display:block;margin:10px 0 0;font-size:14px;cursor:pointer}.imp-glob input{margin-right:6px}.imp-glob .imp-av{display:inline}

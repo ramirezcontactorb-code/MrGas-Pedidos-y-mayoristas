@@ -79,10 +79,40 @@ function unirBodega(string $slug, int $id, ?int $autor): void {
     $ver = (int) $p->query("SELECT valor FROM contadores WHERE nombre = 'local'")->fetchColumn();
     $p->prepare('UPDATE local_docs SET data = ?, ver = ? WHERE path = ?')->execute([json_encode($d, JSON_UNESCAPED_UNICODE), $ver, 'suc/' . $slug]);
 }
+// Forma de un archivo (solo nombres de campos, tipos y cantidades; ningún dato) para diagnosticar formatos distintos
+function formaArchivo($x, int $prof = 0): string {
+    $pad = str_repeat('  ', $prof);
+    if (!is_array($x)) return gettype($x) === 'string' ? 'texto' : gettype($x);
+    $lista = array_is_list($x);
+    if ($lista) { $o = 'lista de ' . count($x); if ($x && $prof < 3) $o .= ', cada uno: ' . formaArchivo($x[0], $prof + 1); return $o; }
+    if ($prof >= 3) return 'objeto con ' . count($x) . ' campos';
+    $o = "{\n"; $i = 0;
+    foreach ($x as $k => $v) {
+        $nom = preg_match('/^\d{4}-\d{2}/', (string) $k) ? '[fecha]' : (preg_match('/\d{5,}|@/', (string) $k) ? '[dato]' : (strlen((string) $k) > 30 ? '[clave larga]' : (string) $k));
+        if ($i++ >= 25) { $o .= $pad . '  … ' . (count($x) - 25) . " campos más\n"; break; }
+        $o .= $pad . '  ' . $nom . ': ' . formaArchivo($v, $prof + 1) . "\n";
+    }
+    return $o . $pad . '}';
+}
+// Respaldo del servidor del Venta Local independiente: {app:'MR Sistema Local', tipo:'respaldo-auto|manual', rows:[{path, data}]}
+function desdeFilasLocal(array $r): array {
+    $filas = []; $us = []; $glob = null;
+    foreach ($r['rows'] as $f) {
+        if (!is_array($f) || !isset($f['path'])) continue;
+        if ($f['path'] === 'app/users') { $us = (array) ($f['data']['list'] ?? []); continue; }
+        if ($f['path'] === 'app/global') { $glob = $f['data']; continue; }
+        $filas[] = ['path' => (string) $f['path'], 'data' => is_string($f['data'] ?? null) ? $f['data'] : json_encode($f['data'] ?? null, JSON_UNESCAPED_UNICODE)];
+    }
+    $x = desdeRespaldoMrgas(['tablas' => ['local_docs' => $filas, 'usuarios' => []], 'fecha' => $r['fecha'] ?? null]);
+    $x['usuarios'] = array_values(array_filter($us, 'is_array'));
+    if (is_array($glob)) $x['global'] = $glob;   // formato antiguo (u, nombre, rol, ps/sucs); la clave no se usa
+    return $x;
+}
 // Convierte un respaldo completo de MR Gas (tablas) al formato de la «base de datos» de Venta Local
 function desdeRespaldoMrgas(array $r): array {
     $filas = (array) ($r['tablas']['local_docs'] ?? []); $suc = [];
     $nombres = []; foreach (SUCS_INICIALES as $n) $nombres[slugLocal($n)] = $n; // nombres con tilde si el respaldo no trae la lista
+    $glob = null; foreach ($filas as $f) if (($f['path'] ?? '') === 'app/global') $glob = json_decode((string) $f['data'], true);
     foreach ($filas as $f) if (($f['path'] ?? '') === 'app/sucursales') { $d = json_decode((string) $f['data'], true); foreach ((array) ($d['list'] ?? []) as $x) $nombres[slugLocal((string) $x['nombre'])] = (string) $x['nombre']; }
     foreach ($filas as $f) {
         $pth = (string) ($f['path'] ?? ''); if (!preg_match('~^suc/([^/]+)(?:/(ventas|rend|bmovs)/(.+))?$~', $pth, $m)) continue;
@@ -97,7 +127,7 @@ function desdeRespaldoMrgas(array $r): array {
     $us = array_map(function ($u) use ($nombres) { $pm = json_decode((string) ($u['permisos'] ?? ''), true);
         $ss = []; foreach ((array) $pm as $k) if (is_string($k) && str_starts_with($k, 'lsuc.')) $ss[] = $nombres[substr($k, 5)] ?? substr($k, 5);
         return ['u' => $u['usuario'] ?? '', 'nombre' => $u['nombre'] ?? '', 'rol' => $u['rol'] ?? '', 'sucs' => $ss]; }, array_filter((array) ($r['tablas']['usuarios'] ?? []), fn($u) => ($u['rol'] ?? '') !== 'chofer'));
-    return ['app' => 'MR Sistema Local', 'tipo' => 'respaldo-completo', 'generado' => $r['fecha'] ?? null, 'usuarios' => $us, 'sucursales' => $suc, 'origen' => 'mrgas'];
+    return ['app' => 'MR Sistema Local', 'tipo' => 'respaldo-completo', 'generado' => $r['fecha'] ?? null, 'usuarios' => $us, 'sucursales' => $suc, 'origen' => 'mrgas'] + (is_array($glob) ? ['global' => $glob] : []);
 }
 function slugLocal(string $s): string {
     $s = strtolower(strtr($s, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u','ñ'=>'n','Ñ'=>'n','ü'=>'u','Ü'=>'u']));
@@ -198,12 +228,19 @@ try {
                 : 'No llegó el archivo. Vuelva a elegirlo.'], 400);
         }
         $txt = (string) file_get_contents($fa['tmp_name']);
+        $ini = bin2hex(substr($txt, 0, 4)); $gz = strncmp($txt, "\x1f\x8b", 2) === 0;
         if (strncmp($txt, "\x1f\x8b", 2) === 0) $txt = (string) @gzdecode($txt);   // la pantalla lo manda comprimido
-        $j = json_decode($txt, true); unset($txt);
+        $sinJson = null;
+        $j = json_decode($txt, true);
+        if ($j === null) $sinJson = 'No es JSON · ' . number_format(strlen($txt)) . ' bytes' . ($gz ? ' · venía comprimido (gz)' : '') . ' · empieza con ' . $ini . ($txt !== '' && ctype_print(substr($txt, 0, 1)) ? ' («' . preg_replace('/[^A-Za-z{}\[\]<":]/', '', substr($txt, 0, 6)) . '»)' : '');
+        unset($txt);
         // También sirve un respaldo completo de otra instalación de MR Gas (Respaldos y reset → Descargar): se toma su Venta Local
         if (is_array($j) && ($j['app'] ?? '') === 'mrgas' && is_array($j['tablas'] ?? null)) $j = desdeRespaldoMrgas($j);
+        // y el respaldo del servidor del Venta Local independiente (mr-auto / mr-manual: filas path + data)
+        if (is_array($j) && ($j['app'] ?? '') === 'MR Sistema Local' && is_array($j['rows'] ?? null)) $j = desdeFilasLocal($j);
         if (!is_array($j) || !is_array($j['sucursales'] ?? null) || ($j['tipo'] ?? '') !== 'respaldo-completo')
-            salida(['error' => 'Este archivo no se puede importar. Sirve: (1) la «base de datos» del Venta Local antiguo (Informes → Descargar base de datos, archivo .json) o (2) un respaldo de otro MR Gas (Respaldos y reset → Descargar respaldo, archivo .json.gz).'], 400);
+            salida(['error' => 'Este archivo no se puede importar. Sirve: (1) la «base de datos» del Venta Local antiguo (Informes → Descargar base de datos, .json), (2) un respaldo del servidor del Venta Local (mr-auto / mr-manual .json.gz) o (3) un respaldo de otro MR Gas (mrgas-… .json.gz).',
+                'forma' => $j === null ? $sinJson : formaArchivo($j)], 400);
         if (!$j['sucursales']) salida(['error' => 'El respaldo no trae datos de Venta Local (ninguna sucursal con ventas).'], 400);
         $RK = ['efectivo','vuelto','vales','valesCil','cheques','transf','descuentos','qr','gastos','transbank','cargos','petroleo'];
         $existentes = []; foreach (sucursalesLocal() as $x) $existentes[slugLocal($x['nombre'])] = $x['nombre'];
@@ -223,7 +260,7 @@ try {
                 'existe' => isset($existentes[$sl]), 'conDatos' => $choca, 'destino' => $sug];
         }
         $usuarios = array_map(fn($u) => ['nombre' => (string) ($u['nombre'] ?? ''), 'usuario' => (string) ($u['u'] ?? ''), 'rol' => (string) ($u['rol'] ?? ''), 'sucursales' => ($u['rol'] ?? '') === 'admin' ? ['todas'] : (is_array($u['ps'] ?? null) ? array_keys(array_filter($u['ps'], fn($x) => is_array($x) && $x)) : ((array) ($u['sucs'] ?? []) ?: ['todas']))], array_filter((array) ($j['usuarios'] ?? []), 'is_array'));
-        if (!empty($_GET['ver'])) salida(['ok' => true, 'sucursales' => $res, 'usuarios' => $usuarios, 'fecha' => $j['generado'] ?? null]);
+        if (!empty($_GET['ver'])) salida(['ok' => true, 'sucursales' => $res, 'usuarios' => $usuarios, 'fecha' => $j['generado'] ?? null, 'global' => is_array($j['global'] ?? null)]);
         // importar
         $mapa = json_decode((string) ($_POST['mapa'] ?? '{}'), true) ?: [];
         $plan = [];
@@ -235,7 +272,8 @@ try {
             foreach ($plan as $pp) if ($pp['slug'] === $ds) salida(['error' => 'Dos sucursales van al mismo nombre «' . $dn . '».'], 400);
             $plan[] = ['archivo' => $r['archivo'], 'nombre' => $dn, 'slug' => $ds];
         }
-        if (!$plan) salida(['error' => 'No eligió ninguna sucursal para importar.'], 400);
+        $conGlobal = !empty($_POST['global']) && is_array($j['global'] ?? null);
+        if (!$plan && !$conGlobal) salida(['error' => 'No eligió ninguna sucursal para importar.'], 400);
         $resp = crearRespaldo(dirRespaldos() . '/' . nombreRespaldo('manual'), $q0['perfil']['nombre'] . ' (antes de importar)');
         $p = db(); $p->beginTransaction();
         try {
@@ -258,9 +296,10 @@ try {
                 if (!$esta) $lista[] = ['nombre' => $pl['nombre'], 'indep' => false, 'activa' => true, 'bodega' => -1]; // con su propia bodega (su stock importado)
             }
             $put->execute(['app/sucursales', $js(['list' => $lista]), $ver]);
+            if ($conGlobal) $put->execute(['app/global', $js((object) $j['global']), $ver]); // precios, comisiones, QR y mayoristas
             $p->commit();
         } catch (Throwable $e) { $p->rollBack(); throw $e; }
-        salida(['ok' => true, 'importadas' => array_column($plan, 'nombre'), 'ventas' => $tot['ventas'], 'docs' => $tot['docs'], 'respaldo' => $resp['archivo']]);
+        salida(['ok' => true, 'global' => $conGlobal, 'importadas' => array_column($plan, 'nombre'), 'ventas' => $tot['ventas'], 'docs' => $tot['docs'], 'respaldo' => $resp['archivo']]);
     }
     // Bodega compartida con la matriz: leer el stock y aplicar los cambios de las ventas del local
     if ($a === 'bodega') {

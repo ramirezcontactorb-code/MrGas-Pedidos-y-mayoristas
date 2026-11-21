@@ -36,8 +36,17 @@ const path = require('path');
   const gz = await p.evaluate(async () => { const r = await fetch('api/index.php?a=respaldo_bajar', {credentials: 'same-origin'}); const u8 = new Uint8Array(await r.arrayBuffer()); let s = ''; u8.forEach(x => s += String.fromCharCode(x)); return btoa(s); });
   const tmp = path.join(require('os').tmpdir(), 'mr-manual-prueba.json.gz'); require('fs').writeFileSync(tmp, Buffer.from(gz, 'base64'));
   const q = await pagina(1440, 1000); await entrar(q, B, 'cliente'); await abrirRespaldos(q);
-  await q.setInputFiles('#imp-arch', tmp); await q.click('#imp-ver'); await q.waitForTimeout(2500);
+  await q.setInputFiles('#imp-arch', tmp);
+  await q.click('#imp-ver');
+  await q.waitForTimeout(2500);
   const nb = await q.$$eval('.imp-nom', x => x.map(e => e.value));
   ok(nb.includes('Talca') && nb.length >= 3, 'un respaldo de otro MR Gas también se puede importar (' + nb.join(', ') + ')');
+  // respaldo del servidor del Venta Local independiente (mr-auto .json.gz)
+  await q.click('#imp-otro').catch(() => {}); await q.waitForTimeout(300);
+  await q.setInputFiles('#imp-arch', path.join(__dirname, 'venta-local-servidor.json.gz')); await q.click('#imp-ver'); await q.waitForTimeout(2500);
+  const n3 = await q.$$eval('.imp-nom', x => x.map(e => e.value));
+  ok(n3.includes('Temuco') && !!(await q.$('#imp-global')), 'un respaldo del servidor del Venta Local (mr-auto) se reconoce, con su configuración general');
+  await q.click('#imp-ok'); await q.waitForTimeout(3000);
+  ok(!(await q.$('.imp-t')), 'y se importa');
   await fin(b, errores);
 })();

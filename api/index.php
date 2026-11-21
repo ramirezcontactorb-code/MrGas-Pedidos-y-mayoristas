@@ -423,7 +423,8 @@ try {
         limitar('resp_entrar', 6, 900);
         $st = db()->prepare('SELECT hash FROM usuarios WHERE uid = ?'); $st->execute([$u['uid']]);
         if (!password_verify((string) (cuerpo()['pass'] ?? ''), (string) $st->fetchColumn())) { anotarIntento('resp_entrar'); salida(['error' => 'La contraseña no es correcta.'], 401); }
-        session_regenerate_id(true); $_SESSION['resp_cfg'] = time(); salida(['ok' => true]);
+        // sin cambiar el número de sesión: las consultas que estén en curso la cerrarían
+        $_SESSION['resp_cfg'] = time(); salida(['ok' => true]);
     }
     case 'resp_cerrar': {
         requiereYo(); unset($_SESSION['resp_cfg']); salida(['ok' => true]);

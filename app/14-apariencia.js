@@ -262,20 +262,21 @@ function termModal(v){if(document.getElementById("term-dl"))return;
 
 /* ===================== RESPALDOS → IMPORTAR DATOS DE OTRO VENTA LOCAL ===================== */
 let impRes=null;
-async function impEnviar(ver,mapa){const f=$("#imp-arch").files[0];if(!f)throw new Error("Elija el archivo .json.");
+async function impEnviar(ver,mapa,gl){const f=$("#imp-arch").files[0];if(!f)throw new Error("Elija el archivo .json.");
   let arch=f;
   // se comprime antes de subir (un año de ventas pesa ~5 MB; comprimido ~0,5 MB)
   if(window.CompressionStream&&!/\.gz$/i.test(f.name)){try{arch=new File([await new Response(f.stream().pipeThrough(new CompressionStream("gzip"))).blob()],f.name+".gz",{type:"application/gzip"})}catch(e){arch=f}}
-  const fd=new FormData();fd.append("archivo",arch);if(mapa)fd.append("mapa",JSON.stringify(mapa));
+  const fd=new FormData();fd.append("archivo",arch);if(mapa)fd.append("mapa",JSON.stringify(mapa));if(gl)fd.append("global","1");
   const r=await fetch("local/api/docs.php?a=importar"+(ver?"&ver=1":""),{method:"POST",credentials:"same-origin",headers:{"X-MRGas":"1"},body:fd});
   let j=null;try{j=await r.json()}catch(e){}
-  if(!r.ok||!j){if(r.status===423){respCfg=false;setTimeout(pintarSistema,0)}throw new Error((j&&j.error)||"No se pudo leer el archivo (puede ser muy grande o no ser el correcto).")}
+  if(!r.ok||!j){if(r.status===423){respCfg=false;setTimeout(pintarSistema,0)}const e=new Error((j&&j.error)||"No se pudo leer el archivo (puede ser muy grande o no ser el correcto).");e.forma=j&&j.forma;throw e}
   return j}
 function pintarImp(){const z=$("#imp-cuerpo");if(!z)return;
   if(!impRes){z.innerHTML=`<p class="nota" style="margin:0 0 8px">Sirve cualquiera de estos dos archivos:<br>• <b>Venta Local antiguo:</b> Informes → Descargar base de datos (archivo <b>.json</b>).<br>• <b>Otro MR Gas:</b> Configuraciones → Respaldos y reset → Descargar respaldo (archivo <b>.json.gz</b>). Se toma solo su Venta Local.</p>
     <div class="rb-fila"><input type="file" id="imp-arch" accept=".json,.gz,application/json"><button class="btn linea" type="button" id="imp-ver">Revisar archivo</button></div><p class="error" id="imp-err" hidden></p>`;
-    $("#imp-ver").onclick=async()=>{const b=$("#imp-ver"),er=$("#imp-err");er.hidden=true;b.disabled=true;b.textContent="Revisando…";
-      try{impRes=await impEnviar(true);impRes.archivoNombre=$("#imp-arch").files[0].name;impRes.file=$("#imp-arch").files[0];pintarImp()}catch(e){er.textContent=e.message;er.hidden=false}b.disabled=false;b.textContent="Revisar archivo"};return}
+    $("#imp-ver").onclick=async()=>{const b=$("#imp-ver"),er=$("#imp-err");er.hidden=true;$$(".imp-forma").forEach(x=>x.remove());b.disabled=true;b.textContent="Revisando…";
+      try{impRes=await impEnviar(true);impRes.archivoNombre=$("#imp-arch").files[0].name;impRes.file=$("#imp-arch").files[0];pintarImp()}catch(e){er.textContent=e.message;er.hidden=false;
+        if(e.forma){er.insertAdjacentHTML("afterend",`<div class="imp-forma"><p class="nota" style="margin:6px 0 4px"><b>Forma del archivo</b> (solo nombres de campos y cantidades, <b>sin datos de clientes ni ventas</b>). Mande una foto de esto a quien mantiene el sistema para hacerlo compatible:</p><pre>${esc(e.forma)}</pre></div>`)}}b.disabled=false;b.textContent="Revisar archivo"};return}
   const R=impRes,fF2=f=>f?fF(f):"—";
   z.innerHTML=`<p class="nota" style="margin:0 0 8px">Archivo <b>${esc(R.archivoNombre)}</b>${R.fecha?" · descargado el "+esc(R.fecha):""}. Elija qué sucursales traer y con qué nombre quedan aquí.</p>
   <div class="tabla-wrap"><table class="imp-t"><thead><tr><th></th><th>Sucursal en el archivo</th><th class="der">Ventas</th><th>Desde – hasta</th><th class="der">Rendiciones</th><th>Queda aquí como</th></tr></thead><tbody>
@@ -283,16 +284,17 @@ function pintarImp(){const z=$("#imp-cuerpo");if(!z)return;
     <td><input class="imp-nom" data-impnom="${i}" value="${esc(s.destino)}" maxlength="40">${s.conDatos?`<small class="imp-av">Ya existe «${esc(s.archivo)}» con datos aquí: se importa con otro nombre para no mezclar.</small>`:s.existe?'<small class="imp-ok">Se llena la sucursal que ya existe (está vacía).</small>':'<small class="imp-ok">Sucursal nueva, con su propia bodega.</small>'}</td></tr>`).join("")}
   </tbody></table></div>
   ${R.usuarios.length?`<details class="rb-cron"><summary>Usuarios del Venta Local antiguo (${R.usuarios.length}) — se crean aparte</summary><p class="nota">Las claves antiguas no se pueden traer. Créelos en <b>Configuraciones → Usuarios</b> con permiso de Venta Local y sus sucursales:</p><ul>${R.usuarios.map(u=>`<li><b>${esc(u.nombre||u.usuario)}</b> (${esc(u.usuario)}) · ${esc(u.rol||"vendedor")} · ${u.sucursales.map(esc).join(", ")}</li>`).join("")}</ul></details>`:""}
+  ${R.global?`<label class="imp-glob"><input type="checkbox" id="imp-global"> Traer también la <b>configuración general</b> del Venta Local antiguo (precios, comisiones, QR y listas mayoristas). <span class="imp-av">Reemplaza los precios de Venta Local que tiene ahora.</span></label>`:""}
   <p class="nota" style="margin:8px 0">Antes de importar se guarda solo un respaldo de cómo está todo ahora. Los datos que ya tiene no se modifican.</p>
   <div class="rb-fila"><button class="btn" type="button" id="imp-ok">Importar sucursales marcadas</button><button class="btn linea" type="button" id="imp-otro">Elegir otro archivo</button></div><p class="error" id="imp-err" hidden></p>`;
   $("#imp-otro").onclick=()=>{impRes=null;pintarImp()};
   $("#imp-ok").onclick=async()=>{const b=$("#imp-ok"),er=$("#imp-err");er.hidden=true;const mapa={};
     R.sucursales.forEach((s,i)=>{if($(`[data-impchk="${i}"]`).checked)mapa[s.archivo]=$(`[data-impnom="${i}"]`).value.trim()});
-    if(!Object.keys(mapa).length){er.textContent="Marque al menos una sucursal.";er.hidden=false;return}
+    const gl=!!($("#imp-global")&&$("#imp-global").checked);if(!Object.keys(mapa).length&&!gl){er.textContent="Marque al menos una sucursal.";er.hidden=false;return}
     b.disabled=true;b.textContent="Importando…";
     try{const dt=new DataTransfer();dt.items.add(R.file);const inp=document.createElement("input");inp.type="file";inp.id="imp-arch";inp.hidden=true;inp.files=dt.files;z.appendChild(inp);
-      const j=await impEnviar(false,mapa);inp.remove();log("sistema","Importó datos de otro Venta Local",j.importadas.join(", ")+` · ${j.ventas} ventas`);guardar();
-      impRes=null;pintarImp();aviso("Importación lista",`${j.importadas.join(", ")} · ${j.ventas.toLocaleString("es-CL")} ventas. Respaldo previo: ${j.respaldo}`);
+      const j=await impEnviar(false,mapa,gl);inp.remove();log("sistema","Importó datos de otro Venta Local",j.importadas.join(", ")+` · ${j.ventas} ventas`);guardar();
+      impRes=null;pintarImp();aviso("Importación lista",`${j.importadas.join(", ")||"Sin sucursales"} · ${j.ventas.toLocaleString("es-CL")} ventas${j.global?" · configuración general":""}. Respaldo previo: ${j.respaldo}`);
       try{const f=document.querySelector("#vl-capa iframe");if(f)f.contentWindow.location.reload()}catch(e){}if(typeof pintarRespBD==="function")pintarRespBD()}
     catch(e){const x=$("#imp-arch");if(x&&x.hidden)x.remove();er.textContent=e.message;er.hidden=false;b.disabled=false;b.textContent="Importar sucursales marcadas"}}}
 {const p0=pintarSistema;pintarSistema=function(){const r=p0.apply(this,arguments);
